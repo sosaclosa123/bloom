@@ -4,7 +4,8 @@
 //  - phone (future): implement this same interface with Capacitor/React Native
 import { alertsDueBetween } from '../shared/alerts';
 import { emptySnapshot, merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert } from '../shared/db';
-import type { CollectionName, FiredAlert, RecordOf, Settings, Snapshot, SoundMeta } from '../shared/types';
+import type { CollectionName, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../shared/types';
+import { uuid } from '../shared/db';
 import type { DesktopBridge } from './bridge';
 
 export interface PlatformAPI {
@@ -17,6 +18,10 @@ export interface PlatformAPI {
   onChange(cb: (s: Snapshot) => void): () => void;
   importSound(): Promise<SoundMeta | null>;
   soundData(id: string): Promise<string | null>;
+  /** Lets the user pick photos; they're copied into the app's own storage. */
+  addPhotos(): Promise<PhotoRef[]>;
+  /** A URL an <img> can show. */
+  photoUrl(p: PhotoRef): Promise<string>;
   exportBackup(): Promise<boolean>;
   importBackup(): Promise<'merged' | 'cancelled' | 'invalid'>;
   getMissed(): Promise<FiredAlert[]>;
@@ -42,6 +47,8 @@ function desktop(b: DesktopBridge): PlatformAPI {
     onChange: (cb) => b.onChange(cb),
     importSound: () => b.importSound(),
     soundData: (id) => b.soundData(id),
+    addPhotos: () => b.addPhotos(),
+    photoUrl: async (p) => `bloom-photo://p/${encodeURIComponent(p.fileName)}`,
     exportBackup: () => b.exportBackup(),
     importBackup: () => b.importBackup(),
     getMissed: () => b.getMissed(),
@@ -58,6 +65,25 @@ function desktop(b: DesktopBridge): PlatformAPI {
 
 const LS_KEY = 'bloom-data-v1';
 const LS_SOUNDS = 'bloom-sounds-v1';
+const LS_PHOTOS = 'bloom-photos-v1';
+
+/** Browser build only: shrink photos so they fit in localStorage. */
+function shrinkImage(file: File, max = 1400): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      resolve(c.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
 
 function web(): PlatformAPI {
   let snap: Snapshot;
@@ -136,6 +162,45 @@ function web(): PlatformAPI {
       return meta;
     },
     soundData: async (id) => sounds()[id] ?? null,
+    addPhotos: async () => {
+      const files = await new Promise<File[]>((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.multiple = true;
+        input.onchange = () => resolve([...(input.files ?? [])]);
+        input.click();
+      });
+      const out: PhotoRef[] = [];
+      let store: Record<string, string> = {};
+      try {
+        store = JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}');
+      } catch {
+        /* ignore */
+      }
+      for (const f of files) {
+        try {
+          const id = uuid();
+          store[id + '.jpg'] = await shrinkImage(f);
+          out.push({ id, fileName: id + '.jpg', name: f.name });
+        } catch {
+          /* not an image */
+        }
+      }
+      try {
+        localStorage.setItem(LS_PHOTOS, JSON.stringify(store));
+      } catch {
+        return [];
+      }
+      return out;
+    },
+    photoUrl: async (p) => {
+      try {
+        return JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}')[p.fileName] ?? '';
+      } catch {
+        return '';
+      }
+    },
     exportBackup: async () => {
       const blob = new Blob([JSON.stringify(snap, null, 1)], { type: 'application/json' });
       const a = document.createElement('a');

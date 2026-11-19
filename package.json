@@ -33,13 +33,18 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "artifactName": "Bloom-Setup-${version}.${ext}"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Bloom"
+      "createStartMenuShortcut": true,
+      "shortcutName": "Bloom",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Bloom-Setup-${version}.${ext}"
     },
     "linux": {
       "target": "dir",

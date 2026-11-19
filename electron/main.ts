@@ -6,6 +6,8 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  net,
+  protocol,
   powerMonitor,
   screen,
   shell,
@@ -13,8 +15,9 @@ import {
 } from 'electron';
 import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
-import { merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert } from '../src/shared/db';
-import type { CollectionName, FiredAlert, RecordOf, Settings, Snapshot, SoundMeta } from '../src/shared/types';
+import { pathToFileURL } from 'node:url';
+import { merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert, uuid } from '../src/shared/db';
+import type { CollectionName, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../src/shared/types';
 import { gameDetectionStatus, isGaming, setOwnWindowCheck } from './gameMode';
 import { Scheduler, type DeliveryReason } from './scheduler';
 import { FileStore, StateFile } from './store';
@@ -26,6 +29,12 @@ const startHidden = process.argv.includes('--hidden');
 
 app.setAppUserModelId(APP_ID);
 if (process.env.BLOOM_USER_DATA) app.setPath('userData', process.env.BLOOM_USER_DATA);
+
+// Journal photos are served from the photos folder via bloom-photo://p/<file>
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'bloom-photo', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+]);
+const SAFE_NAME = /^[\w-]+\.\w+$/;
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -340,6 +349,24 @@ function registerIpc() {
     return `data:${mime};base64,${readFileSync(file).toString('base64')}`;
   });
 
+  ipcMain.handle('photo:add', async () => {
+    const res = await dialog.showOpenDialog(mainWin!, {
+      title: 'Add photos',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'] }],
+    });
+    if (res.canceled) return [];
+    const out: PhotoRef[] = [];
+    for (const src of res.filePaths) {
+      if (statSync(src).size > 30 * 1024 * 1024) continue;
+      const id = uuid();
+      const fileName = id + extname(src).toLowerCase();
+      copyFileSync(src, join(store.photosDir, fileName));
+      out.push({ id, fileName, name: basename(src) });
+    }
+    return out;
+  });
+
   ipcMain.handle('backup:export', async () => {
     const stamp = new Date().toISOString().slice(0, 10);
     const res = await dialog.showSaveDialog(mainWin!, {
@@ -354,7 +381,15 @@ function registerIpc() {
       const f = join(store.soundsDir, s.fileName);
       if (!s.deletedAt && existsSync(f)) soundFiles[s.fileName] = readFileSync(f).toString('base64');
     }
-    writeFileSync(res.filePath, JSON.stringify({ ...snap, soundFiles }, null, 1), 'utf8');
+    const photoFiles: Record<string, string> = {};
+    for (const j of snap.journal) {
+      if (j.deletedAt) continue;
+      for (const p of j.photos) {
+        const f = join(store.photosDir, p.fileName);
+        if (existsSync(f)) photoFiles[p.fileName] = readFileSync(f).toString('base64');
+      }
+    }
+    writeFileSync(res.filePath, JSON.stringify({ ...snap, soundFiles, photoFiles }), 'utf8');
     return true;
   });
 
@@ -371,7 +406,10 @@ function registerIpc() {
       const incoming = normalizeSnapshot(raw);
       const files = (raw.soundFiles ?? {}) as Record<string, string>;
       for (const [name, b64] of Object.entries(files)) {
-        if (/^[\w-]+\.\w+$/.test(name)) writeFileSync(join(store.soundsDir, name), Buffer.from(b64, 'base64'));
+        if (SAFE_NAME.test(name)) writeFileSync(join(store.soundsDir, name), Buffer.from(b64, 'base64'));
+      }
+      for (const [name, b64] of Object.entries((raw.photoFiles ?? {}) as Record<string, string>)) {
+        if (SAFE_NAME.test(name)) writeFileSync(join(store.photosDir, name), Buffer.from(b64, 'base64'));
       }
       const local = store.get();
       store.set({ ...merge(local, incoming), settings: local.settings });
@@ -450,6 +488,12 @@ app.on('second-instance', () => showMain());
 
 app.whenReady().then(() => {
   store = new FileStore();
+  protocol.handle('bloom-photo', (req) => {
+    const name = decodeURIComponent(new URL(req.url).pathname.replace(/^\//, ''));
+    const file = join(store.photosDir, name);
+    if (!SAFE_NAME.test(name) || !existsSync(file)) return new Response('Not found', { status: 404 });
+    return net.fetch(pathToFileURL(file).toString());
+  });
   registerIpc();
 
   scheduler = new Scheduler({

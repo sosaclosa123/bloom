@@ -12,6 +12,7 @@ A soft, simple calendar for Windows, built so the same code can become a phone a
   - free notes and checklists
   
   The month grid stays tidy: it shows only the headline, a few event pills and tiny emoji markers.
+- **Journal.** Each Day Card has a journal entry with free writing and photos. Every entry has its own **Private / Shared** switch, private by default. The **Journal** page (press `J`) reads like a diary, newest first, and can be filtered by private or shared. Photos open in a full-screen viewer.
 - **Events** with times, all-day and multi-day spans, colors, location, notes, repeats and a private flag.
 - **Reminders** fire at the exact minute:
   - repeat daily, weekly, monthly or yearly
@@ -35,15 +36,24 @@ A soft, simple calendar for Windows, built so the same code can become a phone a
 | `N` | New event |
 | `Q` or `/` | Quick add |
 | `T` | Jump to today |
-| `M` / `W` | Month / week view |
+| `M` / `W` / `J` | Month / week / journal view |
 | `←` / `→` | Previous / next month or week |
 | `Esc` | Close panel or dialog |
 
-## Download
+## Install
 
-Every push to `main` builds a Windows installer on GitHub Actions: open **Actions → Build Bloom → latest run → Artifacts**. Pushing a version tag (`git tag v0.1.0 && git push --tags`) publishes the installer to **Releases**.
+1. Download **`Bloom-Setup-x.y.z.exe`** from the repo's **Releases** page, or from **Actions → Build Bloom → latest run → Artifacts**.
+2. Double-click it. It installs in one click, needs no admin rights, adds a desktop and Start-menu shortcut, and opens Bloom when it's done.
+3. Windows may show "Windows protected your PC" because the app isn't code-signed. Click **More info → Run anyway**.
 
-Bloom's data lives in `%APPDATA%\Bloom\bloom-data.json`. Daily backups are in `%APPDATA%\Bloom\backups\`.
+### Moving to a new PC
+
+1. On the old PC: **Settings → Backup → Save backup…**. This makes one `.json` file containing everything: events, notes, journal, photos and sounds.
+2. On the new PC: run the installer, then **Settings → Backup → Restore backup…** and pick that file.
+
+Restoring merges records, so it's safe to run more than once. Bloom also keeps 14 daily automatic backups in `%APPDATA%\Bloom\backups\`. Data lives in `%APPDATA%\Bloom\`, with photos in `photos\` and custom sounds in `sounds\`.
+
+To publish a new version: bump `version` in `package.json`, then run `git tag v0.2.0 && git push --tags`. GitHub builds the installer and attaches it to a release.
 
 ## Development
 

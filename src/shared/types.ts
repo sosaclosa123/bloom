@@ -76,6 +76,23 @@ export interface SoundMeta extends SyncMeta {
   fileName: string; // stored in the app's sounds folder
 }
 
+/** A photo stored on the device; `fileName` lives in the app's photos folder. */
+export interface PhotoRef {
+  id: string;
+  fileName: string;
+  name: string;
+}
+
+/**
+ * One journal entry per date. Private by default; each entry can be switched
+ * to shared so a partner sees it once the couple calendar syncs.
+ */
+export interface JournalEntry extends SyncMeta {
+  date: ISODate;
+  text: string;
+  photos: PhotoRef[];
+}
+
 export type HolidaySet = 'none' | 'jewish' | 'christian' | 'both';
 export type Language = 'en' | 'he';
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -121,6 +138,7 @@ export interface Collections {
   reminders: Reminder[];
   countdowns: Countdown[];
   sounds: SoundMeta[];
+  journal: JournalEntry[];
 }
 
 export type CollectionName = keyof Collections;

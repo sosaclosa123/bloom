@@ -6,7 +6,7 @@ import { newMeta } from '../shared/db';
 import { Button, IconButton, Segmented } from './common';
 import { useBloom } from './store';
 
-export type ViewMode = 'month' | 'week';
+export type ViewMode = 'month' | 'week' | 'journal';
 
 interface Props {
   view: ViewMode;
@@ -26,6 +26,7 @@ export const Header = forwardRef<HTMLInputElement, Props>(function Header(p, qui
   const { t, locale, settings } = useBloom();
 
   const title = useMemo(() => {
+    if (p.view === 'journal') return t('journal');
     if (p.view === 'month') return p.anchor.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
     const s = startOfWeek(p.anchor, settings.weekStart);
     const e = addDays(s, 6);
@@ -33,7 +34,7 @@ export const Header = forwardRef<HTMLInputElement, Props>(function Header(p, qui
     const a = s.toLocaleDateString(locale, { day: 'numeric', month: sameMonth ? undefined : 'short' });
     const b = e.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
     return `${a} – ${b}`;
-  }, [p.view, p.anchor, locale, settings.weekStart]);
+  }, [p.view, p.anchor, locale, settings.weekStart, t]);
 
   return (
     <header className={`header ${p.isDesktop ? 'desktop' : ''}`}>
@@ -52,6 +53,8 @@ export const Header = forwardRef<HTMLInputElement, Props>(function Header(p, qui
       </div>
 
       <div className="nav">
+        {p.view !== 'journal' && (
+          <>
         <Button size="sm" onClick={p.onToday}>
           {t('today')}
         </Button>
@@ -59,6 +62,8 @@ export const Header = forwardRef<HTMLInputElement, Props>(function Header(p, qui
           <IconButton icon={settings.language === 'he' ? 'chevronRight' : 'chevronLeft'} label={t('prev')} onClick={p.onPrev} />
           <IconButton icon={settings.language === 'he' ? 'chevronLeft' : 'chevronRight'} label={t('next')} onClick={p.onNext} />
         </div>
+          </>
+        )}
         <h1 className="period-title">{title}</h1>
       </div>
 
@@ -72,6 +77,7 @@ export const Header = forwardRef<HTMLInputElement, Props>(function Header(p, qui
           options={[
             { value: 'month', label: t('month') },
             { value: 'week', label: t('week') },
+            { value: 'journal', label: t('journal') },
           ]}
         />
         <IconButton icon="search" label={`${t('search')} (Ctrl+K)`} onClick={p.onSearch} />

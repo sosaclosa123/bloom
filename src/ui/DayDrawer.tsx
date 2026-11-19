@@ -7,6 +7,7 @@ import { uuid } from '../shared/db';
 import { formatDayTitle, formatTime, useRangeData, type ReminderOccurrence } from './calendarData';
 import { Button, EditableText, Icon, IconButton } from './common';
 import { CARD_EMOJIS, newCard, newDayEntry } from './drafts';
+import { JournalEditor } from './Journal';
 import { useAlive, useBloom } from './store';
 
 interface Props {
@@ -183,6 +184,15 @@ export function DayDrawer({ date, onClose, onOpenEvent, onNewEvent, onOpenRemind
               <CardEditor key={c.id} card={c} autoFocus={focusCard === c.id} onChange={updateCard} onDelete={() => deleteCard(c)} />
             ))}
           </div>
+        </section>
+
+        <section className="drawer-section" id="journal">
+          <div className="section-head">
+            <span className="section-label">
+              <Icon name="book" size={13} /> {t('journal')}
+            </span>
+          </div>
+          <JournalEditor date={date} />
         </section>
       </div>
     </aside>

@@ -10,6 +10,7 @@ import { DayDrawer } from './DayDrawer';
 import { newCountdown, newEvent, newReminder } from './drafts';
 import { CountdownEditor, EventEditor, ReminderEditor } from './editors';
 import { Header, type ViewMode } from './Header';
+import { JournalPage } from './Journal';
 import { MonthView } from './MonthView';
 import { Search } from './Search';
 import { SettingsPanel } from './Settings';
@@ -107,6 +108,9 @@ export function App() {
         case 'w':
           setView('week');
           break;
+        case 'j':
+          setView('journal');
+          break;
         case 'n':
           createEvent(openDay ?? toISODate(new Date()));
           e.preventDefault();
@@ -174,7 +178,9 @@ export function App() {
               </Button>
             </div>
           )}
-          {view === 'month' ? (
+          {view === 'journal' ? (
+            <JournalPage selected={openDay} onOpenDay={setOpenDay} />
+          ) : view === 'month' ? (
             <MonthView anchor={anchor} selected={openDay} onOpenDay={setOpenDay} onOpenEvent={openEvent} />
           ) : (
             <WeekView

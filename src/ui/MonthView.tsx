@@ -6,7 +6,8 @@ import type { ISODate } from '../shared/types';
 import { formatTime, useRangeData, weekdayNames } from './calendarData';
 import { Icon } from './common';
 import { newDayEntry, nextStatus } from './drafts';
-import { useBloom } from './store';
+import { hasContent } from './Journal';
+import { useAlive, useBloom } from './store';
 
 interface Props {
   anchor: Date;
@@ -22,6 +23,8 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent }: Props) {
     [anchor, settings.weekStart],
   );
   const data = useRangeData(grid[0], addDays(grid[41], 1));
+  const journal = useAlive('journal');
+  const journalDays = useMemo(() => new Set(journal.filter(hasContent).map((j) => j.date)), [journal]);
   const today = new Date();
   const names = weekdayNames(locale, settings.weekStart, 'short');
   // Show only 5 rows when the 6th row is entirely next month.
@@ -108,8 +111,13 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent }: Props) {
                 ))}
                 {hidden > 0 && <span className="more">{t('more', { n: hidden })}</span>}
               </div>
-              {(entry?.cards.length || rems.length) ? (
+              {(entry?.cards.length || rems.length || journalDays.has(iso)) ? (
                 <div className="markers">
+                  {journalDays.has(iso) && (
+                    <span className="marker-journal" title={t('journal')}>
+                      <Icon name="book" size={11} />
+                    </span>
+                  )}
                   {entry?.cards.slice(0, 4).map((c) =>
                     c.emoji ? (
                       <span key={c.id} className="marker-emoji">

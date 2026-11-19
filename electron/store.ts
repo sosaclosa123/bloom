@@ -13,6 +13,7 @@ export class FileStore {
   readonly file = join(this.dir, 'bloom-data.json');
   readonly backupDir = join(this.dir, 'backups');
   readonly soundsDir = join(this.dir, 'sounds');
+  readonly photosDir = join(this.dir, 'photos');
   private snap: Snapshot;
   private writeTimer: NodeJS.Timeout | null = null;
   private listeners = new Set<(s: Snapshot) => void>();
@@ -21,6 +22,7 @@ export class FileStore {
     mkdirSync(this.dir, { recursive: true });
     mkdirSync(this.backupDir, { recursive: true });
     mkdirSync(this.soundsDir, { recursive: true });
+    mkdirSync(this.photosDir, { recursive: true });
     this.snap = this.read();
     this.dailyBackup();
   }
