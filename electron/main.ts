@@ -21,6 +21,7 @@ import type { CollectionName, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot
 import { gameDetectionStatus, isGaming, setOwnWindowCheck } from './gameMode';
 import { Scheduler, type DeliveryReason } from './scheduler';
 import { FileStore, StateFile } from './store';
+import { checkNow, initUpdater, installNow, updateState } from './updater';
 
 const APP_ID = 'app.bloom.calendar';
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
@@ -419,6 +420,16 @@ function registerIpc() {
     }
   });
 
+  ipcMain.handle('app:version', () => app.getVersion());
+  ipcMain.handle('update:get', () => updateState());
+  ipcMain.handle('update:check', () => checkNow());
+  ipcMain.handle('update:install', () =>
+    installNow(() => {
+      quitting = true;
+      scheduler.stop();
+      store.flush();
+    }),
+  );
   ipcMain.handle('missed:get', () => scheduler.missed);
   ipcMain.handle('missed:clear', () => scheduler.clearMissed());
   ipcMain.handle('popup:test', () => {
@@ -513,6 +524,7 @@ app.whenReady().then(() => {
 
   createMainWindow();
   createTray();
+  initUpdater(() => mainWin);
   onSettingsChanged(store.get().settings);
   ensurePopup(); // pre-load so the first reminder appears instantly
   scheduler.start();

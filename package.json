@@ -1,7 +1,7 @@
 {
   "name": "bloom",
   "productName": "Bloom",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bloom — a soft, simple shared calendar.",
   "author": "Bloom",
   "private": true,
@@ -49,7 +49,15 @@
     "linux": {
       "target": "dir",
       "icon": "build/icon.png"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "sosaclosa123",
+        "repo": "bloom",
+        "releaseType": "release"
+      }
+    ]
   },
   "devDependencies": {
     "@hebcal/core": "^6.16.1",
@@ -70,6 +78,11 @@
     "wait-on": "^9.5.1"
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "koffi": "^3.3.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sosaclosa123/bloom.git"
   }
 }

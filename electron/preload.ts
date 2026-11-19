@@ -33,6 +33,12 @@ const bridge: DesktopBridge = {
   gameStatus: () => ipcRenderer.invoke('game:status'),
   setTitleBarTheme: (dark) => ipcRenderer.send('window:titlebar', dark),
 
+  appVersion: () => ipcRenderer.invoke('app:version'),
+  getUpdateState: () => ipcRenderer.invoke('update:get'),
+  onUpdateState: (cb) => on('update:state', cb),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+
   popup: {
     onAlerts: (cb) => on('popup:alerts', cb),
     ready: () => ipcRenderer.send('popup:ready'),

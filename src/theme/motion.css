@@ -271,6 +271,18 @@
   animation: notebook-in 420ms var(--spring) both;
 }
 
+@keyframes sparkle-spin {
+  0%, 100% { transform: rotate(0) scale(1); }
+  50% { transform: rotate(20deg) scale(1.25); }
+}
+.update-banner {
+  animation: notebook-in 520ms var(--spring) both;
+}
+.update-emoji {
+  display: inline-block;
+  animation: sparkle-spin 1.8s ease-in-out infinite;
+}
+
 /* Respect the Windows "show animations" / reduced-motion setting. */
 @media (prefers-reduced-motion: reduce) {
   *,

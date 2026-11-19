@@ -18,6 +18,7 @@ import { SettingsPanel } from './Settings';
 import { Sidebar } from './Sidebar';
 import { playSound } from './sound';
 import { useBloom } from './store';
+import { UpdateBanner } from './Updates';
 import { WeekView } from './WeekView';
 
 type ModalState =
@@ -253,6 +254,7 @@ export function App() {
           />
         </div>
       )}
+      <UpdateBanner />
       <Toasts />
     </div>
   );

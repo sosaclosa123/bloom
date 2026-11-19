@@ -6,7 +6,8 @@ import { alertsDueBetween } from '../shared/alerts';
 import { emptySnapshot, merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert } from '../shared/db';
 import type { CollectionName, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../shared/types';
 import { uuid } from '../shared/db';
-import type { DesktopBridge } from './bridge';
+import type { DesktopBridge, UpdateState } from './bridge';
+export type { UpdateState };
 
 export interface PlatformAPI {
   kind: 'desktop' | 'web';
@@ -34,6 +35,11 @@ export interface PlatformAPI {
   testPopup(): Promise<void>;
   gameStatus(): Promise<{ available: boolean; gamingNow: boolean; error: string | null }>;
   setTitleBarTheme(dark: boolean): void;
+  appVersion(): Promise<string>;
+  getUpdateState(): Promise<UpdateState>;
+  onUpdateState(cb: (s: UpdateState) => void): () => void;
+  checkForUpdates(): Promise<void>;
+  installUpdate(): Promise<void>;
 }
 
 function desktop(b: DesktopBridge): PlatformAPI {
@@ -60,6 +66,11 @@ function desktop(b: DesktopBridge): PlatformAPI {
     testPopup: () => b.testPopup(),
     gameStatus: () => b.gameStatus(),
     setTitleBarTheme: (d) => b.setTitleBarTheme(d),
+    appVersion: () => b.appVersion(),
+    getUpdateState: () => b.getUpdateState(),
+    onUpdateState: (cb) => b.onUpdateState(cb),
+    checkForUpdates: () => b.checkForUpdates(),
+    installUpdate: () => b.installUpdate(),
   };
 }
 
@@ -243,6 +254,11 @@ function web(): PlatformAPI {
     },
     gameStatus: async () => ({ available: false, gamingNow: false, error: null }),
     setTitleBarTheme: () => {},
+    appVersion: async () => 'web',
+    getUpdateState: async () => ({ status: 'unsupported' }),
+    onUpdateState: () => () => {},
+    checkForUpdates: async () => {},
+    installUpdate: async () => {},
   };
 }
 

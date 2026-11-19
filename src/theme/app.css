@@ -2337,6 +2337,31 @@ select.chip-add {
   margin: 0;
 }
 
+/* ------------------------------------------------------------ updates */
+.update-banner {
+  position: fixed;
+  bottom: 20px;
+  inset-inline-start: 20px;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-pill);
+  padding: 6px 6px 6px 16px;
+  padding-inline: 16px 6px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.update-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 /* ------------------------------------------------------------ toasts */
 .toasts {
   position: fixed;

@@ -7,7 +7,7 @@ const common = {
   target: 'node20',
   format: 'cjs',
   sourcemap: true,
-  external: ['electron', 'koffi'],
+  external: ['electron', 'koffi', 'electron-updater'],
   logLevel: 'info',
 };
 

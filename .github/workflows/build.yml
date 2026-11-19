@@ -29,24 +29,28 @@ jobs:
       - name: Check game detection on real Windows
         run: node scripts/check-game-detection.mjs
 
+      # Version = major.minor from package.json + the build number, so every
+      # push to main is a new version and installed apps auto-update to it.
+      - name: Read version
+        id: ver
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version.split('.').slice(0,2).join('.')").${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
       - name: Build Windows installer
-        run: npm run dist:win
+        run: npm run dist:win -- -c.extraMetadata.version=${{ steps.ver.outputs.version }}
 
       - name: Upload installer
         uses: actions/upload-artifact@v5
         with:
           name: Bloom-Windows-Setup
-          path: release/*.exe
+          path: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
           if-no-files-found: error
 
-      - name: Read version
-        id: ver
-        shell: bash
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-
-      # Every successful build of main publishes (or refreshes) the release for
-      # the version in package.json, so the installer is always one click away
-      # on the repo's Releases page. Bump "version" to make a new release.
+      # Every successful build of main publishes a release. latest.yml is what
+      # installed copies of Bloom read to find and download the update.
       - name: Publish release
         if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: softprops/action-gh-release@v2
@@ -55,7 +59,10 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: Bloom ${{ steps.ver.outputs.version }}
           make_latest: true
-          files: release/*.exe
+          files: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
           body: |
             🌸 **Install Bloom:** download **Bloom-Setup-${{ steps.ver.outputs.version }}.exe** below and double-click it.
             It installs in one click (no admin needed) and opens Bloom when it's done.

@@ -5,6 +5,12 @@ import type { CollectionName, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot
 
 export type DeliveryReason = 'now' | 'afterGame' | 'whileClosed';
 
+export type UpdateState =
+  | { status: 'idle' | 'checking' | 'up-to-date' | 'unsupported' }
+  | { status: 'downloading'; version: string; percent: number }
+  | { status: 'ready'; version: string }
+  | { status: 'error'; message: string };
+
 export interface DesktopBridge {
   platform: string;
   load(): Promise<Snapshot>;
@@ -28,6 +34,12 @@ export interface DesktopBridge {
   testPopup(): Promise<void>;
   gameStatus(): Promise<{ available: boolean; gamingNow: boolean; error: string | null }>;
   setTitleBarTheme(dark: boolean): void;
+
+  appVersion(): Promise<string>;
+  getUpdateState(): Promise<UpdateState>;
+  onUpdateState(cb: (s: UpdateState) => void): () => void;
+  checkForUpdates(): Promise<void>;
+  installUpdate(): Promise<void>;
 
   popup: {
     onAlerts(cb: (alerts: FiredAlert[], reason: DeliveryReason, lang: string, dark: boolean) => void): () => void;

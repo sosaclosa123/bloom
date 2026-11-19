@@ -6,9 +6,9 @@ import { Button, Field, Icon, IconButton, Modal, Segmented, Toggle } from './com
 import { RemindersPicker, SoundSelect } from './editors';
 import { playSound } from './sound';
 import { useAlive, useBloom } from './store';
+import { UpdateSettings } from './Updates';
 
 type Tab = 'general' | 'calendar' | 'reminders' | 'game' | 'windows' | 'backup';
-const VERSION = '0.1.0';
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { t, settings, setSettings, toast, del } = useBloom();
@@ -78,7 +78,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                   ]}
                 />
               </Field>
-              <p className="muted small">{t('aboutText', { v: VERSION })}</p>
+              <UpdateSettings />
             </>
           )}
 
