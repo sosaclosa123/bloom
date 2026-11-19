@@ -11,6 +11,7 @@ import { newCountdown, newEvent, newReminder } from './drafts';
 import { CountdownEditor, EventEditor, ReminderEditor } from './editors';
 import { Header, type ViewMode } from './Header';
 import { JournalPage } from './Journal';
+import { JournalModal } from './JournalModal';
 import { MonthView } from './MonthView';
 import { Search } from './Search';
 import { SettingsPanel } from './Settings';
@@ -42,6 +43,7 @@ export function App() {
   const [anchor, setAnchor] = useState(() => new Date());
   const [openDay, setOpenDay] = useState<ISODate | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
+  const [journalDate, setJournalDate] = useState<ISODate | null>(null);
   const [missed, setMissed] = useState<FiredAlert[]>([]);
   const [pageAlerts, setPageAlerts] = useState<FiredAlert[]>([]);
   const quickRef = useRef<HTMLInputElement>(null);
@@ -96,7 +98,7 @@ export function App() {
         setModal({ kind: 'search' });
         return;
       }
-      if (modal || isTyping(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (modal || journalDate || isTyping(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey) return;
       const rtl = settingsRef.current.language === 'he';
       switch (e.key) {
         case 't':
@@ -130,7 +132,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [modal, go, createEvent, openDay]);
+  }, [modal, journalDate, go, createEvent, openDay]);
 
   const findEvent = (id: string) => snap.events.find((e) => e.id === id);
   const findReminder = (id: string) => snap.reminders.find((r) => r.id === id);
@@ -179,9 +181,9 @@ export function App() {
             </div>
           )}
           {view === 'journal' ? (
-            <JournalPage selected={openDay} onOpenDay={setOpenDay} />
+            <JournalPage selected={journalDate} onOpenJournal={setJournalDate} />
           ) : view === 'month' ? (
-            <MonthView anchor={anchor} selected={openDay} onOpenDay={setOpenDay} onOpenEvent={openEvent} />
+            <MonthView anchor={anchor} selected={openDay} onOpenDay={setOpenDay} onOpenEvent={openEvent} onOpenJournal={setJournalDate} />
           ) : (
             <WeekView
               anchor={anchor}
@@ -190,6 +192,7 @@ export function App() {
               onOpenEvent={openEvent}
               onOpenReminder={openReminder}
               onCreateAt={(d, time) => createEvent(d, time)}
+              onOpenJournal={setJournalDate}
             />
           )}
         </div>
@@ -202,6 +205,7 @@ export function App() {
             onNewEvent={(d) => createEvent(d)}
             onOpenReminder={openReminder}
             onNewReminder={createReminder}
+            onOpenJournal={setJournalDate}
           />
         )}
       </div>
@@ -209,6 +213,7 @@ export function App() {
       {modal?.kind === 'event' && <EventEditor key={modal.ev.id} initial={modal.ev} isNew={modal.isNew} onClose={() => setModal(null)} />}
       {modal?.kind === 'reminder' && <ReminderEditor key={modal.r.id} initial={modal.r} isNew={modal.isNew} onClose={() => setModal(null)} />}
       {modal?.kind === 'countdown' && <CountdownEditor key={modal.c.id} initial={modal.c} isNew={modal.isNew} onClose={() => setModal(null)} />}
+      {journalDate && <JournalModal key="journal" date={journalDate} onClose={() => setJournalDate(null)} onChangeDate={setJournalDate} />}
       {modal?.kind === 'settings' && <SettingsPanel onClose={() => setModal(null)} />}
       {modal?.kind === 'search' && (
         <Search

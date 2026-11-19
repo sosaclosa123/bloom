@@ -6,7 +6,8 @@ import type { ISODate } from '../shared/types';
 import { formatTime, useRangeData, type ReminderOccurrence } from './calendarData';
 import { Icon } from './common';
 import { newDayEntry, nextStatus } from './drafts';
-import { useBloom } from './store';
+import { DayChips } from './DayChips';
+import { useAlive, useBloom } from './store';
 
 const HOUR_H = 52;
 
@@ -17,6 +18,7 @@ interface Props {
   onOpenEvent: (occ: EventOccurrence) => void;
   onOpenReminder: (r: ReminderOccurrence) => void;
   onCreateAt: (date: ISODate, time: string) => void;
+  onOpenJournal: (date: ISODate) => void;
 }
 
 interface Placed {
@@ -67,12 +69,14 @@ function layoutDay(occs: EventOccurrence[], day: Date): Placed[] {
   return placed;
 }
 
-export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenReminder, onCreateAt }: Props) {
+export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenReminder, onCreateAt, onOpenJournal }: Props) {
   const { settings, locale, t, save } = useBloom();
   const start = useMemo(() => startOfWeek(anchor, settings.weekStart), [anchor, settings.weekStart]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
   const data = useRangeData(start, addDays(start, 7));
   const scroller = useRef<HTMLDivElement>(null);
+  const journal = useAlive('journal');
+  const journalByDate = useMemo(() => new Map(journal.map((j) => [j.date, j])), [journal]);
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -120,7 +124,8 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
               </div>
               {settings.showHebrewDate && <div className="hebdate">{hebrewDateLabel(d, settings.language)}</div>}
               {hol[0] && <div className="holiday-label">{hol[0].name}</div>}
-              {entry?.headline && <div className="headline">{entry.headline}</div>}
+              {entry?.headline && <div className="headline" dir="auto">{entry.headline}</div>}
+              <DayChips compact entry={entry} journal={journalByDate.get(iso)} onOpenJournal={() => onOpenJournal(iso)} />
             </div>
           );
         })}
@@ -135,7 +140,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
             <div key={iso} className="allday-cell">
               {all.map((o) => (
                 <button type="button" key={o.key} className={`pill allday ev-${o.event.color}`} onClick={() => onOpenEvent(o)}>
-                  <span className="pill-title">{o.event.title || '—'}</span>
+                  <span className="pill-title" dir="auto">{o.event.title || '—'}</span>
                 </button>
               ))}
             </div>

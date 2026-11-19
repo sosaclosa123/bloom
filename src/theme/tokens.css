@@ -83,6 +83,30 @@
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --dur-fast: 120ms;
   --dur: 220ms;
+  --dur-slow: 420ms;
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* playful overshoot */
+  --stagger: 28ms; /* delay between items that animate in one by one */
+
+  /* Journal pop-up (soft blue notebook) */
+  --journal-scrim: rgba(28, 40, 72, 0.42);
+  --journal-blur: 6px;
+  --journal-bg: #eaf3fe;
+  --journal-head-from: #a9cdf5;
+  --journal-head-to: #c6d8fb;
+  --journal-ink: #2d3a55;
+  --journal-muted: #6d7c98;
+  --journal-accent: #4f86d6;
+  --journal-accent-hover: #3f74c2;
+  --journal-accent-soft: #dceafb;
+  --journal-line: #cfe0f5;
+  --journal-chip-bg: #dcebfb;
+  --journal-chip-text: #3767ad;
+
+  /* Day chips on the calendar */
+  --chip-todo-bg: #e2f5e8;
+  --chip-todo-text: #3f8f5c;
+  --chip-note-bg: #fff1c9;
+  --chip-note-text: #9a7a1c;
 
   color-scheme: light;
 }
@@ -129,6 +153,23 @@
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.5);
   --scrim: rgba(0, 0, 0, 0.45);
+
+  --journal-scrim: rgba(5, 8, 18, 0.62);
+  --journal-bg: #1f2737;
+  --journal-head-from: #234a80;
+  --journal-head-to: #2d3f7a;
+  --journal-ink: #e4ecfb;
+  --journal-muted: #9fb0cd;
+  --journal-accent: #7fb0f5;
+  --journal-accent-hover: #9cc3f8;
+  --journal-accent-soft: #2b3c5a;
+  --journal-line: #2c3850;
+  --journal-chip-bg: #24395a;
+  --journal-chip-text: #a7c8f7;
+  --chip-todo-bg: #22352b;
+  --chip-todo-text: #8fd6a8;
+  --chip-note-bg: #3a3322;
+  --chip-note-text: #ecd07a;
 
   color-scheme: dark;
 }

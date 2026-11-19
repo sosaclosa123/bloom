@@ -5,7 +5,7 @@ import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
 import { parseISODate, toISODate } from '../shared/dates';
 import type { ISODate, JournalEntry, PhotoRef } from '../shared/types';
-import { Button, EditableText, Icon } from './common';
+import { Button, Icon } from './common';
 import { useAlive, useBloom } from './store';
 
 export function newJournal(date: ISODate): JournalEntry {
@@ -39,7 +39,7 @@ export function Photo({ photo, className, onClick }: { photo: PhotoRef; classNam
   );
 }
 
-function Lightbox({ photos, index, onClose }: { photos: PhotoRef[]; index: number; onClose: () => void }) {
+export function Lightbox({ photos, index, onClose }: { photos: PhotoRef[]; index: number; onClose: () => void }) {
   const { t, dir } = useBloom();
   const [i, setI] = useState(index);
   useEffect(() => {
@@ -67,72 +67,64 @@ function Lightbox({ photos, index, onClose }: { photos: PhotoRef[]; index: numbe
   );
 }
 
-// ------------------------------------------------------------------ editor (in the Day Card)
+// ------------------------------------------------------------------ preview (in the Day Card)
 
-export function JournalEditor({ date }: { date: ISODate }) {
-  const { t, save } = useBloom();
+/** A small blue card in the day panel; opens the journal pop-up. */
+export function JournalPreview({ date, onOpen }: { date: ISODate; onOpen: () => void }) {
+  const { t } = useBloom();
   const entry = useJournalEntry(date);
-  const [viewing, setViewing] = useState<number | null>(null);
-  const update = (patch: Partial<JournalEntry>) => save('journal', { ...(entry ?? newJournal(date)), ...patch });
-  const isPrivate = (entry?.visibility ?? 'private') === 'private';
-  const photos = entry?.photos ?? [];
-
+  if (!hasContent(entry)) {
+    return (
+      <button type="button" className="journal-cta" onClick={onOpen}>
+        <span className="journal-cta-emoji" aria-hidden="true">
+          📖
+        </span>
+        <span>
+          <strong>{t('journalWrite')}</strong>
+          <span className="journal-cta-sub">{t('journalWriteSub')}</span>
+        </span>
+      </button>
+    );
+  }
+  const e = entry!;
   return (
-    <div className={`journal-editor ${isPrivate ? 'is-private' : 'is-shared'}`}>
-      <EditableText
-        multiline
-        className="journal-text"
-        value={entry?.text ?? ''}
-        placeholder={t('journalPlaceholder')}
-        onSave={(text) => update({ text })}
-      />
-      {photos.length > 0 && (
-        <div className="photo-grid">
-          {photos.map((p, idx) => (
-            <div className="photo-cell" key={p.id}>
-              <Photo photo={p} onClick={() => setViewing(idx)} />
-              <button
-                type="button"
-                className="photo-remove"
-                aria-label={t('removePhoto')}
-                title={t('removePhoto')}
-                onClick={() => update({ photos: photos.filter((x) => x.id !== p.id) })}
-              >
-                <Icon name="close" size={12} />
-              </button>
-            </div>
+    <button type="button" className="journal-preview" onClick={onOpen}>
+      <span className={`vis-badge ${e.visibility}`}>
+        <Icon name={e.visibility === 'private' ? 'lock' : 'heart'} size={12} />
+        {t(e.visibility === 'private' ? 'private' : 'shared')}
+      </span>
+      {e.text.trim() && <span className="jp-text" dir="auto">{e.text}</span>}
+      {e.photos.length > 0 && (
+        <span className="jp-photos">
+          {e.photos.slice(0, 4).map((p) => (
+            <PhotoThumb key={p.id} photo={p} />
           ))}
-        </div>
+          {e.photos.length > 4 && <span className="jc-more">+{e.photos.length - 4}</span>}
+        </span>
       )}
-      <div className="journal-foot">
-        <Button
-          size="sm"
-          variant="ghost"
-          icon="image"
-          onClick={async () => {
-            const added = await platform.addPhotos();
-            if (added.length) update({ photos: [...photos, ...added] });
-          }}
-        >
-          {t('addPhotos')}
-        </Button>
-        <div className="visibility-switch" role="radiogroup" aria-label={t('journalVisibility')}>
-          <button type="button" role="radio" aria-checked={isPrivate} className={isPrivate ? 'active' : ''} onClick={() => update({ visibility: 'private' })}>
-            <Icon name="lock" size={13} /> {t('private')}
-          </button>
-          <button type="button" role="radio" aria-checked={!isPrivate} className={!isPrivate ? 'active' : ''} onClick={() => update({ visibility: 'shared' })}>
-            <Icon name="heart" size={13} /> {t('shared')}
-          </button>
-        </div>
-      </div>
-      {viewing !== null && <Lightbox photos={photos} index={viewing} onClose={() => setViewing(null)} />}
-    </div>
+      <span className="jp-open">
+        {t('journalOpen')} <Icon name={'chevronRight'} size={14} className="flip-rtl" />
+      </span>
+    </button>
   );
+}
+
+/** Non-interactive thumbnail (for use inside another button). */
+function PhotoThumb({ photo }: { photo: PhotoRef }) {
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    let alive = true;
+    platform.photoUrl(photo).then((u) => alive && setUrl(u));
+    return () => {
+      alive = false;
+    };
+  }, [photo]);
+  return <span className="photo-thumb">{url && <img src={url} alt="" draggable={false} />}</span>;
 }
 
 // ------------------------------------------------------------------ Journal page
 
-export function JournalPage({ selected, onOpenDay }: { selected: ISODate | null; onOpenDay: (date: ISODate) => void }) {
+export function JournalPage({ selected, onOpenJournal }: { selected: ISODate | null; onOpenJournal: (date: ISODate) => void }) {
   const { t, locale } = useBloom();
   const all = useAlive('journal');
   const [filter, setFilter] = useState<'all' | 'private' | 'shared'>('all');
@@ -171,7 +163,7 @@ export function JournalPage({ selected, onOpenDay }: { selected: ISODate | null;
               </button>
             ))}
           </div>
-          <Button variant="primary" icon="pen" onClick={() => onOpenDay(today)}>
+          <Button variant="primary" icon="pen" onClick={() => onOpenJournal(today)}>
             {wroteToday ? t('journalContinue') : t('journalWriteToday')}
           </Button>
         </div>
@@ -188,16 +180,17 @@ export function JournalPage({ selected, onOpenDay }: { selected: ISODate | null;
         {groups.map(([month, list]) => (
           <section key={month} className="journal-month">
             <h3>{parseISODate(month + '-01').toLocaleDateString(locale, { month: 'long', year: 'numeric' })}</h3>
-            {list.map((e) => {
+            {list.map((e, idx) => {
               const d = parseISODate(e.date);
               return (
                 <article
                   key={e.id}
+                  style={{ ['--i' as string]: Math.min(idx, 8) }}
                   className={`journal-card ${selected === e.date ? 'selected' : ''}`}
-                  onClick={() => onOpenDay(e.date)}
+                  onClick={() => onOpenJournal(e.date)}
                   role="button"
                   tabIndex={0}
-                  onKeyDown={(k) => k.key === 'Enter' && onOpenDay(e.date)}
+                  onKeyDown={(k) => k.key === 'Enter' && onOpenJournal(e.date)}
                 >
                   <div className="jc-date">
                     <span className="jc-day">{d.getDate()}</span>
@@ -210,7 +203,7 @@ export function JournalPage({ selected, onOpenDay }: { selected: ISODate | null;
                         {t(e.visibility === 'private' ? 'private' : 'shared')}
                       </span>
                     </div>
-                    {e.text.trim() && <p className="jc-text">{e.text}</p>}
+                    {e.text.trim() && <p className="jc-text" dir="auto">{e.text}</p>}
                     {e.photos.length > 0 && (
                       <div className="jc-photos">
                         {e.photos.slice(0, 5).map((p, i) => (

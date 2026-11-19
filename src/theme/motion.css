@@ -1,0 +1,282 @@
+/*
+ * Bloom motion — every animation in the app lives here.
+ * Timings come from tokens.css (--dur, --dur-slow, --spring, --stagger).
+ * To tone things down or restyle, edit this file only. Animations are turned
+ * off automatically when Windows "Show animations" is disabled.
+ */
+
+/* ------------------------------------------------------------ keyframes */
+@keyframes bloom-pop {
+  0% { opacity: 0; transform: scale(0.6); }
+  70% { opacity: 1; transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+@keyframes fade-out {
+  to { opacity: 0; }
+}
+@keyframes boing {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.6); }
+  55% { transform: scale(0.85); }
+  80% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-12deg) scale(1.15); }
+  60% { transform: rotate(10deg) scale(1.15); }
+}
+@keyframes check-pop {
+  0% { transform: scale(0.7); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+@keyframes heart-beat {
+  0%, 100% { transform: scale(1); }
+  20% { transform: scale(1.35); }
+  40% { transform: scale(0.95); }
+  60% { transform: scale(1.2); }
+}
+@keyframes today-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+@keyframes notebook-in {
+  0% { opacity: 0; transform: translateY(28px) scale(0.92) rotate(-1.2deg); }
+  60% { opacity: 1; transform: translateY(-4px) scale(1.01) rotate(0.2deg); }
+  100% { transform: none; }
+}
+@keyframes notebook-out {
+  to { opacity: 0; transform: translateY(14px) scale(0.96); }
+}
+@keyframes scrim-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-4px) rotate(4deg); }
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.25; transform: translateY(0) scale(0.9); }
+  50% { opacity: 0.9; transform: translateY(-6px) scale(1.1); }
+}
+@keyframes slide-date {
+  from { opacity: 0; transform: translateX(14px); }
+}
+@keyframes saved-flash {
+  0% { opacity: 0; transform: translateY(4px); }
+  15% { opacity: 1; transform: none; }
+  75% { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+@keyframes zoom-in {
+  from { opacity: 0; transform: scale(0.9); }
+}
+
+/* ------------------------------------------------------------ calendar */
+.cell {
+  animation: rise-in var(--dur-slow) var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 7ms);
+  transition: background var(--dur) var(--ease);
+}
+.daynum {
+  transition: transform var(--dur) var(--spring), background var(--dur);
+}
+.cell:hover .daynum {
+  transform: scale(1.12);
+}
+.cell.today .daynum {
+  animation: today-ring 1.6s var(--ease) 0.5s 2;
+}
+.status-dot:not(.none) {
+  animation: boing 520ms var(--spring);
+}
+.chip-day {
+  animation: bloom-pop var(--dur-slow) var(--spring) both;
+  transition: transform var(--dur-fast) var(--spring), background var(--dur), color var(--dur);
+}
+.chip-day:nth-child(2) { animation-delay: 40ms; }
+.chip-day:nth-child(3) { animation-delay: 80ms; }
+.chip-day:nth-child(4) { animation-delay: 120ms; }
+.chip-journal:hover {
+  transform: translateY(-1px) scale(1.08);
+}
+.chip-todo.all-done {
+  animation: boing 600ms var(--spring);
+}
+.pill {
+  transition: background var(--dur-fast), transform var(--dur-fast) var(--ease);
+}
+.pill:hover {
+  transform: translateX(2px);
+}
+[dir='rtl'] .pill:hover {
+  transform: translateX(-2px);
+}
+.week-event {
+  animation: rise-in var(--dur) var(--ease) both;
+}
+
+/* ------------------------------------------------------------ day panel */
+.add-tile {
+  animation: bloom-pop var(--dur-slow) var(--spring) both;
+  animation-delay: calc(var(--i, 0) * 45ms + 80ms);
+  transition: transform var(--dur) var(--spring), box-shadow var(--dur), border-color var(--dur), color var(--dur);
+}
+.add-tile:hover {
+  transform: translateY(-3px);
+}
+.add-tile:active {
+  transform: translateY(0) scale(0.95);
+}
+.add-tile:hover .add-tile-emoji {
+  animation: wiggle 500ms var(--ease);
+}
+.card {
+  animation: rise-in var(--dur-slow) var(--ease) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger));
+}
+.item-row {
+  animation: rise-in var(--dur) var(--ease) both;
+}
+.check input:checked + .check-box {
+  animation: check-pop 320ms var(--spring);
+}
+.journal-cta,
+.journal-preview {
+  transition: transform var(--dur) var(--spring), box-shadow var(--dur);
+}
+.journal-cta:hover,
+.journal-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.journal-cta:hover .journal-cta-emoji {
+  display: inline-block;
+  animation: wiggle 500ms var(--ease);
+}
+.status-option {
+  transition: background var(--dur), border-color var(--dur), transform var(--dur-fast) var(--spring);
+}
+.status-option:active {
+  transform: scale(0.94);
+}
+.status-option.active .status-dot {
+  animation: boing 520ms var(--spring);
+}
+
+/* ------------------------------------------------------------ journal pop-up */
+.journal-scrim {
+  animation: scrim-in var(--dur-slow) var(--ease) both;
+}
+.journal-scrim.is-closing {
+  animation: fade-out 200ms var(--ease) forwards;
+}
+.journal-modal {
+  animation: notebook-in 520ms var(--spring) both;
+}
+.journal-scrim.is-closing .journal-modal {
+  animation: notebook-out 200ms var(--ease) forwards;
+}
+.jm-book {
+  display: inline-block;
+  animation: bob 3.2s ease-in-out infinite;
+}
+.jm-floaties span {
+  animation: twinkle 3.6s ease-in-out infinite;
+}
+.jm-floaties span:nth-child(2) { animation-delay: 0.9s; }
+.jm-floaties span:nth-child(3) { animation-delay: 1.8s; }
+.jm-floaties span:nth-child(4) { animation-delay: 2.5s; }
+.jm-date {
+  animation: slide-date var(--dur-slow) var(--ease);
+}
+[dir='rtl'] .jm-date {
+  animation-name: fade-in;
+}
+.jm-body {
+  animation: fade-in var(--dur-slow) var(--ease);
+}
+.jm-photos .photo-cell {
+  animation: bloom-pop var(--dur-slow) var(--spring) both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+.jm-saved {
+  animation: saved-flash 1.8s var(--ease) forwards;
+}
+.jm-icon,
+.jm-btn {
+  transition: transform var(--dur-fast) var(--spring), background var(--dur), filter var(--dur);
+}
+.jm-icon:hover,
+.jm-btn:hover {
+  transform: scale(1.06);
+}
+.jm-icon:active,
+.jm-btn:active {
+  transform: scale(0.94);
+}
+.visibility-switch button.active .heart-icon,
+.visibility-switch button.active .icon {
+  animation: heart-beat 700ms var(--ease);
+}
+
+/* ------------------------------------------------------------ journal page */
+.journal-card {
+  animation: rise-in var(--dur-slow) var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+.journal-card .photo {
+  transition: transform var(--dur) var(--spring);
+}
+.journal-card .photo:hover {
+  transform: rotate(-2deg) scale(1.05);
+}
+.lightbox-img img {
+  animation: zoom-in var(--dur-slow) var(--spring);
+}
+
+/* ------------------------------------------------------------ everywhere */
+.brand-mark svg {
+  transition: transform 1.2s var(--ease);
+}
+.brand:hover .brand-mark svg {
+  transform: rotate(144deg);
+}
+.btn-primary {
+  transition: background var(--dur-fast), transform var(--dur-fast) var(--spring), box-shadow var(--dur);
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.countdown:hover .cd-emoji {
+  display: inline-block;
+  animation: wiggle 500ms var(--ease);
+}
+.toast {
+  animation: bloom-pop var(--dur-slow) var(--spring);
+}
+.modal {
+  animation: notebook-in 420ms var(--spring) both;
+}
+
+/* Respect the Windows "show animations" / reduced-motion setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

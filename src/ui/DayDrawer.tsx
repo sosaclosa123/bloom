@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, parseISODate } from '../shared/dates';
 import { hebrewDateLabel } from '../shared/holidays';
 import type { EventOccurrence } from '../shared/recurrence';
@@ -7,7 +7,7 @@ import { uuid } from '../shared/db';
 import { formatDayTitle, formatTime, useRangeData, type ReminderOccurrence } from './calendarData';
 import { Button, EditableText, Icon, IconButton } from './common';
 import { CARD_EMOJIS, newCard, newDayEntry } from './drafts';
-import { JournalEditor } from './Journal';
+import { JournalPreview } from './Journal';
 import { useAlive, useBloom } from './store';
 
 interface Props {
@@ -17,6 +17,7 @@ interface Props {
   onNewEvent: (date: ISODate) => void;
   onOpenReminder: (r: ReminderOccurrence) => void;
   onNewReminder: (date: ISODate) => void;
+  onOpenJournal: (date: ISODate) => void;
 }
 
 const STATUSES: { value: DayStatus; key: 'statusFree' | 'statusSome' | 'statusPacked' }[] = [
@@ -25,7 +26,7 @@ const STATUSES: { value: DayStatus; key: 'statusFree' | 'statusSome' | 'statusPa
   { value: 'packed', key: 'statusPacked' },
 ];
 
-export function DayDrawer({ date, onClose, onOpenEvent, onNewEvent, onOpenReminder, onNewReminder }: Props) {
+export function DayDrawer({ date, onClose, onOpenEvent, onNewEvent, onOpenReminder, onNewReminder, onOpenJournal }: Props) {
   const { t, locale, settings, save, toast } = useBloom();
   const days = useAlive('days');
   const entry = useMemo(() => days.find((d) => d.date === date), [days, date]);
@@ -95,6 +96,37 @@ export function DayDrawer({ date, onClose, onOpenEvent, onNewEvent, onOpenRemind
       )}
 
       <div className="drawer-body">
+        <section className="drawer-section">
+          <div className="section-label">{t('addToDay')}</div>
+          <div className="add-tiles">
+            {(
+              [
+                ['todo', '✅', t('tileTodo'), () => addCard('checklist')],
+                ['note', '📝', t('tileNote'), () => addCard('text')],
+                ['journal', '📖', t('tileJournal'), () => onOpenJournal(date)],
+                ['event', '📅', t('tileEvent'), () => onNewEvent(date)],
+                ['reminder', '🔔', t('tileReminder'), () => onNewReminder(date)],
+              ] as const
+            ).map(([id, emoji, label, run], i) => (
+              <button type="button" key={id} className={`add-tile tile-${id}`} style={{ ['--i' as string]: i }} onClick={run}>
+                <span className="add-tile-emoji" aria-hidden="true">
+                  {emoji}
+                </span>
+                <span className="add-tile-label">{label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="drawer-section" id="journal">
+          <div className="section-head">
+            <span className="section-label">
+              <Icon name="book" size={13} /> {t('journal')}
+            </span>
+          </div>
+          <JournalPreview date={date} onOpen={() => onOpenJournal(date)} />
+        </section>
+
         <section className="drawer-section">
           <div className="section-label">{t('status')}</div>
           <div className="status-picker" role="radiogroup" aria-label={t('status')}>
@@ -168,7 +200,7 @@ export function DayDrawer({ date, onClose, onOpenEvent, onNewEvent, onOpenRemind
 
         <section className="drawer-section">
           <div className="section-head">
-            <span className="section-label">{t('notes')}</span>
+            <span className="section-label">{t('notesTodos')}</span>
             <div className="section-actions">
               <Button size="sm" variant="ghost" icon="note" onClick={() => addCard('text')}>
                 {t('addNote')}
@@ -180,20 +212,12 @@ export function DayDrawer({ date, onClose, onOpenEvent, onNewEvent, onOpenRemind
           </div>
           {(entry?.cards.length ?? 0) === 0 && <div className="empty">{t('noNotes')}</div>}
           <div className="cards">
-            {entry?.cards.map((c) => (
-              <CardEditor key={c.id} card={c} autoFocus={focusCard === c.id} onChange={updateCard} onDelete={() => deleteCard(c)} />
+            {entry?.cards.map((c, i) => (
+              <CardEditor index={i} key={c.id} card={c} autoFocus={focusCard === c.id} onChange={updateCard} onDelete={() => deleteCard(c)} />
             ))}
           </div>
         </section>
 
-        <section className="drawer-section" id="journal">
-          <div className="section-head">
-            <span className="section-label">
-              <Icon name="book" size={13} /> {t('journal')}
-            </span>
-          </div>
-          <JournalEditor date={date} />
-        </section>
       </div>
     </aside>
   );
@@ -204,7 +228,9 @@ function CardEditor({
   onChange,
   onDelete,
   autoFocus,
+  index,
 }: {
+  index: number;
   card: NoteCard;
   onChange: (c: NoteCard) => void;
   onDelete: () => void;
@@ -214,18 +240,26 @@ function CardEditor({
   const [picking, setPicking] = useState(false);
   const [focusItem, setFocusItem] = useState<string | null>(null);
 
+  // Several edits can happen in one tick (e.g. Enter saves the text *and* adds
+  // a new item), so always build on the newest version of the card.
+  const latest = useRef(card);
+  latest.current = card;
+  const commit = (next: NoteCard) => {
+    latest.current = next;
+    onChange(next);
+  };
   const setItem = (id: string, patch: Partial<NoteCard['items'][number]>) =>
-    onChange({ ...card, items: card.items.map((i) => (i.id === id ? { ...i, ...patch } : i)) });
+    commit({ ...latest.current, items: latest.current.items.map((i) => (i.id === id ? { ...i, ...patch } : i)) });
   const addItemAfter = (idx: number) => {
     const item = { id: uuid(), text: '', done: false };
-    const items = [...card.items];
+    const items = [...latest.current.items];
     items.splice(idx + 1, 0, item);
-    onChange({ ...card, items });
+    commit({ ...latest.current, items });
     setFocusItem(item.id);
   };
 
   return (
-    <div className={`card card--${card.kind}`}>
+    <div className={`card card--${card.kind}`} style={{ ['--i' as string]: index }}>
       <div className="card-head">
         <div className="emoji-wrap">
           <button type="button" className="emoji-btn" aria-label={t('pickEmoji')} title={t('pickEmoji')} onClick={() => setPicking((p) => !p)}>
@@ -239,7 +273,7 @@ function CardEditor({
                   key={e || 'dot'}
                   className={e === card.emoji ? 'active' : ''}
                   onClick={() => {
-                    onChange({ ...card, emoji: e });
+                    commit({ ...latest.current, emoji: e });
                     setPicking(false);
                   }}
                 >
@@ -261,7 +295,7 @@ function CardEditor({
           value={card.text}
           autoFocus={autoFocus}
           placeholder={t('notePlaceholder')}
-          onSave={(v) => onChange({ ...card, text: v })}
+          onSave={(v) => commit({ ...latest.current, text: v })}
         />
       ) : (
         <ul className="checklist">
@@ -285,7 +319,7 @@ function CardEditor({
                 type="button"
                 className="check-remove"
                 aria-label={t('delete')}
-                onClick={() => onChange({ ...card, items: card.items.filter((x) => x.id !== it.id) })}
+                onClick={() => commit({ ...latest.current, items: latest.current.items.filter((x) => x.id !== it.id) })}
               >
                 <Icon name="close" size={12} />
               </button>

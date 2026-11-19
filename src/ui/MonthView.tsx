@@ -4,9 +4,8 @@ import { hebrewDateLabel } from '../shared/holidays';
 import type { EventOccurrence } from '../shared/recurrence';
 import type { ISODate } from '../shared/types';
 import { formatTime, useRangeData, weekdayNames } from './calendarData';
-import { Icon } from './common';
 import { newDayEntry, nextStatus } from './drafts';
-import { hasContent } from './Journal';
+import { DayChips } from './DayChips';
 import { useAlive, useBloom } from './store';
 
 interface Props {
@@ -14,9 +13,10 @@ interface Props {
   selected: ISODate | null;
   onOpenDay: (date: ISODate) => void;
   onOpenEvent: (occ: EventOccurrence) => void;
+  onOpenJournal: (date: ISODate) => void;
 }
 
-export function MonthView({ anchor, selected, onOpenDay, onOpenEvent }: Props) {
+export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJournal }: Props) {
   const { settings, locale, t, save } = useBloom();
   const grid = useMemo(
     () => monthGrid(anchor.getFullYear(), anchor.getMonth(), settings.weekStart),
@@ -24,7 +24,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent }: Props) {
   );
   const data = useRangeData(grid[0], addDays(grid[41], 1));
   const journal = useAlive('journal');
-  const journalDays = useMemo(() => new Set(journal.filter(hasContent).map((j) => j.date)), [journal]);
+  const journalByDate = useMemo(() => new Map(journal.map((j) => [j.date, j])), [journal]);
   const today = new Date();
   const names = weekdayNames(locale, settings.weekStart, 'short');
   // Show only 5 rows when the 6th row is entirely next month.
@@ -38,7 +38,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent }: Props) {
         ))}
       </div>
       <div className="month-grid">
-        {grid.slice(0, rows * 7).map((d) => {
+        {grid.slice(0, rows * 7).map((d, cellIdx) => {
           const iso = toISODate(d);
           const entry = data.days.get(iso);
           const occs = data.eventsByDay.get(iso) ?? [];
@@ -66,6 +66,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent }: Props) {
             <div
               key={iso}
               className={cls}
+              style={{ ['--i' as string]: cellIdx }}
               role="button"
               tabIndex={0}
               aria-label={d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -77,6 +78,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent }: Props) {
                 {settings.showHebrewDate && <span className="hebdate">{hebrewDateLabel(d, settings.language)}</span>}
                 <button
                   type="button"
+                  key={entry?.status ?? 'none'}
                   className={`status-dot ${entry?.status ?? 'none'}`}
                   title={`${t('status')} — ${statusLabel}`}
                   aria-label={`${t('status')}: ${statusLabel}`}
@@ -92,7 +94,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent }: Props) {
                   {hol[0].name}
                 </div>
               )}
-              {entry?.headline && <div className="headline">{entry.headline}</div>}
+              {entry?.headline && <div className="headline" dir="auto">{entry.headline}</div>}
               <div className="pills">
                 {shown.map((o) => (
                   <button
@@ -106,35 +108,12 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent }: Props) {
                     title={o.event.title}
                   >
                     {!o.event.allDay && sameDay(o.start, d) && <span className="pill-time">{formatTime(o.start, locale)}</span>}
-                    <span className="pill-title">{o.event.title || '—'}</span>
+                    <span className="pill-title" dir="auto">{o.event.title || '—'}</span>
                   </button>
                 ))}
                 {hidden > 0 && <span className="more">{t('more', { n: hidden })}</span>}
               </div>
-              {(entry?.cards.length || rems.length || journalDays.has(iso)) ? (
-                <div className="markers">
-                  {journalDays.has(iso) && (
-                    <span className="marker-journal" title={t('journal')}>
-                      <Icon name="book" size={11} />
-                    </span>
-                  )}
-                  {entry?.cards.slice(0, 4).map((c) =>
-                    c.emoji ? (
-                      <span key={c.id} className="marker-emoji">
-                        {c.emoji}
-                      </span>
-                    ) : (
-                      <span key={c.id} className="marker-dot" />
-                    ),
-                  )}
-                  {rems.length > 0 && (
-                    <span className="marker-bell" title={rems.map((r) => r.reminder.title).join(' · ')}>
-                      <Icon name="bell" size={11} />
-                      {rems.length > 1 && rems.length}
-                    </span>
-                  )}
-                </div>
-              ) : null}
+              <DayChips entry={entry} journal={journalByDate.get(iso)} reminders={rems} onOpenJournal={() => onOpenJournal(iso)} />
             </div>
           );
         })}

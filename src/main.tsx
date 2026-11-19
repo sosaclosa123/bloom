@@ -5,6 +5,7 @@ import { App } from './ui/App';
 import { BloomProvider } from './ui/store';
 import './theme/tokens.css';
 import './theme/app.css';
+import './theme/motion.css';
 
 platform.load().then((snap) => {
   createRoot(document.getElementById('root')!).render(

@@ -271,6 +271,7 @@ export function EditableText({
   };
 
   const common = {
+    dir: 'auto' as const,
     className,
     placeholder,
     autoFocus,

@@ -7,6 +7,7 @@ import type { FiredAlert, Language } from './shared/types';
 import { AlertCards } from './ui/AlertCards';
 import './theme/tokens.css';
 import './theme/app.css';
+import './theme/motion.css';
 
 function Popup() {
   const bridge = window.bloomDesktop!.popup;
