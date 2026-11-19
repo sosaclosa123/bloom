@@ -10,8 +10,9 @@ import { DayDrawer, type DrawerTab } from './DayDrawer';
 import { newCountdown, newEvent, newReminder } from './drafts';
 import { CountdownEditor, EventEditor, ReminderEditor } from './editors';
 import { Header, type AddKind, type CalView, type Tab } from './Header';
-import { JournalPage } from './Journal';
 import { JournalModal } from './JournalModal';
+import { NotePopover, type NotePopState } from './NotePopover';
+import { addSticker, StickerDefs, StickerPicker } from './Stickers';
 import { MonthView } from './MonthView';
 import { Search } from './Search';
 import { SettingsPanel } from './Settings';
@@ -20,6 +21,7 @@ import { playSound } from './sound';
 import { startSync } from './sync';
 import { useBloom } from './store';
 import { UpdateBanner } from './Updates';
+import { WalletPage } from './Wallet';
 import { WeekView } from './WeekView';
 
 type ModalState =
@@ -42,8 +44,11 @@ const isTyping = (el: Element | null) =>
   !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el as HTMLElement).isContentEditable);
 
 export function App() {
-  const { snap, settings, t } = useBloom();
-  const [tab, setTab] = useState<Tab>(() => load('bloom-tab', 'calendar'));
+  const { snap, settings, t, save } = useBloom();
+  const [tab, setTab] = useState<Tab>(() => {
+    const v = load<string>('bloom-tab', 'calendar');
+    return (['calendar', 'upcoming', 'countdowns', 'wallet'].includes(v) ? v : 'calendar') as Tab;
+  });
   const [view, setView] = useState<CalView>(() => load('bloom-view', 'month'));
   const [addOpen, setAddOpen] = useState(false);
   const [drawer, setDrawer] = useState<{ tab?: DrawerTab; autoAdd?: 'todo' | 'note'; n: number }>({ n: 0 });
@@ -51,6 +56,19 @@ export function App() {
   const [openDay, setOpenDay] = useState<ISODate | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [journalDate, setJournalDate] = useState<ISODate | null>(null);
+  const [notePop, setNotePop] = useState<NotePopState | null>(null);
+  const [stickerPick, setStickerPick] = useState<{ date: ISODate; anchor: HTMLElement } | null>(null);
+  const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
+  // Clicking anywhere that isn't a sticker deselects it.
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => !(e.target as HTMLElement).closest?.('.placed-sticker') && setSelectedSticker(null);
+    window.addEventListener('pointerdown', onDown);
+    return () => window.removeEventListener('pointerdown', onDown);
+  }, []);
+  const openNotes = useCallback(
+    (date: ISODate, anchor: HTMLElement, mode: 'view' | 'new') => setNotePop((p) => ({ date, anchor, mode, n: (p?.n ?? 0) + 1 })),
+    [],
+  );
   const [missed, setMissed] = useState<FiredAlert[]>([]);
   const [pageAlerts, setPageAlerts] = useState<FiredAlert[]>([]);
   const settingsRef = useRef(settings);
@@ -116,6 +134,16 @@ export function App() {
     if (kind === 'note') openDayAt(addDate, 'notes', 'note');
     if (kind === 'journal') setJournalDate(addDate);
     if (kind === 'countdown') editCountdown(null);
+    if (kind === 'sticker') {
+      // Show the month that has this day, then open the picker on its square.
+      setTab('calendar');
+      setView('month');
+      setAnchor(parseISODate(addDate));
+      setTimeout(() => {
+        const el = document.querySelector<HTMLElement>(`.cell[data-date="${addDate}"]`);
+        if (el) setStickerPick({ date: addDate, anchor: el });
+      }, 60);
+    }
   };
 
   // Keyboard shortcuts
@@ -140,9 +168,6 @@ export function App() {
         case 'w':
           setTab('calendar');
           setView('week');
-          break;
-        case 'j':
-          setTab('journal');
           break;
         case 'n':
           createEvent(openDay ?? toISODate(new Date()));
@@ -208,14 +233,20 @@ export function App() {
                 </Button>
               </div>
             )}
-            {tab === 'journal' ? (
-              <JournalPage selected={journalDate} onOpenJournal={setJournalDate} />
+            {tab === 'wallet' ? (
+              <WalletPage />
             ) : tab === 'upcoming' ? (
               <UpcomingPage onOpenDay={showDay} onOpenEvent={openEvent} onOpenReminder={openReminder} />
             ) : tab === 'countdowns' ? (
               <CountdownsPage onEdit={editCountdown} />
             ) : view === 'month' ? (
-              <MonthView anchor={anchor} selected={openDay} onOpenDay={(d) => openDayAt(d)} onOpenEvent={openEvent} onOpenJournal={setJournalDate} />
+              <MonthView anchor={anchor} selected={openDay} onOpenDay={(d) => openDayAt(d)} onOpenEvent={openEvent}
+                onOpenJournal={setJournalDate}
+                onOpenNotes={openNotes}
+                onOpenStickers={(date, el) => setStickerPick({ date, anchor: el })}
+                selectedSticker={selectedSticker}
+                onSelectSticker={setSelectedSticker}
+              />
             ) : (
               <WeekView
                 anchor={anchor}
@@ -225,6 +256,7 @@ export function App() {
                 onOpenReminder={openReminder}
                 onCreateAt={(d, time) => createEvent(d, time)}
                 onOpenJournal={setJournalDate}
+                onOpenNotes={openNotes}
               />
             )}
           </div>
@@ -248,6 +280,20 @@ export function App() {
       {modal?.kind === 'event' && <EventEditor key={modal.ev.id} initial={modal.ev} isNew={modal.isNew} onClose={() => setModal(null)} />}
       {modal?.kind === 'reminder' && <ReminderEditor key={modal.r.id} initial={modal.r} isNew={modal.isNew} onClose={() => setModal(null)} />}
       {modal?.kind === 'countdown' && <CountdownEditor key={modal.c.id} initial={modal.c} isNew={modal.isNew} onClose={() => setModal(null)} />}
+      {stickerPick && (
+        <StickerPicker
+          anchor={stickerPick.anchor}
+          onClose={() => setStickerPick(null)}
+          onPick={(kind) => {
+            const { entry, id } = addSticker(snap.days.find((d) => d.date === stickerPick.date && !d.deletedAt), stickerPick.date, kind);
+            save('days', entry);
+            setSelectedSticker(id);
+            setStickerPick(null);
+          }}
+        />
+      )}
+      <StickerDefs />
+      {notePop && <NotePopover key={`${notePop.date}-${notePop.n}`} state={notePop} onClose={() => setNotePop(null)} />}
       {journalDate && <JournalModal key="journal" date={journalDate} onClose={() => setJournalDate(null)} onChangeDate={setJournalDate} />}
       {modal?.kind === 'settings' && <SettingsPanel onClose={() => setModal(null)} />}
       {modal?.kind === 'search' && (

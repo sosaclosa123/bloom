@@ -12,7 +12,7 @@ import {
   type SyncMeta,
 } from './types';
 
-export const COLLECTIONS: CollectionName[] = ['events', 'days', 'reminders', 'countdowns', 'sounds', 'journal'];
+export const COLLECTIONS: CollectionName[] = ['events', 'days', 'reminders', 'countdowns', 'sounds', 'journal', 'money'];
 
 export function uuid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
@@ -30,6 +30,7 @@ export function emptySnapshot(deviceId = uuid()): Snapshot {
     countdowns: [],
     sounds: [],
     journal: [],
+    money: [],
   };
 }
 

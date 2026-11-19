@@ -5,6 +5,7 @@ import type { EventOccurrence } from '../shared/recurrence';
 import type { ISODate } from '../shared/types';
 import { formatTime, useRangeData, type ReminderOccurrence } from './calendarData';
 import { Icon } from './common';
+import { dayColor } from './season';
 import { newDayEntry, nextStatus } from './drafts';
 import { DayChips } from './DayChips';
 import { useAlive, useBloom } from './store';
@@ -19,6 +20,7 @@ interface Props {
   onOpenReminder: (r: ReminderOccurrence) => void;
   onCreateAt: (date: ISODate, time: string) => void;
   onOpenJournal: (date: ISODate) => void;
+  onOpenNotes: (date: ISODate, anchor: HTMLElement, mode: 'view' | 'new') => void;
 }
 
 interface Placed {
@@ -69,8 +71,8 @@ function layoutDay(occs: EventOccurrence[], day: Date): Placed[] {
   return placed;
 }
 
-export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenReminder, onCreateAt, onOpenJournal }: Props) {
-  const { settings, locale, t, save } = useBloom();
+export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenReminder, onCreateAt, onOpenJournal, onOpenNotes }: Props) {
+  const { settings, locale, t, save, dark } = useBloom();
   const start = useMemo(() => startOfWeek(anchor, settings.weekStart), [anchor, settings.weekStart]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
   const data = useRangeData(start, addDays(start, 7));
@@ -109,6 +111,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
           return (
             <div
               key={iso}
+              style={{ ['--cell-bg' as string]: dayColor(d, dark) }}
               className={`week-day-head ${sameDay(d, now) ? 'today' : ''} ${selected === iso ? 'selected' : ''} ${entry?.status ? `status-${entry.status}` : ''}`}
               role="button"
               tabIndex={0}
@@ -133,7 +136,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
               {settings.showHebrewDate && <div className="hebdate">{hebrewDateLabel(d, settings.language)}</div>}
               {hol[0] && <div className="holiday-label">{hol[0].name}</div>}
               {entry?.headline && <div className="headline" dir="auto">{entry.headline}</div>}
-              <DayChips compact entry={entry} journal={journalByDate.get(iso)} onOpenJournal={() => onOpenJournal(iso)} />
+              <DayChips compact entry={entry} journal={journalByDate.get(iso)} onOpenJournal={() => onOpenJournal(iso)} onOpenNotes={(el) => onOpenNotes(iso, el, 'view')} />
             </div>
           );
         })}
@@ -147,8 +150,9 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
           return (
             <div key={iso} className="allday-cell">
               {all.map((o) => (
-                <button type="button" key={o.key} className={`pill allday ev-${o.event.color}`} onClick={() => onOpenEvent(o)}>
+                <button type="button" key={o.key} className={`pill allday ev-${o.event.color} ${o.event.visibility === 'shared' ? 'is-shared' : 'is-private'}`} onClick={() => onOpenEvent(o)}>
                   <span className="pill-title" dir="auto">{o.event.title || '—'}</span>
+                  {o.event.visibility === 'shared' && <Icon name="people" size={11} className="pill-shared" />}
                 </button>
               ))}
             </div>
@@ -174,6 +178,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
               <div
                 key={iso}
                 className={`day-col ${isToday ? 'today' : ''}`}
+                style={{ ['--cell-bg' as string]: dayColor(d, dark) }}
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const mins = Math.floor(((e.clientY - rect.top) / HOUR_H) * 2) * 30;
@@ -188,7 +193,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
                   <button
                     type="button"
                     key={p.occ.key}
-                    className={`week-event ev-${p.occ.event.color}`}
+                    className={`week-event ev-${p.occ.event.color} ${p.occ.event.visibility === 'shared' ? 'is-shared' : 'is-private'}`}
                     style={{
                       top: p.top,
                       height: p.height,
@@ -200,7 +205,10 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
                       onOpenEvent(p.occ);
                     }}
                   >
-                    <span className="we-title">{p.occ.event.title || '—'}</span>
+                    <span className="we-title" dir="auto">
+                      {p.occ.event.visibility === 'shared' && <Icon name="people" size={11} className="pill-shared" />}
+                      {p.occ.event.title || '—'}
+                    </span>
                     {p.height > 34 && (
                       <span className="we-time">
                         {formatTime(p.occ.start, locale)}–{formatTime(p.occ.end, locale)}

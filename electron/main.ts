@@ -16,7 +16,7 @@ import {
 import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert, uuid } from '../src/shared/db';
+import { COLLECTIONS, merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert, uuid } from '../src/shared/db';
 import type { CollectionName, Collections, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../src/shared/types';
 import { gameDetectionStatus, isGaming, setOwnWindowCheck } from './gameMode';
 import { Scheduler, type DeliveryReason } from './scheduler';
@@ -384,7 +384,7 @@ function registerIpc() {
   ipcMain.handle('data:merge', (_e, c: Partial<Collections>) => {
     const local = store.get();
     const incoming = normalizeSnapshot({ ...local, ...Object.fromEntries(Object.entries(c)) });
-    for (const k of ['events', 'days', 'reminders', 'countdowns', 'sounds', 'journal'] as const) if (!c[k]) incoming[k] = [];
+    for (const k of COLLECTIONS) if (!c[k]) incoming[k] = [];
     store.set({ ...merge(local, incoming), settings: local.settings });
   });
 

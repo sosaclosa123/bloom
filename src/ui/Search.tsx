@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { dateOf, parseISODate } from '../shared/dates';
 import type { ISODate } from '../shared/types';
 import { Icon } from './common';
+import { stripMarks } from './NoteRich';
 import { useAlive, useBloom } from './store';
 
 interface Result {
@@ -45,7 +46,7 @@ export function Search({ onClose, onOpenDay, onOpenEventId, onOpenReminderId }: 
     for (const d of days) {
       if (d.headline && hit(d.headline)) out.push({ id: d.id + 'h', kind: 'day', title: d.headline, detail: '', date: d.date, open: () => onOpenDay(d.date) });
       for (const c of d.cards) {
-        const text = c.kind === 'text' ? c.text : c.items.map((i) => i.text).join(' · ');
+        const text = c.kind === 'text' ? stripMarks(c.text) : c.items.map((i) => i.text).join(' · ');
         if (hit(text)) out.push({ id: c.id, kind: 'note', title: text.split('\n')[0].slice(0, 80) || '—', detail: '', date: d.date, open: () => onOpenDay(d.date) });
       }
     }

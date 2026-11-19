@@ -3,7 +3,7 @@
 //  - web (dev / future PWA): localStorage + in-page reminders
 //  - phone (future): implement this same interface with Capacitor/React Native
 import { alertsDueBetween } from '../shared/alerts';
-import { emptySnapshot, merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert } from '../shared/db';
+import { COLLECTIONS, emptySnapshot, merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert } from '../shared/db';
 import type { CollectionName, Collections, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../shared/types';
 import { uuid } from '../shared/db';
 import type { DesktopBridge, UpdateState } from './bridge';
@@ -244,7 +244,7 @@ function web(): PlatformAPI {
     },
     applyRemote: async (c) => {
       const incoming = normalizeSnapshot({ ...snap, ...c });
-      for (const k of ['events', 'days', 'reminders', 'countdowns', 'sounds', 'journal'] as const) if (!c[k]) incoming[k] = [];
+      for (const k of COLLECTIONS) if (!c[k]) incoming[k] = [];
       set({ ...merge(snap, incoming), settings: snap.settings });
     },
     photoUrl: async (p) => {

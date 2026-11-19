@@ -10,11 +10,11 @@ import { useAlive, useBloom } from './store';
 
 // ------------------------------------------------------------------ nav rail
 
-const TABS: { id: Tab; icon: IconName; label: 'calendar' | 'upcoming' | 'journal' | 'railCountdowns' }[] = [
+const TABS: { id: Tab; icon: IconName; label: 'calendar' | 'upcoming' | 'wallet' | 'railCountdowns' }[] = [
   { id: 'calendar', icon: 'calendar', label: 'calendar' },
   { id: 'upcoming', icon: 'clock', label: 'upcoming' },
-  { id: 'journal', icon: 'book', label: 'journal' },
   { id: 'countdowns', icon: 'heart', label: 'railCountdowns' },
+  { id: 'wallet', icon: 'wallet', label: 'wallet' },
 ];
 
 export function NavRail({ tab, onTab, onSettings, badge }: { tab: Tab; onTab: (t: Tab) => void; onSettings: () => void; badge: number }) {
@@ -22,12 +22,17 @@ export function NavRail({ tab, onTab, onSettings, badge }: { tab: Tab; onTab: (t
   return (
     <nav className="rail" aria-label="Bloom">
       <div className="rail-brand" aria-hidden="true">
-        <svg viewBox="0 0 32 32" width="26" height="26">
-          <g transform="translate(16 16)">
-            {[0, 72, 144, 216, 288].map((r) => (
-              <ellipse key={r} rx="5.2" ry="8.4" cy="-7.2" transform={`rotate(${r})`} fill="var(--brand-petal)" />
-            ))}
-            <circle r="4" fill="var(--brand-center)" />
+        <svg viewBox="24 24 464 464" width="30" height="30">
+          <rect x="24" y="24" width="464" height="464" rx="116" fill="#3f4f49" />
+          <rect x="148" y="150" width="216" height="210" rx="38" fill="none" stroke="#f3e9dc" strokeWidth="18" />
+          <line x1="148" y1="206" x2="364" y2="206" stroke="#f3e9dc" strokeWidth="18" />
+          <line x1="206" y1="126" x2="206" y2="170" stroke="#f3e9dc" strokeWidth="18" strokeLinecap="round" />
+          <line x1="306" y1="126" x2="306" y2="170" stroke="#f3e9dc" strokeWidth="18" strokeLinecap="round" />
+          <g transform="translate(256 284)" fill="none" stroke="#e9b7ad" strokeWidth="16">
+            <circle cx="0" cy="-26" r="26" />
+            <circle cx="26" cy="0" r="26" />
+            <circle cx="0" cy="26" r="26" />
+            <circle cx="-26" cy="0" r="26" />
           </g>
         </svg>
       </div>
@@ -125,6 +130,7 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
                     <span className="up-title" dir="auto">
                       {o.event.title || '—'}
                     </span>
+                    {o.event.visibility === 'shared' && <Icon name="people" size={14} className="shared-ico" />}
                   </button>
                 </li>
               ))}

@@ -96,6 +96,22 @@ const paths: Record<string, ReactNode> = {
       <path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5" />
     </>
   ),
+  people: (
+    <>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3 19.5c0-3.4 2.7-6 6-6s6 2.6 6 6" />
+      <circle cx="17" cy="9" r="2.6" />
+      <path d="M16.2 13.6c3 .1 4.8 2.4 4.8 5.4" />
+    </>
+  ),
+  wallet: (
+    <>
+      <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3" />
+      <rect x="4" y="7.5" width="16.5" height="12" rx="2.5" />
+      <path d="M20.5 11.5H16a2 2 0 0 0 0 4h4.5" />
+      <circle cx="16.5" cy="13.5" r=".8" />
+    </>
+  ),
   pen: <path d="M16.5 3.5l4 4L8 20H4v-4z" />,
   sparkle: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />,
   grip: (

@@ -5,6 +5,7 @@ import type { DayEntry, JournalEntry } from '../shared/types';
 import type { ReminderOccurrence } from './calendarData';
 import { Icon } from './common';
 import { hasContent } from './Journal';
+import { NoteIcon } from './NotePopover';
 import { useBloom } from './store';
 
 interface Props {
@@ -12,16 +13,16 @@ interface Props {
   journal?: JournalEntry;
   reminders?: ReminderOccurrence[];
   onOpenJournal: () => void;
+  onOpenNotes?: (anchor: HTMLElement) => void;
   compact?: boolean;
 }
 
-export function DayChips({ entry, journal, reminders = [], onOpenJournal, compact }: Props) {
+export function DayChips({ entry, journal, reminders = [], onOpenJournal, onOpenNotes, compact }: Props) {
   const { t } = useBloom();
   const cards = entry?.cards ?? [];
   const todos = cards.filter((c) => c.kind === 'checklist').flatMap((c) => c.items.filter((i) => i.text.trim()));
   const doneCount = todos.filter((i) => i.done).length;
   const notes = cards.filter((c) => c.kind === 'text' && c.text.trim());
-  const noteEmoji = notes.find((n) => n.emoji)?.emoji;
   const hasJournal = hasContent(journal);
 
   if (!hasJournal && todos.length === 0 && notes.length === 0 && reminders.length === 0) return null;
@@ -59,10 +60,20 @@ export function DayChips({ entry, journal, reminders = [], onOpenJournal, compac
         </span>
       )}
       {notes.length > 0 && (
-        <span className="chip-day chip-note" title={t('notesCount', { n: notes.length })}>
-          <span aria-hidden="true">{noteEmoji ?? '📝'}</span>
+        <button
+          type="button"
+          className="chip-day chip-note"
+          data-note-anchor
+          title={t('notesCount', { n: notes.length })}
+          aria-label={t('notesCount', { n: notes.length })}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenNotes?.(e.currentTarget);
+          }}
+        >
+          <NoteIcon size={13} />
           {notes.length > 1 && notes.length}
-        </span>
+        </button>
       )}
       {reminders.length > 0 && (
         <span className="chip-day chip-bell" title={reminders.map((r) => r.reminder.title).join(' · ')}>

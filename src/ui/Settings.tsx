@@ -30,7 +30,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   }, [tab, settings.gameMode]);
 
   const tabs: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
-    { id: 'account', label: t('account'), icon: 'heart' },
+    { id: 'account', label: t('account'), icon: 'people' },
     { id: 'general', label: t('general'), icon: 'settings' },
     { id: 'calendar', label: t('calendar'), icon: 'calendar' },
     { id: 'reminders', label: t('notifications'), icon: 'bell' },
@@ -67,6 +67,18 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                   value={settings.theme}
                   onChange={(theme) => setSettings({ theme })}
                   options={(['system', 'light', 'dark'] as ThemeMode[]).map((v) => ({ value: v, label: t(`theme_${v}` as StringKey) }))}
+                />
+              </Field>
+              <Field label={t('currency')}>
+                <Segmented
+                  value={settings.currency}
+                  onChange={(currency) => setSettings({ currency })}
+                  options={[
+                    { value: 'ILS', label: '₪ ILS' },
+                    { value: 'USD', label: '$ USD' },
+                    { value: 'EUR', label: '€ EUR' },
+                    { value: 'GBP', label: '£ GBP' },
+                  ]}
                 />
               </Field>
               <Field label={t('weekStart')}>

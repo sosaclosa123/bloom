@@ -7,11 +7,12 @@ import { newMeta } from '../shared/db';
 import { parseQuickAdd } from '../shared/quickAdd';
 import type { ISODate } from '../shared/types';
 import { Icon, IconButton, Segmented } from './common';
+import { monthInk } from './season';
 import { useBloom } from './store';
 
-export type Tab = 'calendar' | 'upcoming' | 'journal' | 'countdowns';
+export type Tab = 'calendar' | 'upcoming' | 'countdowns' | 'wallet';
 export type CalView = 'month' | 'week';
-export type AddKind = 'event' | 'reminder' | 'todo' | 'note' | 'journal' | 'countdown';
+export type AddKind = 'event' | 'reminder' | 'todo' | 'note' | 'journal' | 'countdown' | 'sticker';
 
 interface Props {
   tab: Tab;
@@ -31,11 +32,11 @@ interface Props {
 }
 
 export function Header(p: Props) {
-  const { t, locale, settings } = useBloom();
+  const { t, locale, settings, dark, setSettings } = useBloom();
   const rtl = settings.language === 'he';
 
   const title = useMemo(() => {
-    if (p.tab !== 'calendar') return t(p.tab === 'upcoming' ? 'upcoming' : p.tab === 'journal' ? 'journal' : 'countdowns');
+    if (p.tab !== 'calendar') return t(p.tab === 'upcoming' ? 'upcoming' : p.tab === 'wallet' ? 'wallet' : 'countdowns');
     if (p.view === 'month') return p.anchor.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
     const s = startOfWeek(p.anchor, settings.weekStart);
     const e = addDays(s, 6);
@@ -47,7 +48,9 @@ export function Header(p: Props) {
 
   return (
     <header className={`header ${p.isDesktop ? 'desktop' : ''}`}>
-      <h1 className="period-title">{title}</h1>
+      <h1 className={`period-title ${p.tab === 'calendar' ? 'is-month' : ''}`} style={p.tab === 'calendar' ? { color: monthInk(p.anchor.getMonth(), dark) } : undefined}>
+        {title}
+      </h1>
       {p.tab === 'calendar' && (
         <div className="nav">
           <IconButton icon={rtl ? 'chevronRight' : 'chevronLeft'} label={t('prev')} onClick={p.onPrev} />
@@ -58,6 +61,18 @@ export function Header(p: Props) {
         </div>
       )}
       <span className="spacer" />
+      {p.tab === 'calendar' && (
+        <button
+          type="button"
+          className={`hebdate-toggle ${settings.showHebrewDate ? 'on' : ''}`}
+          aria-pressed={settings.showHebrewDate}
+          title={t('showHebrewDate')}
+          onClick={() => setSettings({ showHebrewDate: !settings.showHebrewDate })}
+        >
+          <span aria-hidden="true">א׳</span>
+          {t('hebrewDates')}
+        </button>
+      )}
       {p.tab === 'calendar' && (
         <Segmented
           value={p.view}
@@ -70,7 +85,7 @@ export function Header(p: Props) {
         />
       )}
       <IconButton icon="search" label={`${t('search')} (Ctrl+K)`} onClick={p.onSearch} />
-      <AddMenu open={p.addOpen} setOpen={p.setAddOpen} date={p.addDate} onAdd={p.onAdd} onQuickAdded={p.onQuickAdded} />
+      {p.tab !== 'wallet' && <AddMenu open={p.addOpen} setOpen={p.setAddOpen} date={p.addDate} onAdd={p.onAdd} onQuickAdded={p.onQuickAdded} />}
     </header>
   );
 }
@@ -81,6 +96,7 @@ const ADD_OPTIONS: { kind: AddKind; emoji: string; label: StringKey }[] = [
   { kind: 'note', emoji: '📝', label: 'tileNote' },
   { kind: 'journal', emoji: '📖', label: 'tileJournal' },
   { kind: 'countdown', emoji: '⏳', label: 'tileCountdown' },
+  { kind: 'sticker', emoji: '🌸', label: 'sticker' },
 ];
 
 function AddMenu({

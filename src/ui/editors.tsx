@@ -3,13 +3,13 @@ import { formatRemindBefore, type StringKey } from '../i18n/strings';
 import { dateOf, parseLocal, timeOf, toLocalDateTime } from '../shared/dates';
 import type { CalendarEvent, Countdown, Repeat, Reminder } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Toggle } from './common';
-import { COUNTDOWN_EMOJIS, EVENT_COLORS, REMIND_PRESETS } from './drafts';
+import { COUNTDOWN_EMOJIS, EVENT_COLORS } from './drafts';
 import { platform } from '../platform/api';
 import { BUILTIN_SOUNDS, playSound } from './sound';
 import { useAlive, useBloom } from './store';
 
 /** Collapsible "More options" section that keeps forms short. */
-function MoreOptions({ open, children }: { open: boolean; children: ReactNode }) {
+function MoreOptions({ open, children, label }: { open: boolean; children: ReactNode; label?: string }) {
   const { t } = useBloom();
   // Remember open/closed ourselves: only the initial state comes from `open`,
   // so editing a field inside never collapses the section.
@@ -18,7 +18,7 @@ function MoreOptions({ open, children }: { open: boolean; children: ReactNode })
     <details className="more-options" open={isOpen} onToggle={(e) => setIsOpen((e.target as HTMLDetailsElement).open)}>
       <summary>
         <Icon name="chevronRight" size={14} className="more-chevron" />
-        {t('moreOptions')}
+        {label ?? t('moreOptions')}
       </summary>
       <div className="more-body">{children}</div>
     </details>
@@ -33,7 +33,7 @@ export function ShareToggle({ value, onChange }: { value: 'shared' | 'private'; 
       checked={value === 'shared'}
       label={
         <>
-          <Icon name={value === 'shared' ? 'heart' : 'lock'} size={14} /> {value === 'shared' ? t('sharedWithPartner') : t('privateOnlyMe')}
+          <Icon name={value === 'shared' ? 'people' : 'lock'} size={14} /> {value === 'shared' ? t('sharedWithPartner') : t('privateOnlyMe')}
         </>
       }
       onChange={(on) => onChange(on ? 'shared' : 'private')}
@@ -94,38 +94,70 @@ export function SoundSelect({ value, onChange }: { value: string; onChange: (id:
   );
 }
 
+const UNITS = [
+  { key: 'unitMinutes', mins: 1 },
+  { key: 'unitHours', mins: 60 },
+  { key: 'unitDays', mins: 1440 },
+  { key: 'unitWeeks', mins: 10080 },
+] as const;
+
+/** "Notify me": chips for each notification + a simple "[15] [minutes] before  Add" row. */
 export function RemindersPicker({ value, onChange }: { value: number[]; onChange: (v: number[]) => void }) {
   const { t, settings } = useBloom();
-  const available = REMIND_PRESETS.filter((m) => !value.includes(m));
+  const [amount, setAmount] = useState('15');
+  const [unit, setUnit] = useState<number>(1);
+  const n = Math.round(Number(amount));
+  const valid = Number.isFinite(n) && n >= 1 && n <= 999;
+  const add = (mins: number) => !value.includes(mins) && onChange([...value, mins].sort((a, b) => a - b));
   return (
-    <div className="remind-picker">
-      {value.length === 0 && <span className="muted">{t('noReminder')}</span>}
-      {[...value]
-        .sort((a, b) => a - b)
-        .map((m) => (
-          <span key={m} className="chip">
-            <Icon name="bell" size={12} />
-            {formatRemindBefore(settings.language, m)}
-            <button type="button" aria-label={t('delete')} onClick={() => onChange(value.filter((x) => x !== m))}>
-              <Icon name="close" size={11} />
-            </button>
-          </span>
-        ))}
-      {available.length > 0 && (
-        <select
-          className="chip-add"
-          value=""
-          aria-label={t('addAnother')}
-          onChange={(e) => e.target.value !== '' && onChange([...value, Number(e.target.value)])}
-        >
-          <option value="">+ {t('addAnother')}</option>
-          {available.map((m) => (
-            <option key={m} value={m}>
+    <div className="notify">
+      <div className="remind-picker">
+        {value.length === 0 && <span className="muted">{t('noReminder')}</span>}
+        {[...value]
+          .sort((a, b) => a - b)
+          .map((m) => (
+            <span key={m} className="chip">
+              <Icon name="bell" size={12} />
               {formatRemindBefore(settings.language, m)}
+              <button type="button" aria-label={t('delete')} onClick={() => onChange(value.filter((x) => x !== m))}>
+                <Icon name="close" size={11} />
+              </button>
+            </span>
+          ))}
+      </div>
+      <div className="notify-add">
+        <input
+          type="number"
+          min={1}
+          max={999}
+          inputMode="numeric"
+          value={amount}
+          aria-label={t('amount')}
+          onChange={(e) => setAmount(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (valid) add(n * unit);
+            }
+          }}
+        />
+        <select value={unit} aria-label={t('unit')} onChange={(e) => setUnit(Number(e.target.value))}>
+          {UNITS.map((u) => (
+            <option key={u.mins} value={u.mins}>
+              {t(u.key)}
             </option>
           ))}
         </select>
-      )}
+        <span className="muted">{t('before')}</span>
+        <Button size="sm" icon="plus" disabled={!valid || value.includes(n * unit)} onClick={() => add(n * unit)}>
+          {t('addAnother')}
+        </Button>
+        {!value.includes(0) && (
+          <Button size="sm" variant="ghost" onClick={() => add(0)}>
+            {t('remindAtStart')}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -251,19 +283,16 @@ export function EventEditor({ initial, isNew, onClose }: { initial: CalendarEven
           <RemindersPicker value={ev.remindBefore} onChange={(remindBefore) => set({ remindBefore })} />
         </Field>
         {ev.remindBefore.length > 0 && (
-          <Field label={t('sound')}>
+          <MoreOptions open={false} label={t('notificationSound')}>
             <SoundSelect value={ev.sound} onChange={(sound) => set({ sound })} />
-          </Field>
+          </MoreOptions>
         )}
 
         <ShareToggle value={ev.visibility} onChange={(visibility) => set({ visibility })} />
 
-        <MoreOptions open={ev.repeat !== 'none' || !!ev.location || !!ev.notes}>
+        <MoreOptions open={ev.repeat !== 'none' || !!ev.notes}>
           <Field label={t('repeat')}>
             <RepeatSelect value={ev.repeat} onChange={(repeat) => set({ repeat })} />
-          </Field>
-          <Field label={t('location')}>
-            <input dir="auto" value={ev.location} placeholder={t('locationPlaceholder')} onChange={(e) => set({ location: e.target.value })} />
           </Field>
           <Field label={t('notes')}>
             <textarea dir="auto" className="notebook" rows={4} value={ev.notes} placeholder={t('notesPlaceholder')} onChange={(e) => set({ notes: e.target.value })} />

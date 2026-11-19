@@ -8,6 +8,10 @@
   /* Typography */
   --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Rubik', 'Helvetica Neue', Arial, sans-serif;
   --font-display: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Month titles: soft modern serif (Hebrew falls back to Frank Ruhl Libre). */
+  --font-month: 'Fraunces', 'Frank Ruhl Libre', Georgia, serif;
+  /* Day headlines: handwriting (Hebrew falls back to Amatic SC). */
+  --font-hand: 'Caveat', 'Amatic SC', 'Segoe Print', cursive;
   --fs-xs: 11px;
   --fs-sm: 12.5px;
   --fs-md: 14px;
@@ -102,6 +106,13 @@
   --journal-chip-bg: #dcebfb;
   --journal-chip-text: #3767ad;
 
+  /* Charts (validated color-blind-safe trio + status) */
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --status-warning-c: #d99100;
+  --status-critical-c: #d64545;
+
   /* Day chips on the calendar */
   --chip-todo-bg: #e2f5e8;
   --chip-todo-text: #3f8f5c;
@@ -154,6 +165,11 @@
   --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.5);
   --scrim: rgba(0, 0, 0, 0.45);
 
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --status-warning-c: #c98500;
+  --status-critical-c: #e66767;
   --journal-scrim: rgba(5, 8, 18, 0.62);
   --journal-bg: #1f2737;
   --journal-head-from: #234a80;

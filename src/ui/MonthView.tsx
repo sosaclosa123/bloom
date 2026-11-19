@@ -5,7 +5,11 @@ import type { EventOccurrence } from '../shared/recurrence';
 import type { ISODate } from '../shared/types';
 import { formatTime, isDailyNudge, useRangeData, weekdayNames } from './calendarData';
 import { newDayEntry, nextStatus } from './drafts';
+import { Icon } from './common';
+import { monthColor, monthInk, SeasonLayer, seasonOf } from './season';
 import { DayChips } from './DayChips';
+import { hasContent } from './Journal';
+import { StickerArt, StickerLayer } from './Stickers';
 import { useAlive, useBloom } from './store';
 
 interface Props {
@@ -14,10 +18,15 @@ interface Props {
   onOpenDay: (date: ISODate) => void;
   onOpenEvent: (occ: EventOccurrence) => void;
   onOpenJournal: (date: ISODate) => void;
+  onOpenNotes: (date: ISODate, anchor: HTMLElement, mode: 'view' | 'new') => void;
+  onOpenStickers: (date: ISODate, anchor: HTMLElement) => void;
+  selectedSticker: string | null;
+  onSelectSticker: (id: string | null) => void;
 }
 
-export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJournal }: Props) {
-  const { settings, locale, t, save } = useBloom();
+export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJournal, onOpenNotes, onOpenStickers, selectedSticker, onSelectSticker }: Props) {
+  const { settings, locale, t, save, dark } = useBloom();
+  const m = anchor.getMonth();
   const grid = useMemo(
     () => monthGrid(anchor.getFullYear(), anchor.getMonth(), settings.weekStart),
     [anchor, settings.weekStart],
@@ -31,7 +40,8 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
   const rows = grid[35].getMonth() !== anchor.getMonth() ? 5 : 6;
 
   return (
-    <div className="month" style={{ ['--rows' as string]: rows }}>
+    <div className={`month season-${seasonOf(m)}`} style={{ ['--rows' as string]: rows, ['--month-ink' as string]: monthInk(m, dark) }}>
+      <SeasonLayer month={m} />
       <div className="month-weekdays">
         {names.map((n) => (
           <div key={n}>{n}</div>
@@ -47,7 +57,12 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
           const hol = data.holidays.get(iso) ?? [];
           const outside = d.getMonth() !== anchor.getMonth();
           const isToday = sameDay(d, today);
-          const maxPills = entry?.headline ? 2 : 3;
+          // Leave room so the day's chips (journal, to-dos, notes) are never pushed out of view.
+          const hasChips =
+            rems.length > 0 ||
+            hasContent(journalByDate.get(iso)) ||
+            !!entry?.cards.some((c) => (c.kind === 'text' ? c.text.trim() : c.items.some((i) => i.text.trim())));
+          const maxPills = Math.max(1, 3 - (entry?.headline ? 1 : 0) - (hasChips ? 1 : 0));
           const shown = occs.slice(0, maxPills);
           const hidden = occs.length - shown.length;
           const cls = [
@@ -66,9 +81,10 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
             <div
               key={iso}
               className={cls}
-              style={{ ['--i' as string]: cellIdx }}
+              style={{ ['--i' as string]: cellIdx, ['--cell-bg' as string]: monthColor(d.getMonth(), dark) }}
               role="button"
               tabIndex={0}
+              data-date={iso}
               aria-label={d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
               onClick={() => onOpenDay(iso)}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpenDay(iso))}
@@ -100,7 +116,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
                   <button
                     type="button"
                     key={o.key}
-                    className={`pill ev-${o.event.color} ${o.event.allDay ? 'allday' : ''}`}
+                    className={`pill ev-${o.event.color} ${o.event.allDay ? 'allday' : ''} ${o.event.visibility === 'shared' ? 'is-shared' : 'is-private'}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       onOpenEvent(o);
@@ -109,11 +125,43 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
                   >
                     {!o.event.allDay && sameDay(o.start, d) && <span className="pill-time">{formatTime(o.start, locale)}</span>}
                     <span className="pill-title" dir="auto">{o.event.title || '—'}</span>
+                    {o.event.visibility === 'shared' && <Icon name="people" size={11} className="pill-shared" />}
                   </button>
                 ))}
                 {hidden > 0 && <span className="more">{t('more', { n: hidden })}</span>}
               </div>
-              <DayChips entry={entry} journal={journalByDate.get(iso)} reminders={rems} onOpenJournal={() => onOpenJournal(iso)} />
+              <DayChips
+                entry={entry}
+                journal={journalByDate.get(iso)}
+                reminders={rems}
+                onOpenJournal={() => onOpenJournal(iso)}
+                onOpenNotes={(el) => onOpenNotes(iso, el, 'view')}
+              />
+              <StickerLayer date={iso} entry={entry} selectedId={selectedSticker} onSelect={onSelectSticker} />
+              <button
+                type="button"
+                className="cell-add cell-sticker"
+                aria-label={t('addSticker')}
+                title={t('addSticker')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenStickers(iso, e.currentTarget);
+                }}
+              >
+                <StickerArt kind="flowers" size={18} />
+              </button>
+              <button
+                type="button"
+                className="cell-add"
+                aria-label={t('addNoteTo', { d: d.getDate() })}
+                title={t('addNoteTo', { d: d.getDate() })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenNotes(iso, e.currentTarget, 'new');
+                }}
+              >
+                <Icon name="plus" size={13} />
+              </button>
             </div>
           );
         })}

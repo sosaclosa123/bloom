@@ -10,6 +10,7 @@ import { formatDayTitle, formatTime, useRangeData, type ReminderOccurrence } fro
 import { Button, EditableText, Icon, IconButton } from './common';
 import { CARD_EMOJIS, newCard, newDayEntry } from './drafts';
 import { hasContent, JournalPreview, useJournalEntry } from './Journal';
+import { NoteRich } from './NoteRich';
 import { useAlive, useBloom } from './store';
 
 export type DrawerTab = 'plan' | 'todo' | 'notes' | 'journal';
@@ -168,19 +169,9 @@ export function DayDrawer(p: Props) {
               onClick={() => update({ status: entry?.status === s.value ? null : s.value })}
             >
               <span className={`status-dot ${s.value}`} />
-              {entry?.status === s.value && <span className="busy-label">{t(s.key)}</span>}
             </button>
           ))}
         </div>
-          <span className="spacer" />
-          <div className="day-share" role="radiogroup" aria-label={t('sharedWithPartner')}>
-            <button type="button" role="radio" aria-checked={(entry?.visibility ?? 'private') === 'private'} className={(entry?.visibility ?? 'private') === 'private' ? 'active' : ''} onClick={() => update({ visibility: 'private' })} title={t('privateOnlyMe')}>
-              <Icon name="lock" size={12} /> {t('dayPrivate')}
-            </button>
-            <button type="button" role="radio" aria-checked={entry?.visibility === 'shared'} className={entry?.visibility === 'shared' ? 'active shared' : ''} onClick={() => update({ visibility: 'shared' })} title={t('sharedWithPartner')}>
-              <Icon name="heart" size={12} /> {t('dayShared')}
-            </button>
-          </div>
         </div>
          <EditableText className="headline-input" value={entry?.headline ?? ''} placeholder={t('headlinePlaceholder')} onSave={(v) => update({ headline: v })} />
       </div>
@@ -336,7 +327,7 @@ function NoteEditor({
           </div>
         )}
       </div>
-      <EditableText multiline className="card-text" value={card.text} autoFocus={autoFocus} placeholder={t('notePlaceholder')} onSave={(v) => commit({ text: v })} />
+      <NoteRich className="card-text" value={card.text} autoFocus={autoFocus} placeholder={t('notePlaceholder')} onSave={(v) => commit({ text: v })} />
       <IconButton icon="trash" label={t('delete')} className="card-delete" onClick={onDelete} />
     </div>
   );
@@ -360,7 +351,7 @@ function PlanEventRow({ occ, onOpen }: { occ: EventOccurrence; onOpen: () => voi
           </span>
           <span className="item-icons">
             {ev.remindBefore.length > 0 && <Icon name="bell" size={13} />}
-            {ev.visibility === 'shared' && <Icon name="heart" size={13} />}
+            {ev.visibility === 'shared' && <Icon name="people" size={13} className="shared-ico" />}
             {ev.repeat !== 'none' && <Icon name="repeat" size={13} />}
           </span>
         </button>

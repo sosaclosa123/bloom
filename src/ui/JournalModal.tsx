@@ -135,7 +135,7 @@ export function JournalModal({ date, onClose, onChangeDate }: Props) {
               <Icon name="lock" size={13} /> {t('private')}
             </button>
             <button type="button" role="radio" aria-checked={!isPrivate} className={!isPrivate ? 'active' : ''} onClick={() => update({ visibility: 'shared' })}>
-              <Icon name="heart" size={13} className="heart-icon" /> {t('shared')}
+              <Icon name="people" size={13} className="heart-icon" /> {t('shared')}
             </button>
           </div>
           <span className="spacer" />

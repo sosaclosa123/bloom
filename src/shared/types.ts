@@ -48,12 +48,25 @@ export interface NoteCard {
   emoji: string; // shown as a tiny marker in the month cell ('' = dot)
 }
 
+/** A sticker placed on a day. Position is a fraction of the day's square (so it
+ * follows the square when the window resizes); size is in pixels (fixed). */
+export interface PlacedSticker {
+  id: string;
+  kind: string;
+  x: number; // 0..1, center
+  y: number; // 0..1, center
+  size: number; // px
+  rot: number; // degrees
+  locked: boolean;
+}
+
 /** Everything written *on* a day (the "Day Card"). */
 export interface DayEntry extends SyncMeta {
   date: ISODate; // one entry per date
   status: DayStatus | null;
   headline: string;
   cards: NoteCard[];
+  stickers?: PlacedSticker[];
 }
 
 export interface Reminder extends SyncMeta {
@@ -93,6 +106,42 @@ export interface JournalEntry extends SyncMeta {
   photos: PhotoRef[];
 }
 
+// ---------------------------------------------------------------- money (Wallet tab)
+
+export type MoneyGroup = 'need' | 'want';
+export interface MoneyAccount extends SyncMeta {
+  kind: 'account';
+  name: string;
+  type: 'bank' | 'cash' | 'card' | 'savings';
+  startBalance: number;
+  emoji: string;
+}
+/** expense / income, or 'saving' = money put toward a savings goal. */
+export interface MoneyTxn extends SyncMeta {
+  kind: 'txn';
+  type: 'expense' | 'income' | 'saving';
+  amount: number; // always positive
+  category: string;
+  date: ISODate;
+  note: string;
+  accountId: string | null;
+  goalId: string | null;
+}
+export interface MoneyBudget extends SyncMeta {
+  kind: 'budget';
+  category: string;
+  monthly: number;
+}
+export interface MoneyGoal extends SyncMeta {
+  kind: 'goal';
+  name: string;
+  emoji: string;
+  target: number;
+  startSaved: number;
+  targetDate: ISODate | null;
+}
+export type MoneyItem = MoneyAccount | MoneyTxn | MoneyBudget | MoneyGoal;
+
 export type HolidaySet = 'none' | 'jewish' | 'christian' | 'both';
 export type Language = 'en' | 'he';
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -113,6 +162,7 @@ export interface Settings {
   defaultRemindBefore: number[];
   volume: number; // 0..1
   snoozeOptions: number[]; // minutes
+  currency: string; // ISO code, e.g. ILS
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -130,6 +180,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultRemindBefore: [15],
   volume: 0.8,
   snoozeOptions: [10, 60],
+  currency: 'ILS',
 };
 
 export interface Collections {
@@ -139,6 +190,7 @@ export interface Collections {
   countdowns: Countdown[];
   sounds: SoundMeta[];
   journal: JournalEntry[];
+  money: MoneyItem[];
 }
 
 export type CollectionName = keyof Collections;
