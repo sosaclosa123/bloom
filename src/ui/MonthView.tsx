@@ -6,25 +6,23 @@ import type { ISODate } from '../shared/types';
 import { formatTime, isDailyNudge, useRangeData, weekdayNames } from './calendarData';
 import { newDayEntry, nextStatus } from './drafts';
 import { Icon } from './common';
-import { monthColor, monthInk, seasonOf } from './season';
+import { dayColor, inkOf, monthColor, monthInk, seasonOf } from './season';
 import { DayChips } from './DayChips';
-import { hasContent } from './Journal';
-import { StickerArt, StickerLayer } from './Stickers';
-import { useAlive, useBloom } from './store';
+import { StickerLayer } from './Stickers';
+import { useBloom } from './store';
 
 interface Props {
   anchor: Date;
   selected: ISODate | null;
   onOpenDay: (date: ISODate) => void;
   onOpenEvent: (occ: EventOccurrence) => void;
-  onOpenJournal: (date: ISODate) => void;
   onOpenNotes: (date: ISODate, anchor: HTMLElement, mode: 'view' | 'new') => void;
   onOpenStickers: (date: ISODate, anchor: HTMLElement) => void;
   selectedSticker: string | null;
   onSelectSticker: (id: string | null) => void;
 }
 
-export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJournal, onOpenNotes, onOpenStickers, selectedSticker, onSelectSticker }: Props) {
+export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNotes, onOpenStickers, selectedSticker, onSelectSticker }: Props) {
   const { settings, locale, t, save } = useBloom();
   const m = anchor.getMonth();
   const grid = useMemo(
@@ -32,8 +30,6 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
     [anchor, settings.weekStart],
   );
   const data = useRangeData(grid[0], addDays(grid[41], 1));
-  const journal = useAlive('journal');
-  const journalByDate = useMemo(() => new Map(journal.map((j) => [j.date, j])), [journal]);
   const today = new Date();
   const names = weekdayNames(locale, settings.weekStart, 'short');
   // Show only 5 rows when the 6th row is entirely next month.
@@ -56,10 +52,9 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
           const hol = data.holidays.get(iso) ?? [];
           const outside = d.getMonth() !== anchor.getMonth();
           const isToday = sameDay(d, today);
-          // Leave room so the day's chips (journal, to-dos, notes) are never pushed out of view.
+          // Leave room so the day's chips (to-dos, notes) are never pushed out of view.
           const hasChips =
             rems.length > 0 ||
-            hasContent(journalByDate.get(iso)) ||
             !!entry?.cards.some((c) => (c.kind === 'text' ? c.text.trim() : c.items.some((i) => i.text.trim())));
           const maxPills = Math.max(1, 3 - (entry?.headline ? 1 : 0) - (hasChips ? 1 : 0));
           const shown = occs.slice(0, maxPills);
@@ -80,7 +75,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
             <div
               key={iso}
               className={cls}
-              style={{ ['--i' as string]: cellIdx, ['--cell-bg' as string]: monthColor(d.getMonth()) }}
+              style={{ ['--i' as string]: cellIdx, ['--cell-bg' as string]: dayColor(d), ['--day-ink' as string]: inkOf(monthColor(d.getMonth()), 'strong'), ['--heb-ink' as string]: inkOf(monthColor(d.getMonth()), 'medium') }}
               role="button"
               tabIndex={0}
               data-date={iso}
@@ -131,9 +126,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
               </div>
               <DayChips
                 entry={entry}
-                journal={journalByDate.get(iso)}
                 reminders={rems}
-                onOpenJournal={() => onOpenJournal(iso)}
                 onOpenNotes={(el) => onOpenNotes(iso, el, 'view')}
               />
               <StickerLayer date={iso} entry={entry} selectedId={selectedSticker} onSelect={onSelectSticker} />
@@ -147,7 +140,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
                   onOpenStickers(iso, e.currentTarget);
                 }}
               >
-                <StickerArt kind="flowers" size={18} />
+                <Icon name="sticker" size={15} />
               </button>
               <button
                 type="button"

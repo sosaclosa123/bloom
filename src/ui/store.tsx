@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { dirFor, localeFor, translate, type StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { alive } from '../shared/db';
+import { setCustomMonthColors } from './season';
 import type { CollectionName, RecordOf, Settings, Snapshot } from '../shared/types';
 
 export interface Toast {
@@ -50,6 +51,7 @@ export function BloomProvider({ initial, children }: { initial: Snapshot; childr
   useEffect(() => platform.onChange(setSnap), []);
 
   const settings = snap.settings;
+  setCustomMonthColors(settings.monthColors); // month colors chosen in the Year view
   const dark = settings.theme === 'system' ? systemDark : settings.theme === 'dark';
   const dir = dirFor(settings.language);
 

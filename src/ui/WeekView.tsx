@@ -5,10 +5,10 @@ import type { EventOccurrence } from '../shared/recurrence';
 import type { ISODate } from '../shared/types';
 import { formatTime, useRangeData, type ReminderOccurrence } from './calendarData';
 import { Icon } from './common';
-import { dayColor } from './season';
+import { dayColor, inkOf, monthColor } from './season';
 import { newDayEntry, nextStatus } from './drafts';
 import { DayChips } from './DayChips';
-import { useAlive, useBloom } from './store';
+import { useBloom } from './store';
 
 const HOUR_H = 52;
 
@@ -19,7 +19,6 @@ interface Props {
   onOpenEvent: (occ: EventOccurrence) => void;
   onOpenReminder: (r: ReminderOccurrence) => void;
   onCreateAt: (date: ISODate, time: string) => void;
-  onOpenJournal: (date: ISODate) => void;
   onOpenNotes: (date: ISODate, anchor: HTMLElement, mode: 'view' | 'new') => void;
 }
 
@@ -71,14 +70,12 @@ function layoutDay(occs: EventOccurrence[], day: Date): Placed[] {
   return placed;
 }
 
-export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenReminder, onCreateAt, onOpenJournal, onOpenNotes }: Props) {
+export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenReminder, onCreateAt, onOpenNotes }: Props) {
   const { settings, locale, t, save } = useBloom();
   const start = useMemo(() => startOfWeek(anchor, settings.weekStart), [anchor, settings.weekStart]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
   const data = useRangeData(start, addDays(start, 7));
   const scroller = useRef<HTMLDivElement>(null);
-  const journal = useAlive('journal');
-  const journalByDate = useMemo(() => new Map(journal.map((j) => [j.date, j])), [journal]);
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -111,7 +108,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
           return (
             <div
               key={iso}
-              style={{ ['--cell-bg' as string]: dayColor(d) }}
+              style={{ ['--cell-bg' as string]: dayColor(d), ['--day-ink' as string]: inkOf(monthColor(d.getMonth()), 'strong'), ['--heb-ink' as string]: inkOf(monthColor(d.getMonth()), 'medium') }}
               className={`week-day-head ${sameDay(d, now) ? 'today' : ''} ${selected === iso ? 'selected' : ''} ${entry?.status ? `status-${entry.status}` : ''}`}
               role="button"
               tabIndex={0}
@@ -136,7 +133,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
               {settings.showHebrewDate && <div className="hebdate">{hebrewDateLabel(d, settings.language)}</div>}
               {hol[0] && <div className="holiday-label">{hol[0].name}</div>}
               {entry?.headline && <div className="headline" dir="auto">{entry.headline}</div>}
-              <DayChips compact entry={entry} journal={journalByDate.get(iso)} onOpenJournal={() => onOpenJournal(iso)} onOpenNotes={(el) => onOpenNotes(iso, el, 'view')} />
+              <DayChips compact entry={entry} onOpenNotes={(el) => onOpenNotes(iso, el, 'view')} />
             </div>
           );
         })}

@@ -112,6 +112,15 @@ const paths: Record<string, ReactNode> = {
       <circle cx="16.5" cy="13.5" r=".8" />
     </>
   ),
+  sticker: (
+    <>
+      <path d="M5 4h14a1 1 0 0 1 1 1v9l-6 6H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+      <path d="M20 14h-4.5a1.5 1.5 0 0 0-1.5 1.5V20" />
+      <circle cx="9.5" cy="9.5" r="1" />
+      <circle cx="14.5" cy="9.5" r="1" />
+      <path d="M9 13.5c1.6 1.4 4.4 1.4 6 0" />
+    </>
+  ),
   pen: <path d="M16.5 3.5l4 4L8 20H4v-4z" />,
   sparkle: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />,
   grip: (

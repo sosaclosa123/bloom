@@ -1,40 +1,37 @@
 // Renders the Bloom app icon and tray icons to PNG.
-// Design: deep sage squircle, a calendar page in warm cream line work, and a
-// minimal four-petal bloom drawn from overlapping circles.
 const { chromium } = require('playwright');
 const path = require('path');
 
-const mark = (stroke, petal, sw) => `
-  <rect x="148" y="150" width="216" height="210" rx="38" fill="none" stroke="${stroke}" stroke-width="${sw}"/>
-  <line x1="148" y1="206" x2="364" y2="206" stroke="${stroke}" stroke-width="${sw}"/>
-  <line x1="206" y1="126" x2="206" y2="170" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>
-  <line x1="306" y1="126" x2="306" y2="170" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>
-  <g transform="translate(256 284)" fill="none" stroke="${petal}" stroke-width="${sw * 0.9}">
-    <circle cx="0" cy="-26" r="26"/><circle cx="26" cy="0" r="26"/><circle cx="0" cy="26" r="26"/><circle cx="-26" cy="0" r="26"/>
-  </g>
-  <circle cx="256" cy="284" r="7" fill="${petal}"/>`;
+// Logo: cream "b" with a blush leaf on deep sage.
+// The bowl of the b starts exactly at the stem's left edge (never sticks out).
+const STEM_X = 200; // stem centre
+const SW = 40; // stroke width
+const BOWL_R = 78;
+const BOWL_CX = STEM_X - SW / 2 + SW / 2 + BOWL_R; // bowl's outer-left edge == stem's outer-left edge
+const mark = (fg, leaf) => `<g transform="translate(-32 0)">
+  <path d="M${STEM_X} 128v254" stroke="${fg}" stroke-width="${SW}" stroke-linecap="round"/>
+  <circle cx="${BOWL_CX}" cy="304" r="${BOWL_R}" fill="none" stroke="${fg}" stroke-width="${SW}"/>
+  <path d="M304 178c10-46 50-70 92-66-4 44-40 76-92 66z" fill="${leaf}"/></g>`;
 
 const appIcon = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#4b5d55"/><stop offset="1" stop-color="#2c3733"/>
-    </linearGradient>
-    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0" stop-color="#46584f"/><stop offset="1" stop-color="#34433d"/>
     </linearGradient>
   </defs>
   <rect x="24" y="24" width="464" height="464" rx="116" fill="url(#bg)"/>
-  <rect x="24" y="24" width="464" height="464" rx="116" fill="url(#sheen)"/>
-  ${mark('#f3e9dc', '#e9b7ad', 14)}
+  ${mark('#f3ebe2', '#e9b0a3')}
 </svg>`;
 
 const tray = (badge) => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="64" height="64">
-  <rect x="40" y="40" width="432" height="432" rx="110" fill="#3c4a45"/>
-  ${mark('#f3e9dc', '#e9b7ad', 26)}
+  <rect x="24" y="24" width="464" height="464" rx="116" fill="#3f4f49"/>
+  ${mark('#f3ebe2', '#e9b0a3')}
   ${badge ? '<circle cx="410" cy="102" r="86" fill="#e2735f" stroke="#ffffff" stroke-width="28"/>' : ''}
 </svg>`;
+
+module.exports = { appIcon };
 
 (async () => {
   const browser = await chromium.launch();

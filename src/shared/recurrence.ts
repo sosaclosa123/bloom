@@ -1,5 +1,6 @@
 // Expands repeating items into concrete occurrences in a time range.
 // Shared by the UI (to draw the calendar) and the reminder scheduler.
+import { HDate, months } from '@hebcal/core';
 import { addDays, addMonths, daysInMonth, parseLocal, toLocalDateTime } from './dates';
 import type { CalendarEvent, LocalDateTime, Repeat } from './types';
 
@@ -20,7 +21,26 @@ export function nthOccurrence(start: Date, repeat: Repeat, n: number): Date {
     }
     case 'yearly':
       return addMonths(start, 12 * n);
+    case 'hebrewYearly':
+      return sameHebrewDate(start, n);
   }
+}
+
+/**
+ * The same Hebrew date n years later. Handles the calendar's quirks:
+ * Adar in leap years (Adar I/II) and the 30th of months that sometimes have 29 days.
+ */
+export function sameHebrewDate(start: Date, n: number): Date {
+  const hd = new HDate(start);
+  const year = hd.getFullYear() + n;
+  let month = hd.getMonth();
+  const leapNow = HDate.isLeapYear(hd.getFullYear());
+  const leapThen = HDate.isLeapYear(year);
+  if (month === months.ADAR_II && !leapThen) month = months.ADAR_I; // Adar II -> plain Adar
+  else if (month === months.ADAR_I && !leapNow && leapThen) month = months.ADAR_II; // plain Adar -> Adar II (common custom)
+  const day = Math.min(hd.getDate(), HDate.daysInMonth(month, year));
+  const g = new HDate(day, month, year).greg();
+  return new Date(g.getFullYear(), g.getMonth(), g.getDate(), start.getHours(), start.getMinutes());
 }
 
 /**
@@ -47,7 +67,7 @@ export function occurrencesBetween(
     if (repeat === 'daily') n = Math.max(0, Math.floor(lead / 86400000) - 1);
     else if (repeat === 'weekly') n = Math.max(0, Math.floor(lead / (7 * 86400000)) - 1);
     else if (repeat === 'monthly') n = Math.max(0, Math.floor(lead / (31 * 86400000)) - 1);
-    else if (repeat === 'yearly') n = Math.max(0, Math.floor(lead / (366 * 86400000)) - 1);
+    else if (repeat === 'yearly' || repeat === 'hebrewYearly') n = Math.max(0, Math.floor(lead / (390 * 86400000)) - 1);
   }
   for (let guard = 0; guard < 5000; guard++, n++) {
     const occ = nthOccurrence(s, repeat, n);

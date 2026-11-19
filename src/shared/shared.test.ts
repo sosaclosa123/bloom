@@ -139,3 +139,17 @@ describe('migration', () => {
     expect(newMeta().visibility).toBe('private');
   });
 });
+
+describe('hebrew dates', () => {
+  it('formats with ב and repeats on the same Hebrew date', async () => {
+    const { sameHebrewDate } = await import('./recurrence');
+    expect(hebrewDateLabel(new Date(2026, 10, 26), 'he')).toBe('ט״ז בכסלו');
+    // 16 Kislev 5787 = 26 Nov 2026 -> 16 Kislev 5788 = 16 Dec 2027
+    expect(sameHebrewDate(new Date(2026, 10, 26, 19, 30), 1).toString()).toBe(new Date(2027, 11, 16, 19, 30).toString());
+    // Birthday in plain Adar (5785, not leap) lands in Adar II in a leap year (5787)
+    const adar = sameHebrewDate(new Date(2025, 2, 10), 2); // 10 Mar 2025 = 10 Adar 5785
+    expect(hebrewDateLabel(adar, 'he')).toMatch(/אדר ב/);
+    const occ = occurrencesBetween('2026-11-26T19:30', 'hebrewYearly', new Date(2027, 0, 1), new Date(2029, 0, 1));
+    expect(occ.map((d) => hebrewDateLabel(d, 'he'))).toEqual(['ט״ז בכסלו', 'ט״ז בכסלו']);
+  });
+});

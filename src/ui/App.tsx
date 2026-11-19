@@ -9,8 +9,7 @@ import { Button, Icon, Toasts } from './common';
 import { DayDrawer, type DrawerTab } from './DayDrawer';
 import { newCountdown, newEvent, newReminder } from './drafts';
 import { CountdownEditor, EventEditor, ReminderEditor } from './editors';
-import { Header, type AddKind, type CalView, type Tab } from './Header';
-import { JournalModal } from './JournalModal';
+import { Header, type CalView, type Tab } from './Header';
 import { NotePopover, type NotePopState } from './NotePopover';
 import { addSticker, StickerDefs, StickerPicker } from './Stickers';
 import { MonthView } from './MonthView';
@@ -23,6 +22,7 @@ import { useBloom } from './store';
 import { UpdateBanner } from './Updates';
 import { WalletPage } from './Wallet';
 import { WeekView } from './WeekView';
+import { YearView } from './YearView';
 
 type ModalState =
   | { kind: 'event'; ev: CalendarEvent; isNew: boolean }
@@ -50,12 +50,10 @@ export function App() {
     return (['calendar', 'upcoming', 'countdowns', 'wallet'].includes(v) ? v : 'calendar') as Tab;
   });
   const [view, setView] = useState<CalView>(() => load('bloom-view', 'month'));
-  const [addOpen, setAddOpen] = useState(false);
   const [drawer, setDrawer] = useState<{ tab?: DrawerTab; autoAdd?: 'todo' | 'note'; n: number }>({ n: 0 });
   const [anchor, setAnchor] = useState(() => new Date());
   const [openDay, setOpenDay] = useState<ISODate | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
-  const [journalDate, setJournalDate] = useState<ISODate | null>(null);
   const [notePop, setNotePop] = useState<NotePopState | null>(null);
   const [stickerPick, setStickerPick] = useState<{ date: ISODate; anchor: HTMLElement } | null>(null);
   const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
@@ -100,7 +98,10 @@ export function App() {
   }, []);
 
   const go = useCallback(
-    (dir: 1 | -1) => setAnchor((a) => (view === 'month' ? addMonths(new Date(a.getFullYear(), a.getMonth(), 1), dir) : addDays(a, 7 * dir))),
+    (dir: 1 | -1) =>
+      setAnchor((a) =>
+        view === 'year' ? new Date(a.getFullYear() + dir, a.getMonth(), 1) : view === 'month' ? addMonths(new Date(a.getFullYear(), a.getMonth(), 1), dir) : addDays(a, 7 * dir),
+      ),
     [view],
   );
 
@@ -126,25 +127,6 @@ export function App() {
       setModal(c ? { kind: 'countdown', c, isNew: false } : { kind: 'countdown', c: newCountdown(toISODate(addDays(new Date(), 30))), isNew: true }),
     [],
   );
-  const addDate = openDay ?? toISODate(new Date());
-  const add = (kind: AddKind) => {
-    if (kind === 'event') createEvent(addDate);
-    if (kind === 'reminder') createReminder(addDate);
-    if (kind === 'todo') openDayAt(addDate, 'todo', 'todo');
-    if (kind === 'note') openDayAt(addDate, 'notes', 'note');
-    if (kind === 'journal') setJournalDate(addDate);
-    if (kind === 'countdown') editCountdown(null);
-    if (kind === 'sticker') {
-      // Show the month that has this day, then open the picker on its square.
-      setTab('calendar');
-      setView('month');
-      setAnchor(parseISODate(addDate));
-      setTimeout(() => {
-        const el = document.querySelector<HTMLElement>(`.cell[data-date="${addDate}"]`);
-        if (el) setStickerPick({ date: addDate, anchor: el });
-      }, 60);
-    }
-  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -154,7 +136,7 @@ export function App() {
         setModal({ kind: 'search' });
         return;
       }
-      if (modal || journalDate || addOpen || isTyping(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (modal || isTyping(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey) return;
       const rtl = settingsRef.current.language === 'he';
       switch (e.key) {
         case 't':
@@ -169,15 +151,13 @@ export function App() {
           setTab('calendar');
           setView('week');
           break;
+        case 'y':
+          setTab('calendar');
+          setView('year');
+          break;
         case 'n':
           createEvent(openDay ?? toISODate(new Date()));
           e.preventDefault();
-          break;
-        case '/':
-        case 'q':
-        case '+':
-          e.preventDefault();
-          setAddOpen(true);
           break;
         case 'ArrowLeft':
           go(rtl ? 1 : -1);
@@ -189,7 +169,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [modal, journalDate, addOpen, go, createEvent, openDay]);
+  }, [modal, go, createEvent, openDay]);
 
   const findEvent = (id: string) => snap.events.find((e) => e.id === id);
   const findReminder = (id: string) => snap.reminders.find((r) => r.id === id);
@@ -202,16 +182,11 @@ export function App() {
           tab={tab}
           view={view}
           anchor={anchor}
-          addDate={addDate}
           onView={setView}
           onPrev={() => go(-1)}
           onNext={() => go(1)}
           onToday={() => setAnchor(new Date())}
           onSearch={() => setModal({ kind: 'search' })}
-          onAdd={add}
-          onQuickAdded={(d) => setAnchor(parseISODate(d))}
-          addOpen={addOpen}
-          setAddOpen={setAddOpen}
           isDesktop={platform.kind === 'desktop'}
         />
         <div className="main">
@@ -239,9 +214,20 @@ export function App() {
               <UpcomingPage onOpenDay={showDay} onOpenEvent={openEvent} onOpenReminder={openReminder} />
             ) : tab === 'countdowns' ? (
               <CountdownsPage onEdit={editCountdown} />
+            ) : view === 'year' ? (
+              <YearView
+                year={anchor.getFullYear()}
+                onOpenMonth={(m) => {
+                  setAnchor(new Date(anchor.getFullYear(), m, 1));
+                  setView('month');
+                }}
+                onOpenDay={(d) => {
+                  setView('month');
+                  openDayAt(d);
+                }}
+              />
             ) : view === 'month' ? (
               <MonthView anchor={anchor} selected={openDay} onOpenDay={(d) => openDayAt(d)} onOpenEvent={openEvent}
-                onOpenJournal={setJournalDate}
                 onOpenNotes={openNotes}
                 onOpenStickers={(date, el) => setStickerPick({ date, anchor: el })}
                 selectedSticker={selectedSticker}
@@ -255,7 +241,6 @@ export function App() {
                 onOpenEvent={openEvent}
                 onOpenReminder={openReminder}
                 onCreateAt={(d, time) => createEvent(d, time)}
-                onOpenJournal={setJournalDate}
                 onOpenNotes={openNotes}
               />
             )}
@@ -271,7 +256,6 @@ export function App() {
               onNewEvent={(d) => createEvent(d)}
               onOpenReminder={openReminder}
               onNewReminder={createReminder}
-              onOpenJournal={setJournalDate}
             />
           )}
         </div>
@@ -294,7 +278,6 @@ export function App() {
       )}
       <StickerDefs />
       {notePop && <NotePopover key={`${notePop.date}-${notePop.n}`} state={notePop} onClose={() => setNotePop(null)} />}
-      {journalDate && <JournalModal key="journal" date={journalDate} onClose={() => setJournalDate(null)} onChangeDate={setJournalDate} />}
       {modal?.kind === 'settings' && <SettingsPanel onClose={() => setModal(null)} />}
       {modal?.kind === 'search' && (
         <Search

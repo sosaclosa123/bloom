@@ -3,25 +3,15 @@
 // (snow / petals / summer glints / falling leaves) for a little atmosphere.
 import { useMemo } from 'react';
 
-// One soft color per month (Jan..Dec), matched to Israel's climate
-// (coastal averages: high/low °C, rain):
-//  Jan 18/9  ~130mm  wettest & coldest  -> cool rain blue
-//  Feb 19/9  ~95mm   cold, almond blossom -> periwinkle lilac
-//  Mar 21/11 ~55mm   last rains, green fields, anemones -> fresh green
-//  Apr 24/13 ~20mm   full bloom, Pesach -> spring lime
-//  May 27/16 dry     warm, first sharav -> butter yellow
-//  Jun 29/19 dry     summer starts -> apricot
-//  Jul 31/22 dry     hottest, humid -> warm orange
-//  Aug 31/23 dry     peak heat -> terracotta rose
-//  Sep 30/21 dry     still hot, holidays -> golden sand
-//  Oct 28/18 ~15mm   first rain, autumn -> clay amber
-//  Nov 24/14 ~75mm   rains return, cooling -> olive sage
-//  Dec 20/11 ~120mm  winter rain, misty -> sea-mist teal
-// The calendar uses these in light AND dark mode (only the app around it goes dark).
-export const MONTH_BG = ['#c9daf4', '#d8d0f3', '#cbe8c8', '#e0ecb9', '#f6e6ad', '#f9d6b0', '#f8c7a2', '#f1b8a8', '#efd8a3', '#e4c7a4', '#d3dcbc', '#c6dfdf'];
-// Title colors: deeper versions for the light calendar, pastel versions for the dark top bar.
-export const MONTH_INK = ['#3a65a6', '#6553b5', '#3c8a4d', '#6a8c1c', '#a7820f', '#c37633', '#cc6630', '#bf5248', '#a77f22', '#93633b', '#5e7a40', '#357f82'];
-export const MONTH_INK_DARK = MONTH_BG;
+// Default month colors: "Earth & clay" — soft, close to the background.
+// Winter stone-blue, spring sage, summer soft clay, autumn brown (Jan..Dec).
+export const DEFAULT_MONTH_BG = ['#e1e6ec', '#e3e8e6', '#e2e9db', '#e7ebd8', '#ece9d6', '#f2e6d5', '#f3dfd2', '#f1dbd1', '#ede2d2', '#e8dccf', '#e5ded4', '#e4e7ea'];
+
+// The person can pick their own color per month (Year view → color dot).
+let custom: (string | null)[] = [];
+export function setCustomMonthColors(list: (string | null)[] | undefined) {
+  custom = list ?? [];
+}
 
 export type Season = 'winter' | 'spring' | 'summer' | 'autumn';
 export function seasonOf(month: number): Season {
@@ -31,26 +21,68 @@ export function seasonOf(month: number): Season {
   return 'autumn';
 }
 
+// ---------------------------------------------------------------- color math
+
 const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-function mix(a: string, b: string, t: number) {
+export function mix(a: string, b: string, t: number) {
   const A = hex(a);
   const B = hex(b);
-  return `rgb(${A.map((x, i) => Math.round(x + (B[i] - x) * t)).join(',')})`;
+  return '#' + A.map((x, i) => Math.round(x + (B[i] - x) * t).toString(16).padStart(2, '0')).join('');
 }
 
-/** Day-square color for a month (same in light and dark mode — the calendar stays light). */
+export function hexToHsl(h: string): [number, number, number] {
+  const [r, g, b] = hex(h).map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const hue = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [hue * 60, sat, l];
+}
+
+export function hslToHex(h: number, s: number, l: number): string {
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return '#' + [f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, '0')).join('');
+}
+
+/** A readable "ink" in the same hue as a soft color: day numbers, Hebrew dates, titles. */
+export function inkOf(bg: string, level: 'strong' | 'medium' | 'title' | 'titleDark'): string {
+  const [h, s] = hexToHsl(bg);
+  const sat = Math.min(0.55, Math.max(0.22, s * 1.4 + 0.12));
+  const l = { strong: 0.28, medium: 0.42, title: 0.36, titleDark: 0.8 }[level];
+  return hslToHex(h, sat, l);
+}
+
+// ---------------------------------------------------------------- per month / per day
+
+/** A month's own color (custom if the person chose one). */
 export function monthColor(month: number, _dark?: boolean) {
-  return MONTH_BG[month];
+  return custom[month] || DEFAULT_MONTH_BG[month];
 }
 export function monthInk(month: number, dark: boolean) {
-  return (dark ? MONTH_INK_DARK : MONTH_INK)[month];
+  return inkOf(monthColor(month), dark ? 'titleDark' : 'title');
 }
 
-/** A day's color fades through its month into the next one (used by the week view). */
+const BLEND_DAYS = 4;
+/**
+ * A day's color: its month's own color, gently blending toward the
+ * neighbouring month over the last / first 4 days. The last day of a month
+ * and the 1st of the next meet at the same halfway color, so it flows.
+ */
 export function dayColor(d: Date, _dark?: boolean) {
   const m = d.getMonth();
-  const days = new Date(d.getFullYear(), m + 1, 0).getDate();
-  return mix(MONTH_BG[m], MONTH_BG[(m + 1) % 12], (d.getDate() - 1) / days);
+  const n = new Date(d.getFullYear(), m + 1, 0).getDate();
+  const day = d.getDate();
+  const own = monthColor(m);
+  const toEnd = n - day; // 0 on the last day
+  if (toEnd < BLEND_DAYS) return mix(own, monthColor((m + 1) % 12), 0.5 * (1 - toEnd / BLEND_DAYS));
+  const fromStart = day - 1; // 0 on the 1st
+  if (fromStart < BLEND_DAYS) return mix(own, monthColor((m + 11) % 12), 0.5 * (1 - fromStart / BLEND_DAYS));
+  return own;
 }
 
 // ---------------------------------------------------------------- particles
@@ -91,7 +123,7 @@ export function SeasonLayer({ month, count = 14 }: { month: number; count?: numb
       i,
       left: r() * 100,
       size: 9 + r() * 9,
-      dur: 18 + r() * 16,
+      dur: (18 + r() * 16) * 0.9, // 10% faster than before
       delay: -r() * 30,
       sway: 8 + r() * 22,
       shape: SHAPES[season][i % SHAPES[season].length],

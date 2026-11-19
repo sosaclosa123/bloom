@@ -120,6 +120,10 @@ export function holidaysBetween(
 
 export function hebrewDateLabel(d: Date, lang: Language): string {
   const hd = new HDate(d);
-  if (lang === 'he') return stripNiqqud(hd.renderGematriya(true)).replace(/\s*תש.*$/, '');
+  if (lang === 'he') {
+    // "ט״ז בכסלו": day, then ב + month (year left out).
+    const [day, ...month] = stripNiqqud(hd.renderGematriya(true)).replace(/\s*ת[א-ת]*[״"][א-ת]$/, '').split(' ');
+    return `${day} ב${month.join(' ')}`;
+  }
   return `${hd.getDate()} ${hd.getMonthName()}`;
 }

@@ -5,6 +5,7 @@ import type { CalendarEvent, Countdown, Repeat, Reminder } from '../shared/types
 import { Button, Field, Icon, IconButton, Modal, Toggle } from './common';
 import { COUNTDOWN_EMOJIS, EVENT_COLORS } from './drafts';
 import { platform } from '../platform/api';
+import { hebrewDateLabel } from '../shared/holidays';
 import { BUILTIN_SOUNDS, playSound } from './sound';
 import { useAlive, useBloom } from './store';
 
@@ -41,7 +42,7 @@ export function ShareToggle({ value, onChange }: { value: 'shared' | 'private'; 
   );
 }
 
-const REPEATS: Repeat[] = ['none', 'daily', 'weekly', 'monthly', 'yearly'];
+const REPEATS: Repeat[] = ['none', 'daily', 'weekly', 'monthly', 'yearly', 'hebrewYearly'];
 
 export function RepeatSelect({ value, onChange }: { value: Repeat; onChange: (r: Repeat) => void }) {
   const { t } = useBloom();
@@ -99,45 +100,33 @@ const UNITS = [
   { key: 'unitHours', mins: 60 },
   { key: 'unitDays', mins: 1440 },
   { key: 'unitWeeks', mins: 10080 },
+  { key: 'unitMonths', mins: 43200 },
 ] as const;
+const MAX_NOTIFY = 20;
 
-/** "Notify me": chips for each notification + a simple "[15] [minutes] before  Add" row. */
+/** "Notify me": one small row — [number 1–60] [unit ▾] [+] — and a chip per notification. */
 export function RemindersPicker({ value, onChange }: { value: number[]; onChange: (v: number[]) => void }) {
   const { t, settings } = useBloom();
-  const [amount, setAmount] = useState('15');
+  const [amount, setAmount] = useState(15);
   const [unit, setUnit] = useState<number>(1);
-  const n = Math.round(Number(amount));
-  const valid = Number.isFinite(n) && n >= 1 && n <= 999;
-  const add = (mins: number) => !value.includes(mins) && onChange([...value, mins].sort((a, b) => a - b));
+  const mins = amount * unit;
+  const full = value.length >= MAX_NOTIFY;
+  const add = () => !full && !value.includes(mins) && onChange([...value, mins].sort((a, b) => a - b));
   return (
     <div className="notify">
-      <div className="remind-picker">
-        {value.length === 0 && <span className="muted">{t('noReminder')}</span>}
-        {[...value]
-          .sort((a, b) => a - b)
-          .map((m) => (
-            <span key={m} className="chip">
-              <Icon name="bell" size={12} />
-              {formatRemindBefore(settings.language, m)}
-              <button type="button" aria-label={t('delete')} onClick={() => onChange(value.filter((x) => x !== m))}>
-                <Icon name="close" size={11} />
-              </button>
-            </span>
-          ))}
-      </div>
       <div className="notify-add">
         <input
           type="number"
           min={1}
-          max={999}
+          max={60}
           inputMode="numeric"
           value={amount}
           aria-label={t('amount')}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => setAmount(Math.min(60, Math.max(1, Math.round(Number(e.target.value) || 1))))}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
-              if (valid) add(n * unit);
+              add();
             }
           }}
         />
@@ -148,16 +137,25 @@ export function RemindersPicker({ value, onChange }: { value: number[]; onChange
             </option>
           ))}
         </select>
-        <span className="muted">{t('before')}</span>
-        <Button size="sm" icon="plus" disabled={!valid || value.includes(n * unit)} onClick={() => add(n * unit)}>
-          {t('addAnother')}
-        </Button>
-        {!value.includes(0) && (
-          <Button size="sm" variant="ghost" onClick={() => add(0)}>
-            {t('remindAtStart')}
-          </Button>
-        )}
+        <button type="button" className="notify-plus" aria-label={t('addAnother')} title={t('addAnother')} disabled={full || value.includes(mins)} onClick={add}>
+          <Icon name="plus" size={16} />
+        </button>
       </div>
+      {value.length > 0 && (
+        <div className="remind-picker">
+          {[...value]
+            .sort((a, b) => a - b)
+            .map((m) => (
+              <span key={m} className="chip">
+                <Icon name="bell" size={12} />
+                {formatRemindBefore(settings.language, m)}
+                <button type="button" aria-label={t('delete')} onClick={() => onChange(value.filter((x) => x !== m))}>
+                  <Icon name="close" size={11} />
+                </button>
+              </span>
+            ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -293,6 +291,9 @@ export function EventEditor({ initial, isNew, onClose }: { initial: CalendarEven
         <MoreOptions open={ev.repeat !== 'none' || !!ev.notes}>
           <Field label={t('repeat')}>
             <RepeatSelect value={ev.repeat} onChange={(repeat) => set({ repeat })} />
+            {ev.repeat === 'hebrewYearly' && (
+              <span className="muted small">{t('hebrewRepeatHint', { d: hebrewDateLabel(parseLocal(ev.start), 'he') })}</span>
+            )}
           </Field>
           <Field label={t('notes')}>
             <textarea dir="auto" className="notebook" rows={4} value={ev.notes} placeholder={t('notesPlaceholder')} onChange={(e) => set({ notes: e.target.value })} />

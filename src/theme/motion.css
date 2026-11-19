@@ -353,6 +353,14 @@
   animation-timing-function: ease-in-out;
 }
 
+.year-card {
+  animation: rise-in var(--dur-slow) var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+.color-menu {
+  animation: note-pop-in 320ms var(--spring) both;
+}
+
 /* Respect the Windows "show animations" / reduced-motion setting. */
 @media (prefers-reduced-motion: reduce) {
   *,

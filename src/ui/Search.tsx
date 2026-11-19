@@ -7,7 +7,7 @@ import { useAlive, useBloom } from './store';
 
 interface Result {
   id: string;
-  kind: 'event' | 'reminder' | 'note' | 'day' | 'journal';
+  kind: 'event' | 'reminder' | 'note' | 'day';
   title: string;
   detail: string;
   date: ISODate;
@@ -28,7 +28,6 @@ export function Search({ onClose, onOpenDay, onOpenEventId, onOpenReminderId }: 
   const events = useAlive('events');
   const reminders = useAlive('reminders');
   const days = useAlive('days');
-  const journal = useAlive('journal');
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
 
@@ -50,11 +49,8 @@ export function Search({ onClose, onOpenDay, onOpenEventId, onOpenReminderId }: 
         if (hit(text)) out.push({ id: c.id, kind: 'note', title: text.split('\n')[0].slice(0, 80) || '—', detail: '', date: d.date, open: () => onOpenDay(d.date) });
       }
     }
-    for (const j of journal)
-      if (j.text && hit(j.text))
-        out.push({ id: j.id, kind: 'journal', title: j.text.split('\n')[0].slice(0, 80), detail: '', date: j.date, open: () => onOpenDay(j.date) });
     return out.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 40);
-  }, [q, events, reminders, days, journal, onOpenDay, onOpenEventId, onOpenReminderId]);
+  }, [q, events, reminders, days, onOpenDay, onOpenEventId, onOpenReminderId]);
 
   useEffect(() => setActive(0), [q]);
   useEffect(() => {
@@ -96,7 +92,7 @@ export function Search({ onClose, onOpenDay, onOpenEventId, onOpenReminderId }: 
             {results.map((r, i) => (
               <li key={r.kind + r.id}>
                 <button type="button" className={i === active ? 'active' : ''} onMouseEnter={() => setActive(i)} onClick={() => choose(r)}>
-                  <Icon name={r.kind === 'event' ? 'calendar' : r.kind === 'reminder' ? 'bell' : r.kind === 'journal' ? 'book' : 'note'} size={16} />
+                  <Icon name={r.kind === 'event' ? 'calendar' : r.kind === 'reminder' ? 'bell' : 'note'} size={16} />
                   <span className="sr-text">
                     <span className="sr-title">{r.title}</span>
                     {r.detail && <span className="sr-detail">{r.detail}</span>}

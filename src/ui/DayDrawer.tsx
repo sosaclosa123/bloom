@@ -1,5 +1,5 @@
 // The day panel: date + busy dots + headline, then four small tabs:
-//   Plan (events & reminders) · To-do · Notes · Journal
+//   Plan (events & reminders) · To-do · Notes
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, parseISODate } from '../shared/dates';
 import { uuid } from '../shared/db';
@@ -9,11 +9,10 @@ import type { DayEntry, DayStatus, ISODate, NoteCard } from '../shared/types';
 import { formatDayTitle, formatTime, useRangeData, type ReminderOccurrence } from './calendarData';
 import { Button, EditableText, Icon, IconButton } from './common';
 import { CARD_EMOJIS, newCard, newDayEntry } from './drafts';
-import { hasContent, JournalPreview, useJournalEntry } from './Journal';
 import { NoteRich } from './NoteRich';
 import { useAlive, useBloom } from './store';
 
-export type DrawerTab = 'plan' | 'todo' | 'notes' | 'journal';
+export type DrawerTab = 'plan' | 'todo' | 'notes';
 
 interface Props {
   date: ISODate;
@@ -25,7 +24,6 @@ interface Props {
   onNewEvent: (date: ISODate) => void;
   onOpenReminder: (r: ReminderOccurrence) => void;
   onNewReminder: (date: ISODate) => void;
-  onOpenJournal: (date: ISODate) => void;
 }
 
 const STATUSES: { value: DayStatus; key: 'statusFree' | 'statusSome' | 'statusPacked' }[] = [
@@ -39,7 +37,6 @@ export function DayDrawer(p: Props) {
   const { t, locale, settings, save, toast } = useBloom();
   const days = useAlive('days');
   const entry = useMemo(() => days.find((d) => d.date === date), [days, date]);
-  const journal = useJournalEntry(date);
   const day = parseISODate(date);
   const range = useRangeData(day, addDays(day, 1));
   const occs = range.eventsByDay.get(date) ?? [];
@@ -64,7 +61,7 @@ export function DayDrawer(p: Props) {
   const todoCount = todos.filter((i) => i.text.trim()).length;
 
   const firstTab: DrawerTab =
-    p.initialTab ?? (occs.length || rems.length ? 'plan' : todoCount ? 'todo' : notes.length ? 'notes' : hasContent(journal) ? 'journal' : 'plan');
+    p.initialTab ?? (occs.length || rems.length ? 'plan' : todoCount ? 'todo' : notes.length ? 'notes' : 'plan');
   const [tab, setTab] = useState<DrawerTab>(firstTab);
   const [focusId, setFocusId] = useState<string | null>(null);
 
@@ -123,7 +120,6 @@ export function DayDrawer(p: Props) {
     { id: 'plan', label: t('plan'), badge: occs.length + rems.length ? String(occs.length + rems.length) : undefined },
     { id: 'todo', label: t('tileTodo'), badge: todoCount ? `${doneCount}/${todoCount}` : undefined },
     { id: 'notes', label: t('notes'), badge: notes.length ? String(notes.length) : undefined },
-    { id: 'journal', label: t('journal'), badge: hasContent(journal) ? '✓' : undefined },
   ];
 
   const plan = [
@@ -246,7 +242,6 @@ export function DayDrawer(p: Props) {
           </>
         )}
 
-        {tab === 'journal' && <JournalPreview date={date} onOpen={() => p.onOpenJournal(date)} />}
       </div>
     </aside>
   );

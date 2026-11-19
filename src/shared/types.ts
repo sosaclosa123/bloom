@@ -19,7 +19,8 @@ export interface SyncMeta {
   visibility: 'shared' | 'private';
 }
 
-export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+/** 'hebrewYearly' repeats every year on the same Hebrew date (e.g. ט״ז בכסלו). */
+export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'hebrewYearly';
 
 /** Day busyness: green = free, yellow = some plans, red = packed. */
 export type DayStatus = 'free' | 'some' | 'packed';
@@ -163,6 +164,8 @@ export interface Settings {
   volume: number; // 0..1
   snoozeOptions: number[]; // minutes
   currency: string; // ISO code, e.g. ILS
+  /** Custom color per month (Jan..Dec); null = default. */
+  monthColors: (string | null)[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -181,6 +184,7 @@ export const DEFAULT_SETTINGS: Settings = {
   volume: 0.8,
   snoozeOptions: [10, 60],
   currency: 'ILS',
+  monthColors: [],
 };
 
 export interface Collections {

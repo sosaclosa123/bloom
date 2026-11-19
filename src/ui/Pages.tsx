@@ -24,15 +24,10 @@ export function NavRail({ tab, onTab, onSettings, badge }: { tab: Tab; onTab: (t
       <div className="rail-brand" aria-hidden="true">
         <svg viewBox="24 24 464 464" width="30" height="30">
           <rect x="24" y="24" width="464" height="464" rx="116" fill="#3f4f49" />
-          <rect x="148" y="150" width="216" height="210" rx="38" fill="none" stroke="#f3e9dc" strokeWidth="18" />
-          <line x1="148" y1="206" x2="364" y2="206" stroke="#f3e9dc" strokeWidth="18" />
-          <line x1="206" y1="126" x2="206" y2="170" stroke="#f3e9dc" strokeWidth="18" strokeLinecap="round" />
-          <line x1="306" y1="126" x2="306" y2="170" stroke="#f3e9dc" strokeWidth="18" strokeLinecap="round" />
-          <g transform="translate(256 284)" fill="none" stroke="#e9b7ad" strokeWidth="16">
-            <circle cx="0" cy="-26" r="26" />
-            <circle cx="26" cy="0" r="26" />
-            <circle cx="0" cy="26" r="26" />
-            <circle cx="-26" cy="0" r="26" />
+          <g transform="translate(-32 0)">
+            <path d="M200 128v254" stroke="#f3ebe2" strokeWidth="40" strokeLinecap="round" />
+            <circle cx="278" cy="304" r="78" fill="none" stroke="#f3ebe2" strokeWidth="40" />
+            <path d="M304 178c10-46 50-70 92-66-4 44-40 76-92 66z" fill="#e9b0a3" />
           </g>
         </svg>
       </div>

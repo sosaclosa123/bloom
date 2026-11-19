@@ -15,7 +15,7 @@ const en = {
   quickAddRemind: 'reminder {n}',
   search: 'Search',
   settings: 'Settings',
-  upcoming: 'Upcoming',
+  upcoming: 'Scheduled',
   nothingUpcoming: 'Nothing planned for the next days.',
   countdowns: 'Countdowns',
   addCountdown: 'Add countdown',
@@ -69,6 +69,8 @@ const en = {
   repeat_weekly: 'Every week',
   repeat_monthly: 'Every month',
   repeat_yearly: 'Every year',
+  repeat_hebrewYearly: 'Every year (Hebrew date)',
+  hebrewRepeatHint: 'Repeats every year on {d}',
   remindMe: 'Notify me',
   remindAtStart: 'When it starts',
   remindMinutes: '{n} min before',
@@ -241,6 +243,7 @@ const en = {
   unitHours: 'hours',
   unitDays: 'days',
   unitWeeks: 'weeks',
+  unitMonths: 'months',
   before: 'before',
   amount: 'Amount',
   unit: 'Unit',
@@ -326,6 +329,13 @@ const en = {
   wAccountPh: 'Account name',
   wStartBalance: 'Current balance',
 
+  year: 'Year',
+  monthColor: 'Month color',
+  lightness: 'Lightness',
+  pastelOnly: 'Pastel colors only',
+  colorCode: 'Color code',
+  resetColor: 'Reset to default',
+
   // Popup
   reminder: 'Reminder',
   startsNow: 'Now',
@@ -357,7 +367,7 @@ const he: Record<StringKey, string> = {
   quickAddRemind: 'תזכורת {n}',
   search: 'חיפוש',
   settings: 'הגדרות',
-  upcoming: 'בקרוב',
+  upcoming: 'מתוכנן',
   nothingUpcoming: 'אין תוכניות לימים הקרובים.',
   countdowns: 'ספירה לאחור',
   addCountdown: 'הוספת ספירה',
@@ -411,6 +421,8 @@ const he: Record<StringKey, string> = {
   repeat_weekly: 'כל שבוע',
   repeat_monthly: 'כל חודש',
   repeat_yearly: 'כל שנה',
+  repeat_hebrewYearly: 'כל שנה (לפי התאריך העברי)',
+  hebrewRepeatHint: 'חוזר כל שנה ב{d}',
   remindMe: 'להתריע לי',
   remindAtStart: 'כשזה מתחיל',
   remindMinutes: '{n} דק׳ לפני',
@@ -583,6 +595,7 @@ const he: Record<StringKey, string> = {
   unitHours: 'שעות',
   unitDays: 'ימים',
   unitWeeks: 'שבועות',
+  unitMonths: 'חודשים',
   before: 'לפני',
   amount: 'כמות',
   unit: 'יחידה',
@@ -668,6 +681,13 @@ const he: Record<StringKey, string> = {
   wAccountPh: 'שם החשבון',
   wStartBalance: 'יתרה נוכחית',
 
+  year: 'שנה',
+  monthColor: 'צבע החודש',
+  lightness: 'בהירות',
+  pastelOnly: 'צבעי פסטל בלבד',
+  colorCode: 'קוד צבע',
+  resetColor: 'חזרה לברירת המחדל',
+
   reminder: 'תזכורת',
   startsNow: 'עכשיו',
   startsIn: 'בעוד {t}',
@@ -703,11 +723,19 @@ export function formatDuration(lang: Language, minutes: number): string {
 export function formatRemindBefore(lang: Language, minutes: number): string {
   if (minutes === 0) return translate(lang, 'remindAtStart');
   const [n, unit] =
-    minutes % 10080 === 0 ? [minutes / 10080, 'w'] : minutes % 1440 === 0 ? [minutes / 1440, 'd'] : minutes % 60 === 0 ? [minutes / 60, 'h'] : [minutes, 'm'];
+    minutes % 43200 === 0
+      ? [minutes / 43200, 'mo']
+      : minutes % 10080 === 0
+        ? [minutes / 10080, 'w']
+        : minutes % 1440 === 0
+          ? [minutes / 1440, 'd']
+          : minutes % 60 === 0
+            ? [minutes / 60, 'h']
+            : [minutes, 'm'];
   if (lang === 'he') {
-    const he = { w: n === 1 ? 'שבוע' : 'שבועות', d: n === 1 ? 'יום' : 'ימים', h: n === 1 ? 'שעה' : 'שעות', m: 'דק׳' }[unit as 'w'];
+    const he = { mo: n === 1 ? 'חודש' : 'חודשים', w: n === 1 ? 'שבוע' : 'שבועות', d: n === 1 ? 'יום' : 'ימים', h: n === 1 ? 'שעה' : 'שעות', m: 'דק׳' }[unit as 'w'];
     return n === 1 && unit !== 'm' ? `${he} לפני` : `${n} ${he} לפני`;
   }
-  const en = { w: 'week', d: 'day', h: 'hour', m: 'min' }[unit as 'w'];
+  const en = { mo: 'month', w: 'week', d: 'day', h: 'hour', m: 'min' }[unit as 'w'];
   return `${n} ${en}${n === 1 || unit === 'm' ? '' : 's'} before`;
 }
