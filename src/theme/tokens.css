@@ -1,0 +1,134 @@
+/*
+ * Bloom design tokens.
+ * Every color, size, radius and shadow used by the UI lives here, so a new
+ * UI/UX design can be applied by editing this file (plus component styles)
+ * without touching any app logic.
+ */
+:root {
+  /* Typography */
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Rubik', 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --fs-xs: 11px;
+  --fs-sm: 12.5px;
+  --fs-md: 14px;
+  --fs-lg: 17px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+
+  /* Spacing & shape */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+  --header-h: 52px;
+  --sidebar-w: 248px;
+  --drawer-w: 400px;
+
+  /* Surfaces */
+  --bg: #fbf8f6;
+  --surface: #ffffff;
+  --surface-2: #f6f2ef;
+  --surface-hover: #f3eeea;
+  --border: #ece5e0;
+  --border-strong: #ddd3cc;
+
+  /* Text */
+  --text: #3a3340;
+  --text-muted: #857c8b;
+  --text-faint: #b3abb8;
+  --text-on-accent: #ffffff;
+
+  /* Accent (soft lavender) */
+  --accent: #7c6cd6;
+  --accent-hover: #6b5bc6;
+  --accent-soft: #eeeafd;
+  --accent-text: #5a4bb3;
+  --focus-ring: 0 0 0 3px rgba(124, 108, 214, 0.28);
+  --danger: #d9566b;
+  --danger-soft: #fde8eb;
+
+  /* Day status — green / yellow / red, pastel */
+  --status-free-bg: #e2f5e8;
+  --status-free: #6cc28a;
+  --status-some-bg: #fff5d1;
+  --status-some: #ecc04a;
+  --status-packed-bg: #fde4e4;
+  --status-packed: #ea8585;
+
+  /* Event colors: background / strong */
+  --ev-rose-bg: #fbe0e8;   --ev-rose: #d9708f;
+  --ev-peach-bg: #fde6d6;  --ev-peach: #e3955f;
+  --ev-butter-bg: #fdf1c9; --ev-butter: #cfa52c;
+  --ev-mint-bg: #d9f3e6;   --ev-mint: #4fb184;
+  --ev-sky-bg: #dcebfb;    --ev-sky: #5c97d6;
+  --ev-lilac-bg: #e9e2fb;  --ev-lilac: #8d76d9;
+  --ev-sand-bg: #efe7dc;   --ev-sand: #a88d6a;
+
+  --holiday: #b07ab8;
+  --today-ring: var(--accent);
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(58, 51, 64, 0.06);
+  --shadow-md: 0 6px 20px rgba(58, 51, 64, 0.08), 0 1px 3px rgba(58, 51, 64, 0.05);
+  --shadow-lg: 0 18px 50px rgba(58, 51, 64, 0.16), 0 3px 10px rgba(58, 51, 64, 0.06);
+  --scrim: rgba(40, 34, 48, 0.28);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 220ms;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #1d1b22;
+  --surface: #25232c;
+  --surface-2: #2b2833;
+  --surface-hover: #302d38;
+  --border: #36323f;
+  --border-strong: #46414f;
+
+  --text: #ece8f1;
+  --text-muted: #a49dab;
+  --text-faint: #6f6877;
+
+  --accent: #a596f5;
+  --accent-hover: #b6aaf7;
+  --accent-soft: #35304a;
+  --accent-text: #c6bcfa;
+  --text-on-accent: #1d1b22;
+  --focus-ring: 0 0 0 3px rgba(165, 150, 245, 0.35);
+  --danger: #f08497;
+  --danger-soft: #45272e;
+
+  --status-free-bg: #22352b;
+  --status-free: #7fd09c;
+  --status-some-bg: #3a3322;
+  --status-some: #efcb63;
+  --status-packed-bg: #3d2629;
+  --status-packed: #f09a9a;
+
+  --ev-rose-bg: #452a35;   --ev-rose: #f0a0b8;
+  --ev-peach-bg: #45302a;  --ev-peach: #f3b388;
+  --ev-butter-bg: #403820; --ev-butter: #ebcd6c;
+  --ev-mint-bg: #233b31;   --ev-mint: #7fd3aa;
+  --ev-sky-bg: #233447;    --ev-sky: #8dbcef;
+  --ev-lilac-bg: #342c4d;  --ev-lilac: #b8a6f5;
+  --ev-sand-bg: #3a332b;   --ev-sand: #cdb593;
+
+  --holiday: #d3a2da;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.5);
+  --scrim: rgba(0, 0, 0, 0.45);
+
+  color-scheme: dark;
+}
