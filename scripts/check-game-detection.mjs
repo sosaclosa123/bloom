@@ -2,11 +2,14 @@
 // outside Electron and makes sure it runs without errors.
 import { build } from 'esbuild';
 import { createRequire } from 'node:module';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const out = join(mkdtempSync(join(tmpdir(), 'bloom-')), 'gameMode.cjs');
+// Build inside the project so `require('koffi')` resolves from node_modules,
+// exactly like the packaged app does.
+const dir = join(process.cwd(), 'node_modules', '.cache', 'bloom-check');
+mkdirSync(dir, { recursive: true });
+const out = join(dir, 'gameMode.cjs');
 await build({ entryPoints: ['electron/gameMode.ts'], bundle: true, platform: 'node', format: 'cjs', external: ['koffi'], outfile: out, logLevel: 'error' });
 const require = createRequire(join(process.cwd(), 'package.json'));
 const mod = require(out);
