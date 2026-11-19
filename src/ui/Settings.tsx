@@ -7,8 +7,9 @@ import { RemindersPicker, SoundSelect } from './editors';
 import { playSound } from './sound';
 import { useAlive, useBloom } from './store';
 import { UpdateSettings } from './Updates';
+import { AccountSettings } from './Account';
 
-type Tab = 'general' | 'calendar' | 'reminders' | 'backup';
+type Tab = 'account' | 'general' | 'calendar' | 'reminders' | 'backup';
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { t, settings, setSettings, toast, del } = useBloom();
@@ -29,6 +30,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   }, [tab, settings.gameMode]);
 
   const tabs: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
+    { id: 'account', label: t('account'), icon: 'heart' },
     { id: 'general', label: t('general'), icon: 'settings' },
     { id: 'calendar', label: t('calendar'), icon: 'calendar' },
     { id: 'reminders', label: t('notifications'), icon: 'bell' },
@@ -47,6 +49,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <div className="settings-body">
+          {tab === 'account' && <AccountSettings />}
           {tab === 'general' && (
             <>
               <Field label={t('language')}>

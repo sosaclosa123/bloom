@@ -20,6 +20,10 @@ const bridge: DesktopBridge = {
   importSound: () => ipcRenderer.invoke('sound:import'),
   soundData: (id) => ipcRenderer.invoke('sound:data', id),
   addPhotos: () => ipcRenderer.invoke('photo:add'),
+  readPhoto: (f) => ipcRenderer.invoke('photo:read', f),
+  hasPhoto: (f) => ipcRenderer.invoke('photo:has', f),
+  writePhoto: (f, d) => ipcRenderer.invoke('photo:write', f, d),
+  applyRemote: (c) => ipcRenderer.invoke('data:merge', c),
 
   exportBackup: () => ipcRenderer.invoke('backup:export'),
   importBackup: () => ipcRenderer.invoke('backup:import'),

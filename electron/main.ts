@@ -17,7 +17,7 @@ import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 
 import { basename, extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert, uuid } from '../src/shared/db';
-import type { CollectionName, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../src/shared/types';
+import type { CollectionName, Collections, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../src/shared/types';
 import { gameDetectionStatus, isGaming, setOwnWindowCheck } from './gameMode';
 import { Scheduler, type DeliveryReason } from './scheduler';
 import { FileStore, StateFile } from './store';
@@ -366,6 +366,26 @@ function registerIpc() {
       out.push({ id, fileName, name: basename(src) });
     }
     return out;
+  });
+
+  const IMAGE_MIME: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp' };
+  ipcMain.handle('photo:read', (_e, name: string) => {
+    const file = join(store.photosDir, name);
+    if (!SAFE_NAME.test(name) || !existsSync(file)) return null;
+    return `data:${IMAGE_MIME[extname(name).toLowerCase()] ?? 'image/jpeg'};base64,${readFileSync(file).toString('base64')}`;
+  });
+  ipcMain.handle('photo:has', (_e, name: string) => SAFE_NAME.test(name) && existsSync(join(store.photosDir, name)));
+  ipcMain.handle('photo:write', (_e, name: string, dataUrl: string) => {
+    const m = /^data:[\w/+.-]+;base64,(.*)$/.exec(dataUrl);
+    if (!SAFE_NAME.test(name) || !m) return;
+    writeFileSync(join(store.photosDir, name), Buffer.from(m[1], 'base64'));
+  });
+  // Records arriving from sync: merge, newest wins, never touching settings.
+  ipcMain.handle('data:merge', (_e, c: Partial<Collections>) => {
+    const local = store.get();
+    const incoming = normalizeSnapshot({ ...local, ...Object.fromEntries(Object.entries(c)) });
+    for (const k of ['events', 'days', 'reminders', 'countdowns', 'sounds', 'journal'] as const) if (!c[k]) incoming[k] = [];
+    store.set({ ...merge(local, incoming), settings: local.settings });
   });
 
   ipcMain.handle('backup:export', async () => {

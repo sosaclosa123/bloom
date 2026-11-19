@@ -310,6 +310,15 @@ export function ReminderEditor({ initial, isNew, onClose }: { initial: Reminder;
             <input type="time" value={timeOf(r.at)} onChange={(e) => e.target.value && set({ at: `${dateOf(r.at)}T${e.target.value}` })} />
           </Field>
         </div>
+        <Toggle
+          checked={r.visibility === 'shared'}
+          label={
+            <>
+              <Icon name="heart" size={14} /> {t('sharedWithPartner')}
+            </>
+          }
+          onChange={(on) => set({ visibility: on ? 'shared' : 'private' })}
+        />
         <MoreOptions open={r.repeat !== 'none' || !!r.note}>
         <div className="grid-2">
           <Field label={t('repeat')}>

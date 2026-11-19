@@ -2582,6 +2582,107 @@ select.chip-add {
   margin: 0;
 }
 
+/* ------------------------------------------------------------ account / sync */
+.account-form,
+.account {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 420px;
+}
+.account-form .segmented {
+  align-self: flex-start;
+}
+.form-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.account-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: var(--fs-lg);
+}
+.account-who {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sync-status {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+.sync-status.synced .sync-dot {
+  background: var(--status-free);
+}
+.sync-status.syncing .sync-dot,
+.sync-status.connecting .sync-dot {
+  background: var(--status-some);
+}
+.sync-status.offline .sync-dot,
+.sync-status.error .sync-dot {
+  background: var(--status-packed);
+}
+.partner-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+.partner-card h4 {
+  margin: 0;
+  font-size: var(--fs-md);
+}
+.partner-card p {
+  margin: 0;
+}
+.join-row,
+.code-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+}
+.join-row input {
+  max-width: 180px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.invite-code {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent-text);
+}
+
 /* ------------------------------------------------------------ updates */
 .update-banner {
   position: fixed;

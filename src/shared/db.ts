@@ -48,6 +48,11 @@ export function normalizeSnapshot(raw: unknown): Snapshot {
     const list = (r as Record<string, unknown>)[c];
     (snap as unknown as Record<string, unknown>)[c] = Array.isArray(list) ? list : [];
   }
+  // v1 -> v2: reminders became private by default when sync arrived, so
+  // existing personal reminders don't suddenly show up for a partner.
+  if ((r.schemaVersion ?? 1) < 2 && Array.isArray(r.events)) {
+    snap.reminders = snap.reminders.map((x) => ({ ...x, visibility: 'private' }));
+  }
   return snap;
 }
 
@@ -89,7 +94,11 @@ export function merge(local: Snapshot, incoming: Snapshot): Snapshot {
     for (const x of local[c] as SyncMeta[]) map.set(x.id, x);
     for (const x of incoming[c] as SyncMeta[]) {
       const cur = map.get(x.id);
-      if (!cur || (x.updatedAt ?? 0) > (cur.updatedAt ?? 0)) map.set(x.id, x);
+      const a = x.updatedAt ?? 0;
+      const b = cur?.updatedAt ?? 0;
+      // Newest wins; on an exact tie a live copy beats a tombstone (a record
+      // that moved between private/shared leaves a same-time tombstone behind).
+      if (!cur || a > b || (a === b && cur.deletedAt && !x.deletedAt)) map.set(x.id, x);
     }
     (out as unknown as Collections)[c] = [...map.values()] as never;
   }

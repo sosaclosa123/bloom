@@ -319,6 +319,17 @@
   animation: sparkle-spin 1.8s ease-in-out infinite;
 }
 
+@keyframes pulse-dot {
+  50% { transform: scale(1.5); opacity: 0.6; }
+}
+.sync-status.syncing .sync-dot,
+.sync-status.connecting .sync-dot {
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+.partner-card {
+  animation: rise-in var(--dur-slow) var(--ease) both;
+}
+
 /* Respect the Windows "show animations" / reduced-motion setting. */
 @media (prefers-reduced-motion: reduce) {
   *,

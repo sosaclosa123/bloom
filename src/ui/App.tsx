@@ -17,6 +17,7 @@ import { Search } from './Search';
 import { SettingsPanel } from './Settings';
 import { CountdownsPage, NavRail, UpcomingPage } from './Pages';
 import { playSound } from './sound';
+import { startSync } from './sync';
 import { useBloom } from './store';
 import { UpdateBanner } from './Updates';
 import { WeekView } from './WeekView';
@@ -66,6 +67,7 @@ export function App() {
 
   // Platform events
   useEffect(() => {
+    void startSync();
     platform.getMissed().then(setMissed);
     const offs = [
       platform.onMissed(setMissed),

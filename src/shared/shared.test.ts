@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { alertsDueBetween } from './alerts';
 import { parseLocal } from './dates';
-import { emptySnapshot, merge, newMeta, remove, upsert } from './db';
+import { emptySnapshot, merge, newMeta, normalizeSnapshot, remove, upsert } from './db';
 import { easterSunday, hebrewDateLabel, holidaysBetween } from './holidays';
 import { parseQuickAdd } from './quickAdd';
 import { expandEvents, occurrencesBetween } from './recurrence';
@@ -117,5 +117,14 @@ describe('holidays', () => {
     const he = holidaysBetween('jewish', new Date(2026, 8, 1), new Date(2026, 9, 1), 'he');
     expect([...he.values()].flat().some((h) => h.name.includes('יום כפור') || h.name.includes('יום כיפור'))).toBe(true);
     expect(hebrewDateLabel(new Date(2026, 10, 19), 'he')).toMatch(/כסלו/);
+  });
+});
+
+describe('migration', () => {
+  it('makes reminders from before sync private', () => {
+    const old = { schemaVersion: 1, events: [], reminders: [{ ...newMeta(), title: 'Pills', at: '2026-01-01T09:00', repeat: 'daily', sound: '', note: '' }] };
+    expect(normalizeSnapshot(old).reminders[0].visibility).toBe('private');
+    const now = normalizeSnapshot({ ...old, schemaVersion: 2 });
+    expect(now.reminders[0].visibility).toBe('shared');
   });
 });

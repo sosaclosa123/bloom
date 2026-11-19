@@ -1,7 +1,7 @@
 // The contract between the UI and the desktop shell (Electron preload).
 // A phone build later implements the same PlatformAPI (see api.ts) with
 // phone storage and native notifications instead.
-import type { CollectionName, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../shared/types';
+import type { CollectionName, Collections, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../shared/types';
 
 export type DeliveryReason = 'now' | 'afterGame' | 'whileClosed';
 
@@ -22,6 +22,10 @@ export interface DesktopBridge {
   importSound(): Promise<SoundMeta | null>;
   soundData(id: string): Promise<string | null>;
   addPhotos(): Promise<PhotoRef[]>;
+  readPhoto(fileName: string): Promise<string | null>;
+  hasPhoto(fileName: string): Promise<boolean>;
+  writePhoto(fileName: string, dataUrl: string): Promise<void>;
+  applyRemote(c: Partial<Collections>): Promise<void>;
 
   exportBackup(): Promise<boolean>;
   importBackup(): Promise<'merged' | 'cancelled' | 'invalid'>;

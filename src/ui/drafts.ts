@@ -27,7 +27,7 @@ export function newReminder(date: ISODate, settings: Settings, time?: string): R
     const next = new Date(now.getTime() + 60 * 60000);
     t = `${String(next.getHours()).padStart(2, '0')}:00`;
   }
-  return { ...newMeta(), title: '', at: `${date}T${t}`, repeat: 'none', sound: settings.defaultSound, note: '' };
+  return { ...newMeta(), visibility: 'private', title: '', at: `${date}T${t}`, repeat: 'none', sound: settings.defaultSound, note: '' };
 }
 
 export function newCountdown(date: ISODate): Countdown {
