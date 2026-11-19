@@ -49,7 +49,7 @@ A soft, simple calendar for Windows, built so the same code can become a phone a
 
 Restoring merges records, so it's safe to run more than once. Bloom also keeps 14 daily automatic backups in `%APPDATA%\Bloom\backups\`. Data lives in `%APPDATA%\Bloom\`, with photos in `photos\` and custom sounds in `sounds\`.
 
-To publish a new version: bump `version` in `package.json`, then run `git tag v0.2.0 && git push --tags`. GitHub builds the installer and attaches it to a release.
+To publish a new version: bump `version` in `package.json` and push to `main`. GitHub builds the installer and publishes it as a release. Each push to `main` refreshes the installer for the current version.
 
 ## Development
 
