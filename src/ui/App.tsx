@@ -6,16 +6,16 @@ import type { CalendarEvent, Countdown, FiredAlert, ISODate, Reminder } from '..
 import { AlertCards } from './AlertCards';
 import type { ReminderOccurrence } from './calendarData';
 import { Button, Icon, Toasts } from './common';
-import { DayDrawer } from './DayDrawer';
+import { DayDrawer, type DrawerTab } from './DayDrawer';
 import { newCountdown, newEvent, newReminder } from './drafts';
 import { CountdownEditor, EventEditor, ReminderEditor } from './editors';
-import { Header, type ViewMode } from './Header';
+import { Header, type AddKind, type CalView, type Tab } from './Header';
 import { JournalPage } from './Journal';
 import { JournalModal } from './JournalModal';
 import { MonthView } from './MonthView';
 import { Search } from './Search';
 import { SettingsPanel } from './Settings';
-import { Sidebar } from './Sidebar';
+import { CountdownsPage, NavRail, UpcomingPage } from './Pages';
 import { playSound } from './sound';
 import { useBloom } from './store';
 import { UpdateBanner } from './Updates';
@@ -29,35 +29,40 @@ type ModalState =
   | { kind: 'search' }
   | null;
 
+function load<T extends string>(key: string, fallback: T): T {
+  try {
+    return (localStorage.getItem(key) as T) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const isTyping = (el: Element | null) =>
   !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el as HTMLElement).isContentEditable);
 
 export function App() {
   const { snap, settings, t } = useBloom();
-  const [view, setView] = useState<ViewMode>(() => {
-    try {
-      return (localStorage.getItem('bloom-view') as ViewMode) || 'month';
-    } catch {
-      return 'month';
-    }
-  });
+  const [tab, setTab] = useState<Tab>(() => load('bloom-tab', 'calendar'));
+  const [view, setView] = useState<CalView>(() => load('bloom-view', 'month'));
+  const [addOpen, setAddOpen] = useState(false);
+  const [drawer, setDrawer] = useState<{ tab?: DrawerTab; autoAdd?: 'todo' | 'note'; n: number }>({ n: 0 });
   const [anchor, setAnchor] = useState(() => new Date());
   const [openDay, setOpenDay] = useState<ISODate | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [journalDate, setJournalDate] = useState<ISODate | null>(null);
   const [missed, setMissed] = useState<FiredAlert[]>([]);
   const [pageAlerts, setPageAlerts] = useState<FiredAlert[]>([]);
-  const quickRef = useRef<HTMLInputElement>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
   useEffect(() => {
     try {
       localStorage.setItem('bloom-view', view);
+      localStorage.setItem('bloom-tab', tab);
     } catch {
       /* ignore */
     }
-  }, [view]);
+  }, [view, tab]);
 
   // Platform events
   useEffect(() => {
@@ -90,6 +95,26 @@ export function App() {
     setAnchor(parseISODate(date));
     setOpenDay(date);
   }, []);
+  /** Open a day in the panel, optionally on a tab and adding something. */
+  const openDayAt = useCallback((date: ISODate, dtab?: DrawerTab, autoAdd?: 'todo' | 'note') => {
+    setAnchor(parseISODate(date));
+    setOpenDay(date);
+    setDrawer((d) => ({ tab: dtab, autoAdd, n: d.n + 1 }));
+  }, []);
+  const editCountdown = useCallback(
+    (c: Countdown | null) =>
+      setModal(c ? { kind: 'countdown', c, isNew: false } : { kind: 'countdown', c: newCountdown(toISODate(addDays(new Date(), 30))), isNew: true }),
+    [],
+  );
+  const addDate = openDay ?? toISODate(new Date());
+  const add = (kind: AddKind) => {
+    if (kind === 'event') createEvent(addDate);
+    if (kind === 'reminder') createReminder(addDate);
+    if (kind === 'todo') openDayAt(addDate, 'todo', 'todo');
+    if (kind === 'note') openDayAt(addDate, 'notes', 'note');
+    if (kind === 'journal') setJournalDate(addDate);
+    if (kind === 'countdown') editCountdown(null);
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -99,20 +124,23 @@ export function App() {
         setModal({ kind: 'search' });
         return;
       }
-      if (modal || journalDate || isTyping(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (modal || journalDate || addOpen || isTyping(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey) return;
       const rtl = settingsRef.current.language === 'he';
       switch (e.key) {
         case 't':
+          setTab('calendar');
           setAnchor(new Date());
           break;
         case 'm':
+          setTab('calendar');
           setView('month');
           break;
         case 'w':
+          setTab('calendar');
           setView('week');
           break;
         case 'j':
-          setView('journal');
+          setTab('journal');
           break;
         case 'n':
           createEvent(openDay ?? toISODate(new Date()));
@@ -120,8 +148,9 @@ export function App() {
           break;
         case '/':
         case 'q':
+        case '+':
           e.preventDefault();
-          quickRef.current?.focus();
+          setAddOpen(true);
           break;
         case 'ArrowLeft':
           go(rtl ? 1 : -1);
@@ -133,82 +162,85 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [modal, journalDate, go, createEvent, openDay]);
+  }, [modal, journalDate, addOpen, go, createEvent, openDay]);
 
   const findEvent = (id: string) => snap.events.find((e) => e.id === id);
   const findReminder = (id: string) => snap.reminders.find((r) => r.id === id);
 
   return (
     <div className={`app ${openDay ? 'drawer-open' : ''} ${platform.kind}`}>
-      <Header
-        ref={quickRef}
-        view={view}
-        anchor={anchor}
-        onView={setView}
-        onPrev={() => go(-1)}
-        onNext={() => go(1)}
-        onToday={() => setAnchor(new Date())}
-        onNewEvent={() => createEvent(openDay ?? toISODate(new Date()))}
-        onSearch={() => setModal({ kind: 'search' })}
-        onSettings={() => setModal({ kind: 'settings' })}
-        onQuickAdded={(d) => setAnchor(parseISODate(d))}
-        isDesktop={platform.kind === 'desktop'}
-      />
-      <div className="main">
-        <Sidebar
-          onOpenDay={showDay}
-          onOpenEvent={openEvent}
-          onOpenReminder={openReminder}
-          onEditCountdown={(c) =>
-            setModal(c ? { kind: 'countdown', c, isNew: false } : { kind: 'countdown', c: newCountdown(toISODate(addDays(new Date(), 30))), isNew: true })
-          }
+      <NavRail tab={tab} onTab={setTab} onSettings={() => setModal({ kind: 'settings' })} badge={missed.length} />
+      <div className="shell">
+        <Header
+          tab={tab}
+          view={view}
+          anchor={anchor}
+          addDate={addDate}
+          onView={setView}
+          onPrev={() => go(-1)}
+          onNext={() => go(1)}
+          onToday={() => setAnchor(new Date())}
+          onSearch={() => setModal({ kind: 'search' })}
+          onAdd={add}
+          onQuickAdded={(d) => setAnchor(parseISODate(d))}
+          addOpen={addOpen}
+          setAddOpen={setAddOpen}
+          isDesktop={platform.kind === 'desktop'}
         />
-        <div className="calendar">
-          {missed.length > 0 && (
-            <div className="missed-bar" role="status">
-              <Icon name="gamepad" size={16} />
-              <strong>{missed.length === 1 ? t('missedOne') : t('missedBanner', { n: missed.length })}</strong>
-              <span className="missed-list">{missed.map((m) => m.title || '—').join(' · ')}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  platform.clearMissed();
-                  setMissed([]);
-                }}
-              >
-                {t('clear')}
-              </Button>
-            </div>
-          )}
-          {view === 'journal' ? (
-            <JournalPage selected={journalDate} onOpenJournal={setJournalDate} />
-          ) : view === 'month' ? (
-            <MonthView anchor={anchor} selected={openDay} onOpenDay={setOpenDay} onOpenEvent={openEvent} onOpenJournal={setJournalDate} />
-          ) : (
-            <WeekView
-              anchor={anchor}
-              selected={openDay}
-              onOpenDay={setOpenDay}
+        <div className="main">
+          <div className="content">
+            {missed.length > 0 && (
+              <div className="missed-bar" role="status">
+                <Icon name="gamepad" size={16} />
+                <strong>{missed.length === 1 ? t('missedOne') : t('missedBanner', { n: missed.length })}</strong>
+                <span className="missed-list">{missed.map((m) => m.title || '—').join(' · ')}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    platform.clearMissed();
+                    setMissed([]);
+                  }}
+                >
+                  {t('clear')}
+                </Button>
+              </div>
+            )}
+            {tab === 'journal' ? (
+              <JournalPage selected={journalDate} onOpenJournal={setJournalDate} />
+            ) : tab === 'upcoming' ? (
+              <UpcomingPage onOpenDay={showDay} onOpenEvent={openEvent} onOpenReminder={openReminder} />
+            ) : tab === 'countdowns' ? (
+              <CountdownsPage onEdit={editCountdown} />
+            ) : view === 'month' ? (
+              <MonthView anchor={anchor} selected={openDay} onOpenDay={(d) => openDayAt(d)} onOpenEvent={openEvent} onOpenJournal={setJournalDate} />
+            ) : (
+              <WeekView
+                anchor={anchor}
+                selected={openDay}
+                onOpenDay={(d) => openDayAt(d)}
+                onOpenEvent={openEvent}
+                onOpenReminder={openReminder}
+                onCreateAt={(d, time) => createEvent(d, time)}
+                onOpenJournal={setJournalDate}
+              />
+            )}
+          </div>
+          {openDay && (
+            <DayDrawer
+              key={`${openDay}-${drawer.n}`}
+              date={openDay}
+              initialTab={drawer.tab}
+              autoAdd={drawer.autoAdd}
+              onClose={() => setOpenDay(null)}
               onOpenEvent={openEvent}
+              onNewEvent={(d) => createEvent(d)}
               onOpenReminder={openReminder}
-              onCreateAt={(d, time) => createEvent(d, time)}
+              onNewReminder={createReminder}
               onOpenJournal={setJournalDate}
             />
           )}
         </div>
-        {openDay && (
-          <DayDrawer
-            key={openDay}
-            date={openDay}
-            onClose={() => setOpenDay(null)}
-            onOpenEvent={openEvent}
-            onNewEvent={(d) => createEvent(d)}
-            onOpenReminder={openReminder}
-            onNewReminder={createReminder}
-            onOpenJournal={setJournalDate}
-          />
-        )}
       </div>
 
       {modal?.kind === 'event' && <EventEditor key={modal.ev.id} initial={modal.ev} isNew={modal.isNew} onClose={() => setModal(null)} />}

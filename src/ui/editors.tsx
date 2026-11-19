@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { formatRemindBefore, type StringKey } from '../i18n/strings';
 import { dateOf, parseLocal, timeOf, toLocalDateTime } from '../shared/dates';
 import type { CalendarEvent, Countdown, Repeat, Reminder } from '../shared/types';
@@ -6,6 +6,20 @@ import { Button, Field, Icon, IconButton, Modal, Toggle } from './common';
 import { COUNTDOWN_EMOJIS, EVENT_COLORS, REMIND_PRESETS } from './drafts';
 import { BUILTIN_SOUNDS, playSound } from './sound';
 import { useAlive, useBloom } from './store';
+
+/** Collapsible "More options" section that keeps forms short. */
+function MoreOptions({ open, children }: { open: boolean; children: ReactNode }) {
+  const { t } = useBloom();
+  return (
+    <details className="more-options" open={open}>
+      <summary>
+        <Icon name="chevronRight" size={14} className="more-chevron" />
+        {t('moreOptions')}
+      </summary>
+      <div className="more-body">{children}</div>
+    </details>
+  );
+}
 
 const REPEATS: Repeat[] = ['none', 'daily', 'weekly', 'monthly', 'yearly'];
 
@@ -197,6 +211,11 @@ export function EventEditor({ initial, isNew, onClose }: { initial: CalendarEven
           </Field>
         </div>
 
+        <Field label={t('remindMe')}>
+          <RemindersPicker value={ev.remindBefore} onChange={(remindBefore) => set({ remindBefore })} />
+        </Field>
+
+        <MoreOptions open={ev.repeat !== 'none' || !!ev.location || !!ev.notes || ev.visibility === 'private'}>
         <div className="grid-2">
           <Field label={t('repeat')}>
             <RepeatSelect value={ev.repeat} onChange={(repeat) => set({ repeat })} />
@@ -205,10 +224,6 @@ export function EventEditor({ initial, isNew, onClose }: { initial: CalendarEven
             <SoundSelect value={ev.sound} onChange={(sound) => set({ sound })} />
           </Field>
         </div>
-
-        <Field label={t('remindMe')}>
-          <RemindersPicker value={ev.remindBefore} onChange={(remindBefore) => set({ remindBefore })} />
-        </Field>
 
         <Field label={t('location')}>
           <input value={ev.location} placeholder={t('locationPlaceholder')} onChange={(e) => set({ location: e.target.value })} />
@@ -226,6 +241,7 @@ export function EventEditor({ initial, isNew, onClose }: { initial: CalendarEven
           }
           onChange={(p) => set({ visibility: p ? 'private' : 'shared' })}
         />
+        </MoreOptions>
         <button type="submit" hidden />
       </form>
     </Modal>
@@ -294,6 +310,7 @@ export function ReminderEditor({ initial, isNew, onClose }: { initial: Reminder;
             <input type="time" value={timeOf(r.at)} onChange={(e) => e.target.value && set({ at: `${dateOf(r.at)}T${e.target.value}` })} />
           </Field>
         </div>
+        <MoreOptions open={r.repeat !== 'none' || !!r.note}>
         <div className="grid-2">
           <Field label={t('repeat')}>
             <RepeatSelect value={r.repeat} onChange={(repeat) => set({ repeat })} />
@@ -305,6 +322,7 @@ export function ReminderEditor({ initial, isNew, onClose }: { initial: Reminder;
         <Field label={t('notes')}>
           <textarea rows={2} value={r.note} placeholder={t('notesPlaceholder')} onChange={(e) => set({ note: e.target.value })} />
         </Field>
+        </MoreOptions>
         <button type="submit" hidden />
       </form>
     </Modal>

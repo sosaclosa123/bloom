@@ -1,32 +1,41 @@
-import { forwardRef, useMemo, useState } from 'react';
+// Top bar: page title (+ month navigation on the calendar), search and a
+// single "＋" button that holds quick add and every "add" option.
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDuration, type StringKey } from '../i18n/strings';
 import { addDays, parseISODate, startOfWeek } from '../shared/dates';
-import { parseQuickAdd } from '../shared/quickAdd';
 import { newMeta } from '../shared/db';
-import { Button, IconButton, Segmented } from './common';
+import { parseQuickAdd } from '../shared/quickAdd';
+import type { ISODate } from '../shared/types';
+import { Icon, IconButton, Segmented } from './common';
 import { useBloom } from './store';
 
-export type ViewMode = 'month' | 'week' | 'journal';
+export type Tab = 'calendar' | 'upcoming' | 'journal' | 'countdowns';
+export type CalView = 'month' | 'week';
+export type AddKind = 'event' | 'reminder' | 'todo' | 'note' | 'journal' | 'countdown';
 
 interface Props {
-  view: ViewMode;
+  tab: Tab;
+  view: CalView;
   anchor: Date;
-  onView: (v: ViewMode) => void;
+  addDate: ISODate;
+  onView: (v: CalView) => void;
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
-  onNewEvent: () => void;
   onSearch: () => void;
-  onSettings: () => void;
-  onQuickAdded: (date: string) => void;
+  onAdd: (kind: AddKind) => void;
+  onQuickAdded: (date: ISODate) => void;
+  addOpen: boolean;
+  setAddOpen: (open: boolean) => void;
   isDesktop: boolean;
 }
 
-export const Header = forwardRef<HTMLInputElement, Props>(function Header(p, quickRef) {
+export function Header(p: Props) {
   const { t, locale, settings } = useBloom();
+  const rtl = settings.language === 'he';
 
   const title = useMemo(() => {
-    if (p.view === 'journal') return t('journal');
+    if (p.tab !== 'calendar') return t(p.tab === 'upcoming' ? 'upcoming' : p.tab === 'journal' ? 'journal' : 'countdowns');
     if (p.view === 'month') return p.anchor.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
     const s = startOfWeek(p.anchor, settings.weekStart);
     const e = addDays(s, 6);
@@ -34,42 +43,22 @@ export const Header = forwardRef<HTMLInputElement, Props>(function Header(p, qui
     const a = s.toLocaleDateString(locale, { day: 'numeric', month: sameMonth ? undefined : 'short' });
     const b = e.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
     return `${a} – ${b}`;
-  }, [p.view, p.anchor, locale, settings.weekStart, t]);
+  }, [p.tab, p.view, p.anchor, locale, settings.weekStart, t]);
 
   return (
     <header className={`header ${p.isDesktop ? 'desktop' : ''}`}>
-      <div className="brand">
-        <span className="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 32 32" width="22" height="22">
-            <g transform="translate(16 16)">
-              {[0, 72, 144, 216, 288].map((r) => (
-                <ellipse key={r} rx="5.2" ry="8.4" cy="-7.2" transform={`rotate(${r})`} fill="var(--brand-petal)" />
-              ))}
-              <circle r="4" fill="var(--brand-center)" />
-            </g>
-          </svg>
-        </span>
-        <span className="brand-name">Bloom</span>
-      </div>
-
-      <div className="nav">
-        {p.view !== 'journal' && (
-          <>
-        <Button size="sm" onClick={p.onToday}>
-          {t('today')}
-        </Button>
-        <div className="nav-arrows">
-          <IconButton icon={settings.language === 'he' ? 'chevronRight' : 'chevronLeft'} label={t('prev')} onClick={p.onPrev} />
-          <IconButton icon={settings.language === 'he' ? 'chevronLeft' : 'chevronRight'} label={t('next')} onClick={p.onNext} />
+      <h1 className="period-title">{title}</h1>
+      {p.tab === 'calendar' && (
+        <div className="nav">
+          <IconButton icon={rtl ? 'chevronRight' : 'chevronLeft'} label={t('prev')} onClick={p.onPrev} />
+          <IconButton icon={rtl ? 'chevronLeft' : 'chevronRight'} label={t('next')} onClick={p.onNext} />
+          <button type="button" className="today-btn" onClick={p.onToday}>
+            {t('today')}
+          </button>
         </div>
-          </>
-        )}
-        <h1 className="period-title">{title}</h1>
-      </div>
-
-      <QuickAdd ref={quickRef} onAdded={p.onQuickAdded} />
-
-      <div className="header-actions">
+      )}
+      <span className="spacer" />
+      {p.tab === 'calendar' && (
         <Segmented
           value={p.view}
           onChange={p.onView}
@@ -77,29 +66,57 @@ export const Header = forwardRef<HTMLInputElement, Props>(function Header(p, qui
           options={[
             { value: 'month', label: t('month') },
             { value: 'week', label: t('week') },
-            { value: 'journal', label: t('journal') },
           ]}
         />
-        <IconButton icon="search" label={`${t('search')} (Ctrl+K)`} onClick={p.onSearch} />
-        <IconButton icon="settings" label={t('settings')} onClick={p.onSettings} />
-        <Button variant="primary" icon="plus" onClick={p.onNewEvent} className="new-btn">
-          <span className="new-label">{t('newEvent')}</span>
-        </Button>
-      </div>
+      )}
+      <IconButton icon="search" label={`${t('search')} (Ctrl+K)`} onClick={p.onSearch} />
+      <AddMenu open={p.addOpen} setOpen={p.setAddOpen} date={p.addDate} onAdd={p.onAdd} onQuickAdded={p.onQuickAdded} />
     </header>
   );
-});
+}
 
-const QuickAdd = forwardRef<HTMLInputElement, { onAdded: (date: string) => void }>(function QuickAdd({ onAdded }, ref) {
+const ADD_OPTIONS: { kind: AddKind; emoji: string; label: StringKey }[] = [
+  { kind: 'event', emoji: '📅', label: 'tileEvent' },
+  { kind: 'reminder', emoji: '🔔', label: 'tileReminder' },
+  { kind: 'todo', emoji: '✅', label: 'tileTodo' },
+  { kind: 'note', emoji: '📝', label: 'tileNote' },
+  { kind: 'journal', emoji: '📖', label: 'tileJournal' },
+  { kind: 'countdown', emoji: '⏳', label: 'tileCountdown' },
+];
+
+function AddMenu({
+  open,
+  setOpen,
+  date,
+  onAdd,
+  onQuickAdded,
+}: {
+  open: boolean;
+  setOpen: (o: boolean) => void;
+  date: ISODate;
+  onAdd: (k: AddKind) => void;
+  onQuickAdded: (d: ISODate) => void;
+}) {
   const { t, locale, settings, save, toast } = useBloom();
   const [text, setText] = useState('');
-  const [focused, setFocused] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
   const parsed = useMemo(() => (text.trim() ? parseQuickAdd(text) : null), [text]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => !wrap.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open, setOpen]);
 
   const submit = () => {
     if (!parsed || !parsed.title) return;
     const allDay = !parsed.start;
-    const remind = parsed.remindBefore ?? (allDay ? [] : settings.defaultRemindBefore);
     save('events', {
       ...newMeta(),
       title: parsed.title,
@@ -110,46 +127,71 @@ const QuickAdd = forwardRef<HTMLInputElement, { onAdded: (date: string) => void 
       notes: '',
       location: '',
       repeat: parsed.repeat,
-      remindBefore: remind,
+      remindBefore: parsed.remindBefore ?? (allDay ? [] : settings.defaultRemindBefore),
       sound: settings.defaultSound,
     });
     toast(`${t('saved')}: ${parsed.title}`);
     setText('');
-    onAdded(parsed.date);
+    setOpen(false);
+    onQuickAdded(parsed.date);
   };
 
-  const dateLabel = parsed ? parseISODate(parsed.date).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }) : '';
+  const dayLabel = parseISODate(date).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
-    <div className="quick-add">
-      <input
-        ref={ref}
-        value={text}
-        placeholder={t('quickAddPlaceholder')}
-        aria-label={t('quickAddPlaceholder')}
-        onChange={(e) => setText(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submit();
-          if (e.key === 'Escape') {
-            setText('');
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-      />
-      {focused && parsed && parsed.title && (
-        <div className="quick-preview" role="status">
-          <span className="qp-title">{parsed.title}</span>
-          <span className="qp-chip">{dateLabel}</span>
-          <span className="qp-chip">{parsed.start ? `${parsed.start}–${parsed.end}` : t('quickAddAllDay')}</span>
-          {parsed.repeat !== 'none' && <span className="qp-chip">{t(`repeat_${parsed.repeat}` as StringKey)}</span>}
-          {parsed.remindBefore && parsed.remindBefore.length > 0 && (
-            <span className="qp-chip">🔔 {formatDuration(settings.language, parsed.remindBefore[0])}</span>
+    <div className="add-wrap" ref={wrap}>
+      <button type="button" className={`add-btn ${open ? 'open' : ''}`} aria-label={t('add')} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="plus" size={20} />
+      </button>
+      {open && (
+        <div className="add-menu" role="menu">
+          <input
+            autoFocus
+            className="add-quick"
+            value={text}
+            placeholder={t('quickAddPlaceholder')}
+            aria-label={t('quickAddPlaceholder')}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+          />
+          {parsed?.title ? (
+            <button type="button" className="add-preview" onClick={submit}>
+              <span className="qp-title">{parsed.title}</span>
+              <span className="qp-chip">{parseISODate(parsed.date).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+              <span className="qp-chip">{parsed.start ? `${parsed.start}–${parsed.end}` : t('quickAddAllDay')}</span>
+              {parsed.repeat !== 'none' && <span className="qp-chip">{t(`repeat_${parsed.repeat}` as StringKey)}</span>}
+              {parsed.remindBefore && parsed.remindBefore.length > 0 && (
+                <span className="qp-chip">🔔 {formatDuration(settings.language, parsed.remindBefore[0])}</span>
+              )}
+              <span className="qp-hint">↵</span>
+            </button>
+          ) : (
+            <>
+              <div className="add-for">{t('addFor', { d: dayLabel })}</div>
+              <div className="add-grid">
+                {ADD_OPTIONS.map((o, i) => (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    key={o.kind}
+                    className={`add-option opt-${o.kind}`}
+                    style={{ ['--i' as string]: i }}
+                    onClick={() => {
+                      setOpen(false);
+                      onAdd(o.kind);
+                    }}
+                  >
+                    <span className="add-option-emoji" aria-hidden="true">
+                      {o.emoji}
+                    </span>
+                    {t(o.label)}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
-          <span className="qp-hint">{t('quickAddHint')} ↵</span>
         </div>
       )}
     </div>
   );
-});
+}

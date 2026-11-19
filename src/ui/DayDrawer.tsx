@@ -1,17 +1,24 @@
+// The day panel: date + busy dots + headline, then four small tabs:
+//   Plan (events & reminders) · To-do · Notes · Journal
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, parseISODate } from '../shared/dates';
+import { uuid } from '../shared/db';
 import { hebrewDateLabel } from '../shared/holidays';
 import type { EventOccurrence } from '../shared/recurrence';
 import type { DayEntry, DayStatus, ISODate, NoteCard } from '../shared/types';
-import { uuid } from '../shared/db';
 import { formatDayTitle, formatTime, useRangeData, type ReminderOccurrence } from './calendarData';
 import { Button, EditableText, Icon, IconButton } from './common';
 import { CARD_EMOJIS, newCard, newDayEntry } from './drafts';
-import { JournalPreview } from './Journal';
+import { hasContent, JournalPreview, useJournalEntry } from './Journal';
 import { useAlive, useBloom } from './store';
+
+export type DrawerTab = 'plan' | 'todo' | 'notes' | 'journal';
 
 interface Props {
   date: ISODate;
+  initialTab?: DrawerTab;
+  /** Start by adding a new to-do / note (from the ＋ menu). */
+  autoAdd?: 'todo' | 'note';
   onClose: () => void;
   onOpenEvent: (occ: EventOccurrence) => void;
   onNewEvent: (date: ISODate) => void;
@@ -26,312 +33,313 @@ const STATUSES: { value: DayStatus; key: 'statusFree' | 'statusSome' | 'statusPa
   { value: 'packed', key: 'statusPacked' },
 ];
 
-export function DayDrawer({ date, onClose, onOpenEvent, onNewEvent, onOpenReminder, onNewReminder, onOpenJournal }: Props) {
+export function DayDrawer(p: Props) {
+  const { date } = p;
   const { t, locale, settings, save, toast } = useBloom();
   const days = useAlive('days');
   const entry = useMemo(() => days.find((d) => d.date === date), [days, date]);
+  const journal = useJournalEntry(date);
   const day = parseISODate(date);
   const range = useRangeData(day, addDays(day, 1));
   const occs = range.eventsByDay.get(date) ?? [];
   const rems = range.remindersByDay.get(date) ?? [];
   const hols = range.holidays.get(date) ?? [];
-  const [focusCard, setFocusCard] = useState<string | null>(null);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !document.querySelector('.scrim')) onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
+  // Several saves can happen in one tick (e.g. Enter saves text and adds an
+  // item), so always build on the newest version of the day.
+  const latest = useRef(entry);
+  latest.current = entry;
   const update = (patch: Partial<DayEntry>) => {
-    const base = entry ?? newDayEntry(date);
-    save('days', { ...base, ...patch });
+    const next = { ...(latest.current ?? newDayEntry(date)), ...patch };
+    latest.current = next;
+    save('days', next);
   };
-  const updateCard = (card: NoteCard) => {
-    const cards = entry?.cards ?? [];
-    update({ cards: cards.map((c) => (c.id === card.id ? card : c)) });
+  const cards = () => latest.current?.cards ?? [];
+  const setCard = (card: NoteCard) => update({ cards: cards().map((c) => (c.id === card.id ? card : c)) });
+
+  const todos = (entry?.cards ?? []).filter((c) => c.kind === 'checklist').flatMap((c) => c.items.map((i) => ({ ...i, cardId: c.id })));
+  const notes = (entry?.cards ?? []).filter((c) => c.kind === 'text');
+  const doneCount = todos.filter((i) => i.done && i.text.trim()).length;
+  const todoCount = todos.filter((i) => i.text.trim()).length;
+
+  const firstTab: DrawerTab =
+    p.initialTab ?? (occs.length || rems.length ? 'plan' : todoCount ? 'todo' : notes.length ? 'notes' : hasContent(journal) ? 'journal' : 'plan');
+  const [tab, setTab] = useState<DrawerTab>(firstTab);
+  const [focusId, setFocusId] = useState<string | null>(null);
+
+  // ---------- to-dos
+  const addTodo = (text = '') => {
+    const item = { id: uuid(), text, done: false };
+    const list = cards();
+    const first = list.find((c) => c.kind === 'checklist');
+    if (first) update({ cards: list.map((c) => (c.id === first.id ? { ...c, items: [...c.items, item] } : c)) });
+    else update({ cards: [...list, { ...newCard('checklist'), items: [item] }] });
+    return item.id;
   };
-  const addCard = (kind: NoteCard['kind']) => {
-    const card = newCard(kind);
-    update({ cards: [...(entry?.cards ?? []), card] });
-    setFocusCard(card.id);
+  const setTodo = (cardId: string, id: string, patch: Partial<NoteCard['items'][number]>) =>
+    update({ cards: cards().map((c) => (c.id === cardId ? { ...c, items: c.items.map((i) => (i.id === id ? { ...i, ...patch } : i)) } : c)) });
+  const removeTodo = (cardId: string, id: string) =>
+    update({
+      cards: cards()
+        .map((c) => (c.id === cardId ? { ...c, items: c.items.filter((i) => i.id !== id) } : c))
+        .filter((c) => c.kind !== 'checklist' || c.items.length > 0),
+    });
+
+  // ---------- notes
+  const addNote = () => {
+    const card = newCard('text');
+    update({ cards: [...cards(), card] });
+    setFocusId(card.id);
   };
-  const deleteCard = (card: NoteCard) => {
-    const cards = entry?.cards ?? [];
-    const idx = cards.findIndex((c) => c.id === card.id);
-    update({ cards: cards.filter((c) => c.id !== card.id) });
+  const deleteNote = (card: NoteCard) => {
+    const idx = cards().findIndex((c) => c.id === card.id);
+    update({ cards: cards().filter((c) => c.id !== card.id) });
     toast(t('deleted'), {
       label: t('undo'),
       run: () => {
-        const now = days.find((d) => d.date === date);
-        const list = [...(now?.cards ?? [])];
+        const list = [...cards()];
         list.splice(idx, 0, card);
-        save('days', { ...(now ?? newDayEntry(date)), cards: list });
+        update({ cards: list });
       },
     });
   };
 
+  useEffect(() => {
+    if (p.autoAdd === 'note') addNote();
+    if (p.autoAdd === 'todo') setFocusId('new-todo');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.querySelector('.scrim')) p.onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [p]);
+
+  const tabs: { id: DrawerTab; label: string; badge?: string }[] = [
+    { id: 'plan', label: t('plan'), badge: occs.length + rems.length ? String(occs.length + rems.length) : undefined },
+    { id: 'todo', label: t('tileTodo'), badge: todoCount ? `${doneCount}/${todoCount}` : undefined },
+    { id: 'notes', label: t('notes'), badge: notes.length ? String(notes.length) : undefined },
+    { id: 'journal', label: t('journal'), badge: hasContent(journal) ? '✓' : undefined },
+  ];
+
+  const plan = [
+    ...occs.map((o) => ({ at: o.event.allDay ? -1 : o.start.getTime(), key: o.key, node: (
+      <button type="button" key={o.key} className={`item-row ev-${o.event.color}`} onClick={() => p.onOpenEvent(o)}>
+        <span className="item-bar" />
+        <span className="item-time">{o.event.allDay ? t('allDay') : `${formatTime(o.start, locale)}–${formatTime(o.end, locale)}`}</span>
+        <span className="item-title" dir="auto">{o.event.title || '—'}</span>
+        <span className="item-icons">
+          {o.event.visibility === 'private' && <Icon name="lock" size={13} />}
+          {o.event.repeat !== 'none' && <Icon name="repeat" size={13} />}
+        </span>
+      </button>
+    ) })),
+    ...rems.map((r) => ({ at: r.at.getTime(), key: r.reminder.id + r.at.getTime(), node: (
+      <button type="button" key={r.reminder.id + r.at.getTime()} className="item-row reminder" onClick={() => p.onOpenReminder(r)}>
+        <Icon name="bell" size={14} className="item-bell" />
+        <span className="item-time">{formatTime(r.at, locale)}</span>
+        <span className="item-title" dir="auto">{r.reminder.title || '—'}</span>
+        <span className="item-icons">{r.reminder.repeat !== 'none' && <Icon name="repeat" size={13} />}</span>
+      </button>
+    ) })),
+  ].sort((a, b) => a.at - b.at);
+
   return (
     <aside className="drawer" aria-label={formatDayTitle(date, locale)}>
       <div className="drawer-head">
-        <div>
+        <div className="drawer-title">
           <h2>{formatDayTitle(date, locale)}</h2>
           <div className="drawer-sub">
             {settings.showHebrewDate || settings.language === 'he' ? hebrewDateLabel(day, settings.language) : day.getFullYear()}
+            {hols.map((h) => (
+              <span key={h.name} className="holiday-chip">
+                {h.name}
+              </span>
+            ))}
           </div>
         </div>
-        <IconButton icon="close" label={t('close')} onClick={onClose} />
+        <IconButton icon="close" label={t('close')} onClick={p.onClose} />
       </div>
 
-      {hols.length > 0 && (
-        <div className="holiday-chips">
-          {hols.map((h) => (
-            <span key={h.name} className={`holiday-chip ${h.tradition}`}>
-              {h.name}
-            </span>
+      <div className="drawer-meta">
+        <div className="busy-dots" role="radiogroup" aria-label={t('status')}>
+          {STATUSES.map((s) => (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={entry?.status === s.value}
+              key={s.value}
+              title={t(s.key)}
+              className={`busy-dot ${s.value} ${entry?.status === s.value ? 'active' : ''}`}
+              onClick={() => update({ status: entry?.status === s.value ? null : s.value })}
+            >
+              <span className={`status-dot ${s.value}`} />
+              {entry?.status === s.value && <span className="busy-label">{t(s.key)}</span>}
+            </button>
           ))}
         </div>
-      )}
+        <EditableText className="headline-input" value={entry?.headline ?? ''} placeholder={t('headlinePlaceholder')} onSave={(v) => update({ headline: v })} />
+      </div>
 
-      <div className="drawer-body">
-        <section className="drawer-section">
-          <div className="section-label">{t('addToDay')}</div>
-          <div className="add-tiles">
-            {(
-              [
-                ['todo', '✅', t('tileTodo'), () => addCard('checklist')],
-                ['note', '📝', t('tileNote'), () => addCard('text')],
-                ['journal', '📖', t('tileJournal'), () => onOpenJournal(date)],
-                ['event', '📅', t('tileEvent'), () => onNewEvent(date)],
-                ['reminder', '🔔', t('tileReminder'), () => onNewReminder(date)],
-              ] as const
-            ).map(([id, emoji, label, run], i) => (
-              <button type="button" key={id} className={`add-tile tile-${id}`} style={{ ['--i' as string]: i }} onClick={run}>
-                <span className="add-tile-emoji" aria-hidden="true">
-                  {emoji}
-                </span>
-                <span className="add-tile-label">{label}</span>
-              </button>
-            ))}
-          </div>
-        </section>
+      <div className="drawer-tabs" role="tablist">
+        {tabs.map((x) => (
+          <button type="button" role="tab" aria-selected={tab === x.id} key={x.id} className={`drawer-tab tab-${x.id} ${tab === x.id ? 'active' : ''}`} onClick={() => { setTab(x.id); if (x.id === 'todo') setFocusId('new-todo'); }}>
+            {x.label}
+            {x.badge && <span className="tab-badge">{x.badge}</span>}
+          </button>
+        ))}
+      </div>
 
-        <section className="drawer-section" id="journal">
-          <div className="section-head">
-            <span className="section-label">
-              <Icon name="book" size={13} /> {t('journal')}
-            </span>
-          </div>
-          <JournalPreview date={date} onOpen={() => onOpenJournal(date)} />
-        </section>
-
-        <section className="drawer-section">
-          <div className="section-label">{t('status')}</div>
-          <div className="status-picker" role="radiogroup" aria-label={t('status')}>
-            {STATUSES.map((s) => (
-              <button
-                type="button"
-                role="radio"
-                aria-checked={entry?.status === s.value}
-                key={s.value}
-                className={`status-option ${s.value} ${entry?.status === s.value ? 'active' : ''}`}
-                onClick={() => update({ status: entry?.status === s.value ? null : s.value })}
-              >
-                <span className={`status-dot ${s.value}`} />
-                {t(s.key)}
-              </button>
-            ))}
-          </div>
-          <EditableText
-            className="headline-input"
-            value={entry?.headline ?? ''}
-            placeholder={t('headlinePlaceholder')}
-            onSave={(v) => update({ headline: v })}
-          />
-        </section>
-
-        <section className="drawer-section">
-          <div className="section-head">
-            <span className="section-label">{t('events')}</span>
-            <Button size="sm" variant="ghost" icon="plus" onClick={() => onNewEvent(date)}>
-              {t('addEvent')}
-            </Button>
-          </div>
-          {occs.length === 0 && <div className="empty">{t('noEvents')}</div>}
-          <div className="item-list">
-            {occs.map((o) => (
-              <button type="button" key={o.key} className={`item-row ev-${o.event.color}`} onClick={() => onOpenEvent(o)}>
-                <span className="item-bar" />
-                <span className="item-time">
-                  {o.event.allDay ? t('allDay') : `${formatTime(o.start, locale)}–${formatTime(o.end, locale)}`}
-                </span>
-                <span className="item-title">{o.event.title || '—'}</span>
-                <span className="item-icons">
-                  {o.event.visibility === 'private' && <Icon name="lock" size={13} />}
-                  {o.event.repeat !== 'none' && <Icon name="repeat" size={13} />}
-                  {o.event.remindBefore.length > 0 && <Icon name="bell" size={13} />}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="drawer-section">
-          <div className="section-head">
-            <span className="section-label">{t('reminders')}</span>
-            <Button size="sm" variant="ghost" icon="plus" onClick={() => onNewReminder(date)}>
-              {t('addReminder')}
-            </Button>
-          </div>
-          {rems.length === 0 && <div className="empty">{t('noReminders')}</div>}
-          <div className="item-list">
-            {rems.map((r) => (
-              <button type="button" key={r.reminder.id + r.at.getTime()} className="item-row reminder" onClick={() => onOpenReminder(r)}>
-                <Icon name="bell" size={14} className="item-bell" />
-                <span className="item-time">{formatTime(r.at, locale)}</span>
-                <span className="item-title">{r.reminder.title || '—'}</span>
-                <span className="item-icons">{r.reminder.repeat !== 'none' && <Icon name="repeat" size={13} />}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="drawer-section">
-          <div className="section-head">
-            <span className="section-label">{t('notesTodos')}</span>
-            <div className="section-actions">
-              <Button size="sm" variant="ghost" icon="note" onClick={() => addCard('text')}>
-                {t('addNote')}
+      <div className="drawer-body" key={tab}>
+        {tab === 'plan' && (
+          <>
+            {plan.length === 0 ? <div className="empty">{t('noPlans')}</div> : <div className="item-list">{plan.map((x) => x.node)}</div>}
+            <div className="tab-actions">
+              <Button size="sm" icon="plus" onClick={() => p.onNewEvent(date)}>
+                {t('tileEvent')}
               </Button>
-              <Button size="sm" variant="ghost" icon="checklist" onClick={() => addCard('checklist')}>
-                {t('addChecklist')}
+              <Button size="sm" icon="bell" onClick={() => p.onNewReminder(date)}>
+                {t('tileReminder')}
               </Button>
             </div>
-          </div>
-          {(entry?.cards.length ?? 0) === 0 && <div className="empty">{t('noNotes')}</div>}
-          <div className="cards">
-            {entry?.cards.map((c, i) => (
-              <CardEditor index={i} key={c.id} card={c} autoFocus={focusCard === c.id} onChange={updateCard} onDelete={() => deleteCard(c)} />
-            ))}
-          </div>
-        </section>
+          </>
+        )}
 
+        {tab === 'todo' && (
+          <>
+            {todoCount > 0 && (
+              <div className="todo-progress" aria-label={t('todosDone', { d: doneCount, n: todoCount })}>
+                <span style={{ width: `${(doneCount / todoCount) * 100}%` }} />
+              </div>
+            )}
+            <ul className="checklist">
+              {todos.map((it) => (
+                <li key={it.id} className={it.done ? 'done' : ''}>
+                  <label className="check">
+                    <input type="checkbox" checked={it.done} onChange={(e) => setTodo(it.cardId, it.id, { done: e.target.checked })} />
+                    <span className="check-box">
+                      <Icon name="check" size={12} />
+                    </span>
+                  </label>
+                  <EditableText
+                    className="check-text"
+                    value={it.text}
+                    autoFocus={focusId === it.id}
+                    onSave={(v) => setTodo(it.cardId, it.id, { text: v })}
+                    onEnter={() => setFocusId('new-todo')}
+                  />
+                  <button type="button" className="check-remove" aria-label={t('delete')} onClick={() => removeTodo(it.cardId, it.id)}>
+                    <Icon name="close" size={12} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <NewTodo key={todos.length} autoFocus={focusId === 'new-todo' || todos.length === 0} placeholder={t('checklistItem')} onAdd={(text) => addTodo(text)} />
+          </>
+        )}
+
+        {tab === 'notes' && (
+          <>
+            {notes.length === 0 && <div className="empty">{t('noNotes')}</div>}
+            <div className="cards">
+              {notes.map((c, i) => (
+                <NoteEditor key={c.id} index={i} card={c} autoFocus={focusId === c.id} onChange={setCard} onDelete={() => deleteNote(c)} />
+              ))}
+            </div>
+            <div className="tab-actions">
+              <Button size="sm" icon="plus" onClick={addNote}>
+                {t('tileNote')}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {tab === 'journal' && <JournalPreview date={date} onOpen={() => p.onOpenJournal(date)} />}
       </div>
     </aside>
   );
 }
 
-function CardEditor({
+/** The always-present "Add a to-do…" line at the bottom of the list. */
+function NewTodo({ onAdd, placeholder, autoFocus }: { onAdd: (text: string) => void; placeholder: string; autoFocus: boolean }) {
+  const [text, setText] = useState('');
+  return (
+    <div className="new-todo">
+      <Icon name="plus" size={14} />
+      <input
+        dir="auto"
+        autoFocus={autoFocus}
+        value={text}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && text.trim()) {
+            onAdd(text.trim());
+            setText('');
+          }
+        }}
+        onBlur={() => {
+          if (text.trim()) {
+            onAdd(text.trim());
+            setText('');
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+function NoteEditor({
   card,
   onChange,
   onDelete,
   autoFocus,
   index,
 }: {
-  index: number;
   card: NoteCard;
   onChange: (c: NoteCard) => void;
   onDelete: () => void;
   autoFocus: boolean;
+  index: number;
 }) {
   const { t } = useBloom();
   const [picking, setPicking] = useState(false);
-  const [focusItem, setFocusItem] = useState<string | null>(null);
-
-  // Several edits can happen in one tick (e.g. Enter saves the text *and* adds
-  // a new item), so always build on the newest version of the card.
   const latest = useRef(card);
   latest.current = card;
-  const commit = (next: NoteCard) => {
-    latest.current = next;
-    onChange(next);
+  const commit = (patch: Partial<NoteCard>) => {
+    latest.current = { ...latest.current, ...patch };
+    onChange(latest.current);
   };
-  const setItem = (id: string, patch: Partial<NoteCard['items'][number]>) =>
-    commit({ ...latest.current, items: latest.current.items.map((i) => (i.id === id ? { ...i, ...patch } : i)) });
-  const addItemAfter = (idx: number) => {
-    const item = { id: uuid(), text: '', done: false };
-    const items = [...latest.current.items];
-    items.splice(idx + 1, 0, item);
-    commit({ ...latest.current, items });
-    setFocusItem(item.id);
-  };
-
   return (
-    <div className={`card card--${card.kind}`} style={{ ['--i' as string]: index }}>
-      <div className="card-head">
-        <div className="emoji-wrap">
-          <button type="button" className="emoji-btn" aria-label={t('pickEmoji')} title={t('pickEmoji')} onClick={() => setPicking((p) => !p)}>
-            {card.emoji || <span className="marker-dot" />}
-          </button>
-          {picking && (
-            <div className="emoji-pop" onMouseLeave={() => setPicking(false)}>
-              {CARD_EMOJIS.map((e) => (
-                <button
-                  type="button"
-                  key={e || 'dot'}
-                  className={e === card.emoji ? 'active' : ''}
-                  onClick={() => {
-                    commit({ ...latest.current, emoji: e });
-                    setPicking(false);
-                  }}
-                >
-                  {e || <span className="marker-dot" />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <span className="card-kind">
-          <Icon name={card.kind === 'text' ? 'note' : 'checklist'} size={14} />
-        </span>
-        <IconButton icon="trash" label={t('delete')} className="card-delete" onClick={onDelete} />
-      </div>
-      {card.kind === 'text' ? (
-        <EditableText
-          multiline
-          className="card-text"
-          value={card.text}
-          autoFocus={autoFocus}
-          placeholder={t('notePlaceholder')}
-          onSave={(v) => commit({ ...latest.current, text: v })}
-        />
-      ) : (
-        <ul className="checklist">
-          {card.items.map((it, idx) => (
-            <li key={it.id} className={it.done ? 'done' : ''}>
-              <label className="check">
-                <input type="checkbox" checked={it.done} onChange={(e) => setItem(it.id, { done: e.target.checked })} />
-                <span className="check-box">
-                  <Icon name="check" size={12} />
-                </span>
-              </label>
-              <EditableText
-                className="check-text"
-                value={it.text}
-                autoFocus={(autoFocus && idx === 0) || focusItem === it.id}
-                placeholder={t('checklistItem')}
-                onSave={(v) => setItem(it.id, { text: v })}
-                onEnter={() => addItemAfter(idx)}
-              />
+    <div className="card card--text" style={{ ['--i' as string]: index }}>
+      <div className="emoji-wrap">
+        <button type="button" className="emoji-btn" aria-label={t('pickEmoji')} title={t('pickEmoji')} onClick={() => setPicking((x) => !x)}>
+          {card.emoji || <span className="marker-dot" />}
+        </button>
+        {picking && (
+          <div className="emoji-pop" onMouseLeave={() => setPicking(false)}>
+            {CARD_EMOJIS.map((e) => (
               <button
                 type="button"
-                className="check-remove"
-                aria-label={t('delete')}
-                onClick={() => commit({ ...latest.current, items: latest.current.items.filter((x) => x.id !== it.id) })}
+                key={e || 'dot'}
+                className={e === card.emoji ? 'active' : ''}
+                onClick={() => {
+                  commit({ emoji: e });
+                  setPicking(false);
+                }}
               >
-                <Icon name="close" size={12} />
+                {e || <span className="marker-dot" />}
               </button>
-            </li>
-          ))}
-          <li className="check-add">
-            <button type="button" onClick={() => addItemAfter(card.items.length - 1)}>
-              <Icon name="plus" size={13} /> {t('checklistItem')}
-            </button>
-          </li>
-        </ul>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
+      <EditableText multiline className="card-text" value={card.text} autoFocus={autoFocus} placeholder={t('notePlaceholder')} onSave={(v) => commit({ text: v })} />
+      <IconButton icon="trash" label={t('delete')} className="card-delete" onClick={onDelete} />
     </div>
   );
 }

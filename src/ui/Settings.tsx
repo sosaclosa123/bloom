@@ -8,7 +8,7 @@ import { playSound } from './sound';
 import { useAlive, useBloom } from './store';
 import { UpdateSettings } from './Updates';
 
-type Tab = 'general' | 'calendar' | 'reminders' | 'game' | 'windows' | 'backup';
+type Tab = 'general' | 'calendar' | 'reminders' | 'backup';
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { t, settings, setSettings, toast, del } = useBloom();
@@ -17,7 +17,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [game, setGame] = useState<{ available: boolean; gamingNow: boolean } | null>(null);
 
   useEffect(() => {
-    if (tab !== 'game') return;
+    if (tab !== 'reminders') return;
     let alive = true;
     const poll = () => platform.gameStatus().then((g) => alive && setGame(g));
     poll();
@@ -31,9 +31,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const tabs: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
     { id: 'general', label: t('general'), icon: 'settings' },
     { id: 'calendar', label: t('calendar'), icon: 'calendar' },
-    { id: 'reminders', label: t('remindersSettings'), icon: 'bell' },
-    { id: 'game', label: t('gameMode'), icon: 'gamepad' },
-    ...(platform.kind === 'desktop' ? [{ id: 'windows' as Tab, label: t('windows'), icon: 'sparkle' as const }] : []),
+    { id: 'reminders', label: t('notifications'), icon: 'bell' },
     { id: 'backup', label: t('backup'), icon: 'note' },
   ];
 
@@ -78,6 +76,12 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                   ]}
                 />
               </Field>
+              {platform.kind === 'desktop' && (
+                <>
+              <Toggle checked={settings.startWithWindows} label={t('startWithWindows')} onChange={(startWithWindows) => setSettings({ startWithWindows })} />
+              <Toggle checked={settings.closeToTray} label={t('closeToTray')} onChange={(closeToTray) => setSettings({ closeToTray })} />
+                            </>
+              )}
               <UpdateSettings />
             </>
           )}
@@ -147,8 +151,9 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             </>
           )}
 
-          {tab === 'game' && (
+          {tab === 'reminders' && (
             <>
+              <h4 className="settings-h">{t('gameMode')}</h4>
               <div className="game-intro">
                 <Icon name="gamepad" size={22} />
                 <p>{t('gameModeIntro')}</p>
@@ -168,12 +173,6 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             </>
           )}
 
-          {tab === 'windows' && (
-            <>
-              <Toggle checked={settings.startWithWindows} label={t('startWithWindows')} onChange={(startWithWindows) => setSettings({ startWithWindows })} />
-              <Toggle checked={settings.closeToTray} label={t('closeToTray')} onChange={(closeToTray) => setSettings({ closeToTray })} />
-            </>
-          )}
 
           {tab === 'backup' && (
             <>

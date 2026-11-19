@@ -247,11 +247,47 @@
 }
 
 /* ------------------------------------------------------------ everywhere */
-.brand-mark svg {
+.rail-brand svg {
   transition: transform 1.2s var(--ease);
 }
-.brand:hover .brand-mark svg {
+.rail-brand:hover svg {
   transform: rotate(144deg);
+}
+.rail-tab.active .rail-icon {
+  animation: boing 520ms var(--spring);
+}
+.add-menu {
+  animation: notebook-in 360ms var(--spring) both;
+  transform-origin: top right;
+}
+.add-option {
+  animation: bloom-pop var(--dur-slow) var(--spring) both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+  transition: transform var(--dur) var(--spring), background var(--dur), color var(--dur);
+}
+.add-option:hover {
+  transform: translateY(-2px);
+}
+.add-option:hover .add-option-emoji {
+  display: inline-block;
+  animation: wiggle 500ms var(--ease);
+}
+.drawer-body > * {
+  animation: rise-in var(--dur-slow) var(--ease) both;
+}
+.drawer-tab.active::after {
+  animation: bloom-pop var(--dur) var(--spring);
+}
+.up-day,
+.cd-card {
+  animation: rise-in var(--dur-slow) var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+.busy-dot.active .status-dot {
+  animation: boing 520ms var(--spring);
+}
+.checklist li {
+  animation: rise-in var(--dur) var(--ease) both;
 }
 .btn-primary {
   transition: background var(--dur-fast), transform var(--dur-fast) var(--spring), box-shadow var(--dur);
