@@ -71,6 +71,15 @@ export function useRangeData(from: Date, to: Date): RangeData {
   return { eventsByDay, remindersByDay, days, holidays };
 }
 
+/**
+ * A "daily nudge": a daily event with no duration and a notification (e.g.
+ * "take vitamins"). Shown in the day panel and week view, but not on every
+ * day of the month grid or the Upcoming list, where it would just repeat.
+ */
+export function isDailyNudge(o: EventOccurrence): boolean {
+  return o.event.repeat === 'daily' && o.event.start.slice(11) === o.event.end.slice(11) && o.event.remindBefore.length > 0;
+}
+
 export function formatTime(d: Date, locale: string) {
   return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false });
 }

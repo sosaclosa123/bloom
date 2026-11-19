@@ -150,7 +150,7 @@ export interface Snapshot extends Collections {
   deviceId: string;
 }
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** A reminder that fired — shown in the popup or the "missed while playing" inbox. */
 export interface FiredAlert {

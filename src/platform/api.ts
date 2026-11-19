@@ -112,6 +112,11 @@ function web(): PlatformAPI {
   } catch {
     snap = emptySnapshot();
   }
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(snap)); // save upgrades right away
+  } catch {
+    /* ignore */
+  }
   const listeners = new Set<(s: Snapshot) => void>();
   const alertListeners = new Set<(a: FiredAlert[]) => void>();
   const soundListeners = new Set<(id: string, soft: boolean) => void>();

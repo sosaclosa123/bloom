@@ -3,7 +3,7 @@ import { addDays, monthGrid, sameDay, toISODate } from '../shared/dates';
 import { hebrewDateLabel } from '../shared/holidays';
 import type { EventOccurrence } from '../shared/recurrence';
 import type { ISODate } from '../shared/types';
-import { formatTime, useRangeData, weekdayNames } from './calendarData';
+import { formatTime, isDailyNudge, useRangeData, weekdayNames } from './calendarData';
 import { newDayEntry, nextStatus } from './drafts';
 import { DayChips } from './DayChips';
 import { useAlive, useBloom } from './store';
@@ -41,7 +41,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
         {grid.slice(0, rows * 7).map((d, cellIdx) => {
           const iso = toISODate(d);
           const entry = data.days.get(iso);
-          const occs = data.eventsByDay.get(iso) ?? [];
+          const occs = (data.eventsByDay.get(iso) ?? []).filter((o) => !isDailyNudge(o));
           // Daily reminders would put a bell on every day — keep those to the drawer/week view.
           const rems = (data.remindersByDay.get(iso) ?? []).filter((r) => r.reminder.repeat !== 'daily');
           const hol = data.holidays.get(iso) ?? [];

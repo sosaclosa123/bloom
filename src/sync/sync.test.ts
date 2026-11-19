@@ -40,7 +40,7 @@ class Device {
 const wait = (ms = 60) => new Promise((r) => setTimeout(r, ms));
 
 function ev(title: string, extra: Partial<CalendarEvent> = {}): CalendarEvent {
-  return { ...newMeta(), title, allDay: false, start: '2026-11-20T20:00', end: '2026-11-20T21:00', color: 'rose', notes: '', location: '', repeat: 'none', remindBefore: [], sound: 'builtin:chime', ...extra };
+  return { ...newMeta(), visibility: 'shared', title, allDay: false, start: '2026-11-20T20:00', end: '2026-11-20T21:00', color: 'rose', notes: '', location: '', repeat: 'none', remindBefore: [], sound: 'builtin:chime', ...extra };
 }
 
 describe('sync between two partners', () => {

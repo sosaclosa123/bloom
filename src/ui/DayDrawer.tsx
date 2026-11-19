@@ -126,17 +126,7 @@ export function DayDrawer(p: Props) {
   ];
 
   const plan = [
-    ...occs.map((o) => ({ at: o.event.allDay ? -1 : o.start.getTime(), key: o.key, node: (
-      <button type="button" key={o.key} className={`item-row ev-${o.event.color}`} onClick={() => p.onOpenEvent(o)}>
-        <span className="item-bar" />
-        <span className="item-time">{o.event.allDay ? t('allDay') : `${formatTime(o.start, locale)}–${formatTime(o.end, locale)}`}</span>
-        <span className="item-title" dir="auto">{o.event.title || '—'}</span>
-        <span className="item-icons">
-          {o.event.visibility === 'private' && <Icon name="lock" size={13} />}
-          {o.event.repeat !== 'none' && <Icon name="repeat" size={13} />}
-        </span>
-      </button>
-    ) })),
+    ...occs.map((o) => ({ at: o.event.allDay ? -1 : o.start.getTime(), key: o.key, node: <PlanEventRow key={o.key} occ={o} onOpen={() => p.onOpenEvent(o)} /> })),
     ...rems.map((r) => ({ at: r.at.getTime(), key: r.reminder.id + r.at.getTime(), node: (
       <button type="button" key={r.reminder.id + r.at.getTime()} className="item-row reminder" onClick={() => p.onOpenReminder(r)}>
         <Icon name="bell" size={14} className="item-bell" />
@@ -165,6 +155,7 @@ export function DayDrawer(p: Props) {
       </div>
 
       <div className="drawer-meta">
+        <div className="meta-row">
         <div className="busy-dots" role="radiogroup" aria-label={t('status')}>
           {STATUSES.map((s) => (
             <button
@@ -181,7 +172,17 @@ export function DayDrawer(p: Props) {
             </button>
           ))}
         </div>
-        <EditableText className="headline-input" value={entry?.headline ?? ''} placeholder={t('headlinePlaceholder')} onSave={(v) => update({ headline: v })} />
+          <span className="spacer" />
+          <div className="day-share" role="radiogroup" aria-label={t('sharedWithPartner')}>
+            <button type="button" role="radio" aria-checked={(entry?.visibility ?? 'private') === 'private'} className={(entry?.visibility ?? 'private') === 'private' ? 'active' : ''} onClick={() => update({ visibility: 'private' })} title={t('privateOnlyMe')}>
+              <Icon name="lock" size={12} /> {t('dayPrivate')}
+            </button>
+            <button type="button" role="radio" aria-checked={entry?.visibility === 'shared'} className={entry?.visibility === 'shared' ? 'active shared' : ''} onClick={() => update({ visibility: 'shared' })} title={t('sharedWithPartner')}>
+              <Icon name="heart" size={12} /> {t('dayShared')}
+            </button>
+          </div>
+        </div>
+         <EditableText className="headline-input" value={entry?.headline ?? ''} placeholder={t('headlinePlaceholder')} onSave={(v) => update({ headline: v })} />
       </div>
 
       <div className="drawer-tabs" role="tablist">
@@ -200,9 +201,6 @@ export function DayDrawer(p: Props) {
             <div className="tab-actions">
               <Button size="sm" icon="plus" onClick={() => p.onNewEvent(date)}>
                 {t('tileEvent')}
-              </Button>
-              <Button size="sm" icon="bell" onClick={() => p.onNewReminder(date)}>
-                {t('tileReminder')}
               </Button>
             </div>
           </>
@@ -340,6 +338,54 @@ function NoteEditor({
       </div>
       <EditableText multiline className="card-text" value={card.text} autoFocus={autoFocus} placeholder={t('notePlaceholder')} onSave={(v) => commit({ text: v })} />
       <IconButton icon="trash" label={t('delete')} className="card-delete" onClick={onDelete} />
+    </div>
+  );
+}
+
+/** An event in the Plan tab, with a small arrow that opens its notes right here. */
+function PlanEventRow({ occ, onOpen }: { occ: EventOccurrence; onOpen: () => void }) {
+  const { t, locale, save } = useBloom();
+  const ev = occ.event;
+  const [open, setOpen] = useState(false);
+  const latest = useRef(ev);
+  latest.current = ev;
+  return (
+    <div className={`plan-event ev-${ev.color} ${open ? 'open' : ''}`}>
+      <div className="plan-event-row">
+        <button type="button" className="item-row" onClick={onOpen}>
+          <span className="item-bar" />
+          <span className="item-time">{ev.allDay ? t('allDay') : `${formatTime(occ.start, locale)}–${formatTime(occ.end, locale)}`}</span>
+          <span className="item-title" dir="auto">
+            {ev.title || '—'}
+          </span>
+          <span className="item-icons">
+            {ev.remindBefore.length > 0 && <Icon name="bell" size={13} />}
+            {ev.visibility === 'shared' && <Icon name="heart" size={13} />}
+            {ev.repeat !== 'none' && <Icon name="repeat" size={13} />}
+          </span>
+        </button>
+        <button
+          type="button"
+          className={`note-toggle ${ev.notes.trim() ? 'has-notes' : ''}`}
+          aria-expanded={open}
+          aria-label={t('eventNotes')}
+          title={t('eventNotes')}
+          onClick={() => setOpen((x) => !x)}
+        >
+          <Icon name="note" size={14} />
+          <Icon name="chevronRight" size={12} className="note-chevron" />
+        </button>
+      </div>
+      {open && (
+        <EditableText
+          multiline
+          autoFocus={!ev.notes}
+          className="notebook plan-notes"
+          value={ev.notes}
+          placeholder={t('notesPlaceholder')}
+          onSave={(notes) => save('events', { ...latest.current, notes })}
+        />
+      )}
     </div>
   );
 }

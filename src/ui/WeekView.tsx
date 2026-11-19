@@ -83,10 +83,18 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
     const id = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(id);
   }, []);
+  // Scroll so the week's first event is in view (or 7:30 if there are none
+  // earlier), so nothing starts out hidden above the visible area.
+  const firstHour = useMemo(() => {
+    let min = 7.5;
+    for (const occs of data.eventsByDay.values())
+      for (const o of occs) if (!o.event.allDay) min = Math.min(min, o.start.getHours() + o.start.getMinutes() / 60 - 0.5);
+    return Math.max(0, min);
+  }, [data.eventsByDay]);
   useEffect(() => {
-    // Start scrolled to 7:30 so the working day is in view.
-    if (scroller.current) scroller.current.scrollTop = HOUR_H * 7.5;
-  }, []);
+    if (scroller.current) scroller.current.scrollTop = HOUR_H * firstHour;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start.getTime()]);
 
   const hours = Array.from({ length: 24 }, (_, h) => h);
 

@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { addDays, dayDiff, parseISODate, sameDay, startOfDay, toISODate } from '../shared/dates';
 import type { EventOccurrence } from '../shared/recurrence';
 import type { Countdown, ISODate } from '../shared/types';
-import { formatTime, useRangeData, type ReminderOccurrence } from './calendarData';
+import { formatTime, isDailyNudge, useRangeData, type ReminderOccurrence } from './calendarData';
 import { Icon, type IconName } from './common';
 import type { Tab } from './Header';
 import { useAlive, useBloom } from './store';
@@ -71,7 +71,7 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
     const out: { date: ISODate; occs: EventOccurrence[]; rems: ReminderOccurrence[]; todos: { cardId: string; id: string; text: string }[] }[] = [];
     for (let i = 0; i < 14; i++) {
       const iso = toISODate(addDays(today, i));
-      const occs = (range.eventsByDay.get(iso) ?? []).filter((o) => o.end.getTime() > now);
+      const occs = (range.eventsByDay.get(iso) ?? []).filter((o) => o.end.getTime() >= now && (i === 0 || !isDailyNudge(o)));
       // Daily reminders only on today, so they don't repeat down the whole list.
       const rems = (range.remindersByDay.get(iso) ?? []).filter((r) => r.at.getTime() >= now && (i === 0 || r.reminder.repeat !== 'daily'));
       const entry = days.find((d) => d.date === iso);

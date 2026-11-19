@@ -50,14 +50,50 @@ export function normalizeSnapshot(raw: unknown): Snapshot {
   }
   // v1 -> v2: reminders became private by default when sync arrived, so
   // existing personal reminders don't suddenly show up for a partner.
-  if ((r.schemaVersion ?? 1) < 2 && Array.isArray(r.events)) {
-    snap.reminders = snap.reminders.map((x) => ({ ...x, visibility: 'private' }));
-  }
+  const from = r.schemaVersion ?? 1;
+  if (from < 3 && Array.isArray(r.events)) migrateToV3(snap);
   return snap;
 }
 
+/**
+ * v3: private by default, and reminders became part of events.
+ *  - Existing events, days and countdowns become private (sharing is opt-in).
+ *  - Each standalone reminder turns into an event that notifies at its time;
+ *    the old reminder is deleted (a tombstone, so sync removes it too).
+ */
+function migrateToV3(snap: Snapshot) {
+  const now = Date.now();
+  const priv = <T extends SyncMeta>(x: T): T => (x.visibility === 'private' ? x : { ...x, visibility: 'private', updatedAt: Math.max(now, (x.updatedAt ?? 0) + 1) });
+  snap.events = snap.events.map(priv);
+  snap.days = snap.days.map(priv);
+  snap.countdowns = snap.countdowns.map(priv);
+  for (const r of snap.reminders) {
+    if (r.deletedAt) continue;
+    snap.events.push({
+      id: r.id,
+      createdAt: r.createdAt,
+      updatedAt: now,
+      deletedAt: null,
+      ownerId: r.ownerId,
+      visibility: 'private',
+      title: r.title,
+      allDay: false,
+      start: r.at,
+      end: r.at,
+      color: 'lilac',
+      notes: r.note ?? '',
+      location: '',
+      repeat: r.repeat,
+      remindBefore: [0],
+      sound: r.sound,
+    });
+  }
+  snap.reminders = snap.reminders.map((r) => (r.deletedAt ? r : { ...r, deletedAt: now, updatedAt: now }));
+}
+
 export function newMeta(now = Date.now()): SyncMeta {
-  return { id: uuid(), createdAt: now, updatedAt: now, deletedAt: null, ownerId: 'local', visibility: 'shared' };
+  // Everything is private unless the person chooses to share it.
+  return { id: uuid(), createdAt: now, updatedAt: now, deletedAt: null, ownerId: 'local', visibility: 'private' };
 }
 
 export function upsert<C extends CollectionName>(snap: Snapshot, coll: C, item: RecordOf<C>): Snapshot {

@@ -23,8 +23,9 @@ export class FileStore {
     mkdirSync(this.backupDir, { recursive: true });
     mkdirSync(this.soundsDir, { recursive: true });
     mkdirSync(this.photosDir, { recursive: true });
+    this.dailyBackup(); // copy of the file as it was, before any upgrade
     this.snap = this.read();
-    this.dailyBackup();
+    this.writeNow(compact(this.snap)); // save upgrades (e.g. data migrations) right away
   }
 
   private read(): Snapshot {

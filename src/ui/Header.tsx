@@ -77,7 +77,6 @@ export function Header(p: Props) {
 
 const ADD_OPTIONS: { kind: AddKind; emoji: string; label: StringKey }[] = [
   { kind: 'event', emoji: '📅', label: 'tileEvent' },
-  { kind: 'reminder', emoji: '🔔', label: 'tileReminder' },
   { kind: 'todo', emoji: '✅', label: 'tileTodo' },
   { kind: 'note', emoji: '📝', label: 'tileNote' },
   { kind: 'journal', emoji: '📖', label: 'tileJournal' },

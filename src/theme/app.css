@@ -1116,9 +1116,11 @@ button.status-dot:hover {
 }
 .we-title {
   font-weight: 600;
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.25;
 }
 .we-time {
   color: var(--text-muted);
@@ -2580,6 +2582,106 @@ select.chip-add {
 }
 .status-line {
   margin: 0;
+}
+
+/* ------------------------------------------------------------ plan notes, day sharing */
+textarea,
+input {
+  /* each line picks its own direction (Hebrew right-to-left, English left-to-right) */
+  unicode-bidi: plaintext;
+}
+.notebook {
+  line-height: 28px !important;
+  background-color: var(--surface-2) !important;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--border) 27px 28px) !important;
+  background-attachment: local !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 84px !important;
+}
+.plan-event {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.plan-event-row {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+.plan-event-row .item-row {
+  flex: 1;
+  background: var(--ev-bg);
+}
+.note-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-faint);
+  padding: 0 8px;
+}
+.note-toggle:hover {
+  color: var(--text);
+}
+.note-toggle.has-notes {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+.note-chevron {
+  transition: transform var(--dur) var(--ease);
+}
+[dir='rtl'] .note-chevron {
+  transform: scaleX(-1);
+}
+.plan-event.open .note-chevron {
+  transform: rotate(90deg);
+}
+.plan-notes {
+  border-radius: var(--radius-sm) !important;
+  margin-inline-start: 14px;
+  width: calc(100% - 14px) !important;
+  resize: none;
+  overflow: hidden;
+}
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.day-share {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+}
+.day-share button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-pill);
+  padding: 3px 9px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.day-share button.active {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.day-share button.active.shared {
+  background: var(--ev-rose-bg);
+  color: var(--ev-rose);
+}
+.opt-event {
+  grid-column: span 2;
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-text);
 }
 
 /* ------------------------------------------------------------ account / sync */

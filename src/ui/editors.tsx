@@ -4,20 +4,40 @@ import { dateOf, parseLocal, timeOf, toLocalDateTime } from '../shared/dates';
 import type { CalendarEvent, Countdown, Repeat, Reminder } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Toggle } from './common';
 import { COUNTDOWN_EMOJIS, EVENT_COLORS, REMIND_PRESETS } from './drafts';
+import { platform } from '../platform/api';
 import { BUILTIN_SOUNDS, playSound } from './sound';
 import { useAlive, useBloom } from './store';
 
 /** Collapsible "More options" section that keeps forms short. */
 function MoreOptions({ open, children }: { open: boolean; children: ReactNode }) {
   const { t } = useBloom();
+  // Remember open/closed ourselves: only the initial state comes from `open`,
+  // so editing a field inside never collapses the section.
+  const [isOpen, setIsOpen] = useState(open);
   return (
-    <details className="more-options" open={open}>
+    <details className="more-options" open={isOpen} onToggle={(e) => setIsOpen((e.target as HTMLDetailsElement).open)}>
       <summary>
         <Icon name="chevronRight" size={14} className="more-chevron" />
         {t('moreOptions')}
       </summary>
       <div className="more-body">{children}</div>
     </details>
+  );
+}
+
+/** "Share with partner" switch — everything is private unless this is on. */
+export function ShareToggle({ value, onChange }: { value: 'shared' | 'private'; onChange: (v: 'shared' | 'private') => void }) {
+  const { t } = useBloom();
+  return (
+    <Toggle
+      checked={value === 'shared'}
+      label={
+        <>
+          <Icon name={value === 'shared' ? 'heart' : 'lock'} size={14} /> {value === 'shared' ? t('sharedWithPartner') : t('privateOnlyMe')}
+        </>
+      }
+      onChange={(on) => onChange(on ? 'shared' : 'private')}
+    />
   );
 }
 
@@ -41,7 +61,20 @@ export function SoundSelect({ value, onChange }: { value: string; onChange: (id:
   const sounds = useAlive('sounds');
   return (
     <div className="sound-select">
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
+      <select
+        value={value}
+        onChange={async (e) => {
+          if (e.target.value === '__upload') {
+            const s = await platform.importSound();
+            if (s) {
+              onChange(s.id);
+              playSound(s.id, settings.volume);
+            }
+            return;
+          }
+          onChange(e.target.value);
+        }}
+      >
         {BUILTIN_SOUNDS.map((id) => (
           <option key={id} value={id}>
             {t(`builtin_${id.slice(8)}` as StringKey)}
@@ -53,6 +86,8 @@ export function SoundSelect({ value, onChange }: { value: string; onChange: (id:
             {s.name}
           </option>
         ))}
+        <option disabled>──────</option>
+        <option value="__upload">＋ {t('uploadSound')}</option>
       </select>
       <IconButton icon="play" label={t('play')} onClick={() => playSound(value, settings.volume)} />
     </div>
@@ -161,6 +196,7 @@ export function EventEditor({ initial, isNew, onClose }: { initial: CalendarEven
       >
         <input
           className="title-input"
+          dir="auto"
           autoFocus
           value={ev.title}
           placeholder={t('titlePlaceholder')}
@@ -214,33 +250,24 @@ export function EventEditor({ initial, isNew, onClose }: { initial: CalendarEven
         <Field label={t('remindMe')}>
           <RemindersPicker value={ev.remindBefore} onChange={(remindBefore) => set({ remindBefore })} />
         </Field>
-
-        <MoreOptions open={ev.repeat !== 'none' || !!ev.location || !!ev.notes || ev.visibility === 'private'}>
-        <div className="grid-2">
-          <Field label={t('repeat')}>
-            <RepeatSelect value={ev.repeat} onChange={(repeat) => set({ repeat })} />
-          </Field>
+        {ev.remindBefore.length > 0 && (
           <Field label={t('sound')}>
             <SoundSelect value={ev.sound} onChange={(sound) => set({ sound })} />
           </Field>
-        </div>
+        )}
 
-        <Field label={t('location')}>
-          <input value={ev.location} placeholder={t('locationPlaceholder')} onChange={(e) => set({ location: e.target.value })} />
-        </Field>
-        <Field label={t('notes')}>
-          <textarea rows={3} value={ev.notes} placeholder={t('notesPlaceholder')} onChange={(e) => set({ notes: e.target.value })} />
-        </Field>
+        <ShareToggle value={ev.visibility} onChange={(visibility) => set({ visibility })} />
 
-        <Toggle
-          checked={ev.visibility === 'private'}
-          label={
-            <>
-              <Icon name="lock" size={14} /> {t('privateItem')}
-            </>
-          }
-          onChange={(p) => set({ visibility: p ? 'private' : 'shared' })}
-        />
+        <MoreOptions open={ev.repeat !== 'none' || !!ev.location || !!ev.notes}>
+          <Field label={t('repeat')}>
+            <RepeatSelect value={ev.repeat} onChange={(repeat) => set({ repeat })} />
+          </Field>
+          <Field label={t('location')}>
+            <input dir="auto" value={ev.location} placeholder={t('locationPlaceholder')} onChange={(e) => set({ location: e.target.value })} />
+          </Field>
+          <Field label={t('notes')}>
+            <textarea dir="auto" className="notebook" rows={4} value={ev.notes} placeholder={t('notesPlaceholder')} onChange={(e) => set({ notes: e.target.value })} />
+          </Field>
         </MoreOptions>
         <button type="submit" hidden />
       </form>
@@ -296,6 +323,7 @@ export function ReminderEditor({ initial, isNew, onClose }: { initial: Reminder;
       >
         <input
           className="title-input"
+          dir="auto"
           autoFocus
           value={r.title}
           placeholder={t('reminderPlaceholder')}
@@ -310,15 +338,7 @@ export function ReminderEditor({ initial, isNew, onClose }: { initial: Reminder;
             <input type="time" value={timeOf(r.at)} onChange={(e) => e.target.value && set({ at: `${dateOf(r.at)}T${e.target.value}` })} />
           </Field>
         </div>
-        <Toggle
-          checked={r.visibility === 'shared'}
-          label={
-            <>
-              <Icon name="heart" size={14} /> {t('sharedWithPartner')}
-            </>
-          }
-          onChange={(on) => set({ visibility: on ? 'shared' : 'private' })}
-        />
+        <ShareToggle value={r.visibility} onChange={(visibility) => set({ visibility })} />
         <MoreOptions open={r.repeat !== 'none' || !!r.note}>
         <div className="grid-2">
           <Field label={t('repeat')}>
@@ -329,7 +349,7 @@ export function ReminderEditor({ initial, isNew, onClose }: { initial: Reminder;
           </Field>
         </div>
         <Field label={t('notes')}>
-          <textarea rows={2} value={r.note} placeholder={t('notesPlaceholder')} onChange={(e) => set({ note: e.target.value })} />
+          <textarea dir="auto" className="notebook" rows={3} value={r.note} placeholder={t('notesPlaceholder')} onChange={(e) => set({ note: e.target.value })} />
         </Field>
         </MoreOptions>
         <button type="submit" hidden />
@@ -386,6 +406,7 @@ export function CountdownEditor({ initial, isNew, onClose }: { initial: Countdow
       >
         <input
           className="title-input"
+          dir="auto"
           autoFocus
           value={c.title}
           placeholder={t('countdownPlaceholder')}
@@ -405,6 +426,7 @@ export function CountdownEditor({ initial, isNew, onClose }: { initial: Countdow
           </div>
         </Field>
         <Toggle checked={c.yearly} label={t('everyYear')} onChange={(yearly) => set({ yearly })} />
+        <ShareToggle value={c.visibility} onChange={(visibility) => set({ visibility })} />
         <button type="submit" hidden />
       </form>
     </Modal>

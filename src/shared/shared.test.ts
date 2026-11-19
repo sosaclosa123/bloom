@@ -121,10 +121,21 @@ describe('holidays', () => {
 });
 
 describe('migration', () => {
-  it('makes reminders from before sync private', () => {
-    const old = { schemaVersion: 1, events: [], reminders: [{ ...newMeta(), title: 'Pills', at: '2026-01-01T09:00', repeat: 'daily', sound: '', note: '' }] };
-    expect(normalizeSnapshot(old).reminders[0].visibility).toBe('private');
-    const now = normalizeSnapshot({ ...old, schemaVersion: 2 });
-    expect(now.reminders[0].visibility).toBe('shared');
+  it('turns old reminders into events and makes everything private', () => {
+    const old = {
+      schemaVersion: 1,
+      events: [{ ...newMeta(), visibility: 'shared', title: 'Dinner', allDay: false, start: '2026-01-01T20:00', end: '2026-01-01T21:00', color: 'rose', notes: '', location: '', repeat: 'none', remindBefore: [], sound: '' }],
+      reminders: [{ ...newMeta(), visibility: 'shared', title: 'Pills', at: '2026-01-01T09:00', repeat: 'daily', sound: 's', note: 'with food' }],
+    };
+    const snap = normalizeSnapshot(old);
+    expect(snap.events.every((e) => e.visibility === 'private')).toBe(true);
+    const pills = snap.events.find((e) => e.title === 'Pills')!;
+    expect(pills).toMatchObject({ start: '2026-01-01T09:00', repeat: 'daily', remindBefore: [0], notes: 'with food' });
+    expect(snap.reminders[0].deletedAt).toBeTruthy();
+    // Already-migrated data is left alone.
+    expect(normalizeSnapshot({ ...snap, schemaVersion: 3 }).events).toHaveLength(2);
+  });
+  it('creates new records as private', () => {
+    expect(newMeta().visibility).toBe('private');
   });
 });
