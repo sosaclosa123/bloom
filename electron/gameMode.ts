@@ -2,10 +2,9 @@
 // reminders don't pop up and kick her out of the game.
 //
 // Two Windows checks, both read-only:
-//  1. SHQueryUserNotificationState — the same signal Windows itself uses to
-//     silence notifications during full-screen apps / Direct3D games.
-//  2. The foreground window exactly covers its monitor — catches borderless
-//     "windowed fullscreen" games that (1) can miss.
+//  1. SHQueryUserNotificationState — Direct3D full-screen games / presentations.
+//  2. The foreground window exactly covers its monitor and is not a normal
+//     maximized window — catches borderless "windowed fullscreen" games.
 import type { GameModeSetting } from '../src/shared/types';
 
 type Probe = () => boolean;
@@ -39,8 +38,9 @@ function loadProbe(): Probe {
     const MonitorFromWindow = user32.func('HMONITOR __stdcall MonitorFromWindow(HWND hwnd, uint32 flags)');
     const GetMonitorInfoW = user32.func('bool __stdcall GetMonitorInfoW(HMONITOR mon, _Inout_ MONITORINFO *info)');
     const GetClassNameW = user32.func('int __stdcall GetClassNameW(HWND hWnd, _Out_ uint16 *buf, int max)');
+    const IsZoomed = user32.func('bool __stdcall IsZoomed(HWND hWnd)');
+    const IsWindowVisible = user32.func('bool __stdcall IsWindowVisible(HWND hWnd)');
 
-    const QUNS_BUSY = 2;
     const QUNS_RUNNING_D3D_FULL_SCREEN = 3;
     const QUNS_PRESENTATION_MODE = 4;
     const SHELL_CLASSES = new Set(['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd']);
@@ -48,13 +48,18 @@ function loadProbe(): Probe {
     const addr = (h: unknown) => (h ? koffi.address(h) : 0n);
 
     probe = () => {
+      // Exclusive full-screen games and presentations: Windows tells us directly.
+      // ("Busy" is ignored: Windows also reports it for ordinary apps.)
       const state = [0];
       if (SHQueryUserNotificationState(state) === 0) {
         const s = state[0];
-        if (s === QUNS_BUSY || s === QUNS_RUNNING_D3D_FULL_SCREEN || s === QUNS_PRESENTATION_MODE) return true;
+        if (s === QUNS_RUNNING_D3D_FULL_SCREEN || s === QUNS_PRESENTATION_MODE) return true;
       }
       const fg = GetForegroundWindow();
-      if (!fg) return false;
+      if (!fg || !IsWindowVisible(fg)) return false;
+      // A normal maximized window (browser, Discord…) is not a game, even when
+      // the taskbar auto-hides and it covers the whole screen.
+      if (IsZoomed(fg)) return false;
       const a = addr(fg);
       if (a === addr(GetShellWindow()) || a === addr(GetDesktopWindow())) return false;
       const buf = Buffer.alloc(512);

@@ -7,7 +7,7 @@ import '@fontsource/fraunces/500.css';
 import '@fontsource/fraunces/600.css';
 import '@fontsource/frank-ruhl-libre/500.css';
 import '@fontsource/caveat/600.css';
-import '@fontsource/amatic-sc/700.css';
+import '@fontsource/gveret-levin/400.css';
 import './theme/tokens.css';
 import './theme/app.css';
 import './theme/motion.css';

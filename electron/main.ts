@@ -7,6 +7,7 @@ import {
   nativeImage,
   nativeTheme,
   net,
+  Notification,
   protocol,
   powerMonitor,
   screen,
@@ -209,7 +210,39 @@ function sendPopup() {
   if (!popupWin.isVisible()) popupWin.showInactive();
 }
 
+// Also post a real Windows notification (stays in the Action Center).
+// Silent, because Bloom plays its own reminder sound.
+const liveToasts = new Set<Notification>();
+function showToasts(alerts: FiredAlert[]) {
+  if (!Notification.isSupported()) return;
+  const he = store.get().settings.language === 'he';
+  const list = alerts.slice(0, 3);
+  for (const a of list) {
+    const time = a.when.slice(11, 16);
+    const body =
+      a.minutesBefore > 0
+        ? he
+          ? `מתחיל ב-${time}`
+          : `Starts at ${time}`
+        : time;
+    try {
+      const n = new Notification({ title: a.title || 'Bloom', body, silent: true, icon: join(DIST, 'icon.png') });
+      liveToasts.add(n);
+      const done = () => liveToasts.delete(n);
+      n.on('click', () => {
+        done();
+        showMain(a.when.slice(0, 10));
+      });
+      n.on('close', done);
+      n.show();
+    } catch {
+      /* notifications blocked: the Bloom popup still shows */
+    }
+  }
+}
+
 function showAlerts(alerts: FiredAlert[], reason: DeliveryReason) {
+  showToasts(alerts);
   const keys = new Set(popupAlerts.map((a) => a.key));
   popupAlerts = [...popupAlerts, ...alerts.filter((a) => !keys.has(a.key))];
   popupReason = reason;

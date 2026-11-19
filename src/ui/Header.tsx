@@ -1,5 +1,5 @@
 // Top bar: month navigation + title on the calendar, view switch and search.
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { addDays, startOfWeek } from '../shared/dates';
 import { IconButton, Segmented } from './common';
 import { monthInk, SeasonLayer } from './season';
@@ -38,7 +38,8 @@ export function Header(p: Props) {
 
   return (
     <header className={`header ${p.isDesktop ? 'desktop' : ''}`}>
-      {p.tab === 'calendar' && <SeasonLayer month={p.anchor.getMonth()} />}
+      {/* Weather vibe on every page: follows today's real season, not the month being viewed. */}
+      <SeasonLayer month={new Date().getMonth()} />
       {/* Arrows come first so they never move when the month name changes length. */}
       {p.tab === 'calendar' && (
         <div className="nav">
@@ -53,6 +54,7 @@ export function Header(p: Props) {
         {title}
       </h1>
       <span className="spacer" />
+      <Clock />
       {p.tab === 'calendar' && (
         <button
           type="button"
@@ -79,5 +81,39 @@ export function Header(p: Props) {
       )}
       <IconButton icon="search" label={`${t('search')} (Ctrl+K)`} onClick={p.onSearch} />
     </header>
+  );
+}
+
+/** Small live date + time pill (updates exactly on the minute). */
+function Clock() {
+  const { locale } = useBloom();
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      const d = new Date();
+      timer = setTimeout(() => {
+        setNow(new Date());
+        schedule();
+      }, 60000 - (d.getSeconds() * 1000 + d.getMilliseconds()) + 50);
+    };
+    schedule();
+    // Catch up straight away after sleep / waking the PC.
+    const onWake = () => setNow(new Date());
+    window.addEventListener('focus', onWake);
+    document.addEventListener('visibilitychange', onWake);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('focus', onWake);
+      document.removeEventListener('visibilitychange', onWake);
+    };
+  }, []);
+  const time = now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false });
+  const date = `${now.getDate()}.${now.getMonth() + 1}`;
+  return (
+    <span className="clock-pill" dir="ltr" title={now.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}>
+      <b>{time}</b>
+      <span className="clock-date">· {date}</span>
+    </span>
   );
 }

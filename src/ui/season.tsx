@@ -115,15 +115,15 @@ function rand(seed: number) {
   };
 }
 
-export function SeasonLayer({ month, count = 14 }: { month: number; count?: number }) {
+export function SeasonLayer({ month, count = 15 }: { month: number; count?: number }) {
   const season = seasonOf(month);
   const items = useMemo(() => {
     const r = rand(month * 97 + 13);
     return Array.from({ length: count }, (_, i) => ({
       i,
       left: r() * 100,
-      size: 9 + r() * 9,
-      dur: (18 + r() * 16) * 0.9, // 10% faster than before
+      size: (9 + r() * 9) * 1.035,
+      dur: (18 + r() * 16) * 0.9 * 0.98,
       delay: -r() * 30,
       sway: 8 + r() * 22,
       shape: SHAPES[season][i % SHAPES[season].length],

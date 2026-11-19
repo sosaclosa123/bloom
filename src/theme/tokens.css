@@ -18,8 +18,8 @@
   --font-display: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
   /* Month titles: soft modern serif (Hebrew falls back to Frank Ruhl Libre). */
   --font-month: 'Fraunces', 'Frank Ruhl Libre', Georgia, serif;
-  /* Day headlines: handwriting (Hebrew falls back to Amatic SC). */
-  --font-hand: 'Caveat', 'Amatic SC', 'Segoe Print', cursive;
+  /* Day headlines: handwriting (Hebrew uses Gveret Levin, a cursive hand). */
+  --font-hand: 'Caveat', 'Gveret Levin', 'Segoe Print', cursive;
   --fs-xs: calc(11px * var(--fs-scale, 1));
   --fs-sm: calc(12.5px * var(--fs-scale, 1));
   --fs-md: calc(14px * var(--fs-scale, 1));

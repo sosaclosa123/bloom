@@ -10,13 +10,15 @@
 export type ISODate = string; // "2026-11-19"
 export type LocalDateTime = string; // "2026-11-19T14:30" (wall-clock, local time)
 
+export type Visibility = 'shared' | 'private';
+
 export interface SyncMeta {
   id: string;
   createdAt: number; // epoch ms
   updatedAt: number; // epoch ms
   deletedAt?: number | null;
   ownerId: string; // "local" until accounts exist
-  visibility: 'shared' | 'private';
+  visibility: Visibility;
 }
 
 /** 'hebrewYearly' repeats every year on the same Hebrew date (e.g. ט״ז בכסלו). */
@@ -109,39 +111,51 @@ export interface JournalEntry extends SyncMeta {
 
 // ---------------------------------------------------------------- money (Wallet tab)
 
-export type MoneyGroup = 'need' | 'want';
-export interface MoneyAccount extends SyncMeta {
-  kind: 'account';
-  name: string;
-  type: 'bank' | 'cash' | 'card' | 'savings';
-  startBalance: number;
-  emoji: string;
+// Private items show on the main Wallet page; shared ones only on the Shared page.
+
+/** Monthly spending limit (one private, optionally one shared). */
+export interface MoneyLimit extends SyncMeta {
+  kind: 'limit';
+  amount: number;
 }
-/** expense / income, or 'saving' = money put toward a savings goal. */
-export interface MoneyTxn extends SyncMeta {
-  kind: 'txn';
-  type: 'expense' | 'income' | 'saving';
+/** Something bought: what, how much, when. */
+export interface MoneySpend extends SyncMeta {
+  kind: 'spend';
+  title: string;
   amount: number; // always positive
-  category: string;
   date: ISODate;
   note: string;
-  accountId: string | null;
-  goalId: string | null;
 }
-export interface MoneyBudget extends SyncMeta {
-  kind: 'budget';
-  category: string;
-  monthly: number;
+/** A payment that repeats (card fee, rent, a subscription…). */
+export interface MoneyRecurring extends SyncMeta {
+  kind: 'recurring';
+  title: string;
+  amount: number;
+  cycle: 'monthly' | 'yearly';
+  /** First charge; later charges fall on the same day (clamped to short months). */
+  startDate: ISODate;
+  /** Last day it is charged (cancelled), or null while active. */
+  endDate: ISODate | null;
+  subscription: boolean;
+  note: string;
 }
 export interface MoneyGoal extends SyncMeta {
   kind: 'goal';
   name: string;
   emoji: string;
   target: number;
-  startSaved: number;
   targetDate: ISODate | null;
 }
-export type MoneyItem = MoneyAccount | MoneyTxn | MoneyBudget | MoneyGoal;
+/** Money put into a savings goal. Separate records, so two people adding at once never overwrite each other. */
+export interface MoneyDeposit extends SyncMeta {
+  kind: 'deposit';
+  goalId: string;
+  amount: number; // negative = taken out
+  date: ISODate;
+  by: string; // who added it (name shown on shared goals)
+  byUid: string | null;
+}
+export type MoneyItem = MoneyLimit | MoneySpend | MoneyRecurring | MoneyGoal | MoneyDeposit;
 
 export type HolidaySet = 'none' | 'jewish' | 'christian' | 'both';
 export type Language = 'en' | 'he';
@@ -209,7 +223,7 @@ export interface Snapshot extends Collections {
   deviceId: string;
 }
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** A reminder that fired — shown in the popup or the "missed while playing" inbox. */
 export interface FiredAlert {

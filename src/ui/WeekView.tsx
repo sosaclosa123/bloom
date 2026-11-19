@@ -145,7 +145,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
           const iso = toISODate(d);
           const all = (data.eventsByDay.get(iso) ?? []).filter((o) => o.event.allDay);
           return (
-            <div key={iso} className="allday-cell">
+            <div key={iso} className="allday-cell" style={{ ['--cell-bg' as string]: dayColor(d) }}>
               {all.map((o) => (
                 <button type="button" key={o.key} className={`pill allday ev-${o.event.color} ${o.event.visibility === 'shared' ? 'is-shared' : 'is-private'}`} onClick={() => onOpenEvent(o)}>
                   <span className="pill-title" dir="auto">{o.event.title || '—'}</span>
@@ -208,7 +208,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
                     </span>
                     {p.height > 34 && (
                       <span className="we-time">
-                        {formatTime(p.occ.start, locale)}–{formatTime(p.occ.end, locale)}
+                        {`\u2066${formatTime(p.occ.start, locale)}–${formatTime(p.occ.end, locale)}\u2069`}
                       </span>
                     )}
                   </button>

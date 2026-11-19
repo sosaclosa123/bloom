@@ -340,7 +340,7 @@ function PlanEventRow({ occ, onOpen }: { occ: EventOccurrence; onOpen: () => voi
       <div className="plan-event-row">
         <button type="button" className="item-row" onClick={onOpen}>
           <span className="item-bar" />
-          <span className="item-time">{ev.allDay ? t('allDay') : `${formatTime(occ.start, locale)}–${formatTime(occ.end, locale)}`}</span>
+          <span className="item-time">{ev.allDay ? t('allDay') : `\u2066${formatTime(occ.start, locale)}–${formatTime(occ.end, locale)}\u2069`}</span>
           <span className="item-title" dir="auto">
             {ev.title || '—'}
           </span>

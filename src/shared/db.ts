@@ -1,6 +1,7 @@
 // Pure data operations on a Snapshot. Persistence lives in the platform layer
 // (a JSON file on Windows, localStorage in the browser, a phone DB later), so
 // this logic is shared everywhere.
+import { migrateMoneyToV4 } from './money';
 import {
   DEFAULT_SETTINGS,
   SCHEMA_VERSION,
@@ -53,6 +54,7 @@ export function normalizeSnapshot(raw: unknown): Snapshot {
   // existing personal reminders don't suddenly show up for a partner.
   const from = r.schemaVersion ?? 1;
   if (from < 3 && Array.isArray(r.events)) migrateToV3(snap);
+  if (from < 4) snap.money = migrateMoneyToV4(snap.money);
   return snap;
 }
 
