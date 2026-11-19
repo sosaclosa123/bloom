@@ -1,10 +1,13 @@
 /*
  * Bloom design tokens.
+ * `.calendar-light` re-uses the light values so the calendar keeps its soft
+ * season colors even when the rest of the app is in dark mode.
  * Every color, size, radius and shadow used by the UI lives here, so a new
  * UI/UX design can be applied by editing this file (plus component styles)
  * without touching any app logic.
  */
-:root {
+:root,
+.calendar-light {
   /* Typography */
   --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Rubik', 'Helvetica Neue', Arial, sans-serif;
   --font-display: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif;

@@ -72,7 +72,7 @@ function layoutDay(occs: EventOccurrence[], day: Date): Placed[] {
 }
 
 export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenReminder, onCreateAt, onOpenJournal, onOpenNotes }: Props) {
-  const { settings, locale, t, save, dark } = useBloom();
+  const { settings, locale, t, save } = useBloom();
   const start = useMemo(() => startOfWeek(anchor, settings.weekStart), [anchor, settings.weekStart]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
   const data = useRangeData(start, addDays(start, 7));
@@ -101,7 +101,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
   const hours = Array.from({ length: 24 }, (_, h) => h);
 
   return (
-    <div className="week">
+    <div className="week calendar-light">
       <div className="week-head">
         <div className="gutter" />
         {days.map((d) => {
@@ -111,7 +111,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
           return (
             <div
               key={iso}
-              style={{ ['--cell-bg' as string]: dayColor(d, dark) }}
+              style={{ ['--cell-bg' as string]: dayColor(d) }}
               className={`week-day-head ${sameDay(d, now) ? 'today' : ''} ${selected === iso ? 'selected' : ''} ${entry?.status ? `status-${entry.status}` : ''}`}
               role="button"
               tabIndex={0}
@@ -178,7 +178,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
               <div
                 key={iso}
                 className={`day-col ${isToday ? 'today' : ''}`}
-                style={{ ['--cell-bg' as string]: dayColor(d, dark) }}
+                style={{ ['--cell-bg' as string]: dayColor(d) }}
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const mins = Math.floor(((e.clientY - rect.top) / HOUR_H) * 2) * 30;

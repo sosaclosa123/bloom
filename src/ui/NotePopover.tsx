@@ -34,7 +34,7 @@ export function NoteIcon({ size = 14 }: { size?: number }) {
 const WIDTH = 330;
 
 export function NotePopover({ state, onClose }: { state: NotePopState; onClose: () => void }) {
-  const { t, locale, dark, save } = useBloom();
+  const { t, locale, save } = useBloom();
   const days = useAlive('days');
   const entry = days.find((d) => d.date === state.date);
   const notes = (entry?.cards ?? []).filter((c) => c.kind === 'text');
@@ -102,18 +102,18 @@ export function NotePopover({ state, onClose }: { state: NotePopState; onClose: 
   return (
     <div
       ref={box}
-      className={`note-pop ${pos?.below ? 'below' : 'above'}`}
+      className={`note-pop calendar-light ${pos?.below ? 'below' : 'above'}`}
       role="dialog"
       aria-label={t('notes')}
       style={{
         left: pos?.left ?? -9999,
         top: pos?.top ?? -9999,
         width: WIDTH,
-        ['--journal-bg' as string]: dark ? '#1f2230' : '#fffdfa',
-        ['--journal-head-from' as string]: monthColor(m, dark),
-        ['--journal-head-to' as string]: monthColor((m + 1) % 12, dark),
-        ['--journal-accent' as string]: monthInk(m, dark),
-        ['--journal-line' as string]: monthColor(m, dark),
+        ['--journal-bg' as string]: '#fffdfa',
+        ['--journal-head-from' as string]: monthColor(m),
+        ['--journal-head-to' as string]: monthColor((m + 1) % 12),
+        ['--journal-accent' as string]: monthInk(m, false),
+        ['--journal-line' as string]: monthColor(m),
         ['--arrow' as string]: `${Math.min(WIDTH - 20, Math.max(20, arrowLeft))}px`,
       }}
     >

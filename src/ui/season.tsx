@@ -3,12 +3,25 @@
 // (snow / petals / summer glints / falling leaves) for a little atmosphere.
 import { useMemo } from 'react';
 
-// Light and dark tints per month (Jan..Dec).
-export const MONTH_BG = ['#dfe9f6', '#e6e3f6', '#e2f1df', '#edf3d8', '#faf0d2', '#fde5cf', '#fcdac9', '#f9d4c6', '#f6e4c6', '#efe2d2', '#e3e8dd', '#e0e6ef'];
-export const MONTH_BG_DARK = ['#203247', '#29283f', '#22352a', '#2e3524', '#3a3524', '#3d2f25', '#402a24', '#422826', '#3c3324', '#382f28', '#2b3129', '#262d39'];
-// Title colors: deeper versions of each month's mood.
-export const MONTH_INK = ['#46679a', '#6a5ea6', '#47855a', '#6c8a36', '#a5822a', '#c27a45', '#c4634a', '#b85a4c', '#a87d3c', '#8f6a4f', '#5f7a5a', '#556a8a'];
-export const MONTH_INK_DARK = ['#a9c6ee', '#c4bbf2', '#a6d9b1', '#c9dc9a', '#ecd28f', '#f2bd94', '#f2a993', '#ef9f92', '#e8c88f', '#dcbf9f', '#b9cdb2', '#b6c4dc'];
+// One soft color per month (Jan..Dec), matched to Israel's climate
+// (coastal averages: high/low °C, rain):
+//  Jan 18/9  ~130mm  wettest & coldest  -> cool rain blue
+//  Feb 19/9  ~95mm   cold, almond blossom -> periwinkle lilac
+//  Mar 21/11 ~55mm   last rains, green fields, anemones -> fresh green
+//  Apr 24/13 ~20mm   full bloom, Pesach -> spring lime
+//  May 27/16 dry     warm, first sharav -> butter yellow
+//  Jun 29/19 dry     summer starts -> apricot
+//  Jul 31/22 dry     hottest, humid -> warm orange
+//  Aug 31/23 dry     peak heat -> terracotta rose
+//  Sep 30/21 dry     still hot, holidays -> golden sand
+//  Oct 28/18 ~15mm   first rain, autumn -> clay amber
+//  Nov 24/14 ~75mm   rains return, cooling -> olive sage
+//  Dec 20/11 ~120mm  winter rain, misty -> sea-mist teal
+// The calendar uses these in light AND dark mode (only the app around it goes dark).
+export const MONTH_BG = ['#c9daf4', '#d8d0f3', '#cbe8c8', '#e0ecb9', '#f6e6ad', '#f9d6b0', '#f8c7a2', '#f1b8a8', '#efd8a3', '#e4c7a4', '#d3dcbc', '#c6dfdf'];
+// Title colors: deeper versions for the light calendar, pastel versions for the dark top bar.
+export const MONTH_INK = ['#3a65a6', '#6553b5', '#3c8a4d', '#6a8c1c', '#a7820f', '#c37633', '#cc6630', '#bf5248', '#a77f22', '#93633b', '#5e7a40', '#357f82'];
+export const MONTH_INK_DARK = MONTH_BG;
 
 export type Season = 'winter' | 'spring' | 'summer' | 'autumn';
 export function seasonOf(month: number): Season {
@@ -25,19 +38,19 @@ function mix(a: string, b: string, t: number) {
   return `rgb(${A.map((x, i) => Math.round(x + (B[i] - x) * t)).join(',')})`;
 }
 
-export function monthColor(month: number, dark: boolean) {
-  return (dark ? MONTH_BG_DARK : MONTH_BG)[month];
+/** Day-square color for a month (same in light and dark mode — the calendar stays light). */
+export function monthColor(month: number, _dark?: boolean) {
+  return MONTH_BG[month];
 }
 export function monthInk(month: number, dark: boolean) {
   return (dark ? MONTH_INK_DARK : MONTH_INK)[month];
 }
 
 /** A day's color fades through its month into the next one (used by the week view). */
-export function dayColor(d: Date, dark: boolean) {
+export function dayColor(d: Date, _dark?: boolean) {
   const m = d.getMonth();
   const days = new Date(d.getFullYear(), m + 1, 0).getDate();
-  const list = dark ? MONTH_BG_DARK : MONTH_BG;
-  return mix(list[m], list[(m + 1) % 12], (d.getDate() - 1) / days);
+  return mix(MONTH_BG[m], MONTH_BG[(m + 1) % 12], (d.getDate() - 1) / days);
 }
 
 // ---------------------------------------------------------------- particles

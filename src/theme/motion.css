@@ -330,19 +330,18 @@
   animation: rise-in var(--dur-slow) var(--ease) both;
 }
 
-/* Seasons: particles drift down slowly (summer glints float up). */
+/* Seasons: a few particles drift slowly through the top bar only. */
 @keyframes particle-fall {
-  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
-  10% { opacity: 1; }
-  50% { transform: translate3d(var(--sway), 50vh, 0) rotate(180deg); }
-  90% { opacity: 1; }
-  100% { transform: translate3d(calc(var(--sway) * -0.5), 105vh, 0) rotate(360deg); opacity: 0; }
+  0% { transform: translate3d(0, -14px, 0) rotate(0deg); opacity: 0; }
+  15% { opacity: 1; }
+  50% { transform: translate3d(var(--sway), 28px, 0) rotate(160deg); }
+  85% { opacity: 1; }
+  100% { transform: translate3d(calc(var(--sway) * -0.4), 64px, 0) rotate(320deg); opacity: 0; }
 }
 @keyframes particle-rise {
-  0% { transform: translate3d(0, 100vh, 0) scale(0.6); opacity: 0; }
-  20% { opacity: 0.9; }
-  80% { opacity: 0.6; }
-  100% { transform: translate3d(var(--sway), 20vh, 0) scale(1.1); opacity: 0; }
+  0% { transform: translate3d(0, 60px, 0) scale(0.6); opacity: 0; }
+  30% { opacity: 0.9; }
+  100% { transform: translate3d(var(--sway), -10px, 0) scale(1.1); opacity: 0; }
 }
 .particle {
   animation: particle-fall linear infinite;
@@ -352,33 +351,6 @@
 }
 .season-winter .particle {
   animation-timing-function: ease-in-out;
-}
-
-@keyframes note-pop-in {
-  0% { opacity: 0; transform: translateY(10px) scale(0.92); }
-  70% { opacity: 1; transform: translateY(-2px) scale(1.01); }
-  100% { transform: none; }
-}
-.note-pop {
-  animation: note-pop-in 380ms var(--spring) both;
-  transform-origin: var(--arrow) bottom;
-}
-
-@keyframes sticker-in {
-  0% { transform: translate(-50%, -50%) scale(0.3) rotate(-20deg); opacity: 0; }
-  60% { transform: translate(-50%, -50%) scale(1.15) rotate(6deg); opacity: 1; }
-}
-.placed-sticker {
-  animation: sticker-in 420ms var(--spring) both;
-}
-.sticker-picker {
-  animation: note-pop-in 320ms var(--spring) both;
-}
-.sp-item {
-  transition: transform var(--dur) var(--spring);
-}
-.sp-item:hover {
-  transform: scale(1.18) rotate(-6deg);
 }
 
 /* Respect the Windows "show animations" / reduced-motion setting. */

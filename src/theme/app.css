@@ -2722,6 +2722,21 @@ input {
 .month {
   position: relative;
 }
+/* The calendar stays in its light season colors in dark mode too. */
+.calendar-light {
+  color: var(--text);
+  color-scheme: light;
+}
+[data-theme='dark'] .calendar-light {
+  --surface: #f3eee8;
+  --surface-2: #ebe4dd;
+  --border: #ddd3cb;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+.header {
+  position: relative;
+  isolation: isolate;
+}
 .period-title.is-month {
   font-family: var(--font-month);
   font-weight: 600;
@@ -2735,11 +2750,11 @@ input {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  z-index: 2;
-  opacity: 0.5;
+  z-index: -1;
+  opacity: 0.6;
 }
 [data-theme='dark'] .season-layer {
-  opacity: 0.32;
+  opacity: 0.45;
 }
 .particle {
   position: absolute;

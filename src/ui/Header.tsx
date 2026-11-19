@@ -7,7 +7,7 @@ import { newMeta } from '../shared/db';
 import { parseQuickAdd } from '../shared/quickAdd';
 import type { ISODate } from '../shared/types';
 import { Icon, IconButton, Segmented } from './common';
-import { monthInk } from './season';
+import { monthInk, SeasonLayer } from './season';
 import { useBloom } from './store';
 
 export type Tab = 'calendar' | 'upcoming' | 'countdowns' | 'wallet';
@@ -48,9 +48,8 @@ export function Header(p: Props) {
 
   return (
     <header className={`header ${p.isDesktop ? 'desktop' : ''}`}>
-      <h1 className={`period-title ${p.tab === 'calendar' ? 'is-month' : ''}`} style={p.tab === 'calendar' ? { color: monthInk(p.anchor.getMonth(), dark) } : undefined}>
-        {title}
-      </h1>
+      {p.tab === 'calendar' && <SeasonLayer month={p.anchor.getMonth()} />}
+      {/* Arrows come first so they never move when the month name changes length. */}
       {p.tab === 'calendar' && (
         <div className="nav">
           <IconButton icon={rtl ? 'chevronRight' : 'chevronLeft'} label={t('prev')} onClick={p.onPrev} />
@@ -60,6 +59,9 @@ export function Header(p: Props) {
           </button>
         </div>
       )}
+      <h1 className={`period-title ${p.tab === 'calendar' ? 'is-month' : ''}`} style={p.tab === 'calendar' ? { color: monthInk(p.anchor.getMonth(), dark) } : undefined}>
+        {title}
+      </h1>
       <span className="spacer" />
       {p.tab === 'calendar' && (
         <button

@@ -6,7 +6,7 @@ import type { ISODate } from '../shared/types';
 import { formatTime, isDailyNudge, useRangeData, weekdayNames } from './calendarData';
 import { newDayEntry, nextStatus } from './drafts';
 import { Icon } from './common';
-import { monthColor, monthInk, SeasonLayer, seasonOf } from './season';
+import { monthColor, monthInk, seasonOf } from './season';
 import { DayChips } from './DayChips';
 import { hasContent } from './Journal';
 import { StickerArt, StickerLayer } from './Stickers';
@@ -25,7 +25,7 @@ interface Props {
 }
 
 export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJournal, onOpenNotes, onOpenStickers, selectedSticker, onSelectSticker }: Props) {
-  const { settings, locale, t, save, dark } = useBloom();
+  const { settings, locale, t, save } = useBloom();
   const m = anchor.getMonth();
   const grid = useMemo(
     () => monthGrid(anchor.getFullYear(), anchor.getMonth(), settings.weekStart),
@@ -40,8 +40,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
   const rows = grid[35].getMonth() !== anchor.getMonth() ? 5 : 6;
 
   return (
-    <div className={`month season-${seasonOf(m)}`} style={{ ['--rows' as string]: rows, ['--month-ink' as string]: monthInk(m, dark) }}>
-      <SeasonLayer month={m} />
+    <div className={`month calendar-light season-${seasonOf(m)}`} style={{ ['--rows' as string]: rows, ['--month-ink' as string]: monthInk(m, false) }}>
       <div className="month-weekdays">
         {names.map((n) => (
           <div key={n}>{n}</div>
@@ -81,7 +80,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenJour
             <div
               key={iso}
               className={cls}
-              style={{ ['--i' as string]: cellIdx, ['--cell-bg' as string]: monthColor(d.getMonth(), dark) }}
+              style={{ ['--i' as string]: cellIdx, ['--cell-bg' as string]: monthColor(d.getMonth()) }}
               role="button"
               tabIndex={0}
               data-date={iso}
