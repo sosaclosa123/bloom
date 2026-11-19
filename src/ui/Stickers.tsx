@@ -6,7 +6,7 @@ import { uuid } from '../shared/db';
 import type { DayEntry, ISODate, PlacedSticker } from '../shared/types';
 import { Icon } from './common';
 import { newDayEntry } from './drafts';
-import { STICKERS } from './stickers';
+import { STICKERS } from './stickerDesigns';
 import { useBloom } from './store';
 
 export const STICKER_MIN = 20;
