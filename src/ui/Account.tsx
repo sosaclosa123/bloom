@@ -38,6 +38,7 @@ export function AccountSettings() {
     try {
       await fn();
     } catch (e) {
+      console.error('Bloom account:', e);
       setErr(errorKey(e));
     } finally {
       setBusy(false);
@@ -81,6 +82,18 @@ export function AccountSettings() {
           </Button>
         </div>
       </form>
+    );
+  }
+
+  // ---------------- signed in, still loading the profile
+  if (!state.profile) {
+    return (
+      <div className="account">
+        <p className="sync-status syncing">
+          <span className="sync-dot" /> {t('syncSyncing')}
+        </p>
+        {state.error && <p className="form-error">{t('errOffline')}</p>}
+      </div>
     );
   }
 
