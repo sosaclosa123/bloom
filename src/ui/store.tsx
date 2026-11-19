@@ -58,9 +58,10 @@ export function BloomProvider({ initial, children }: { initial: Snapshot; childr
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     document.documentElement.lang = settings.language;
+    document.documentElement.dataset.fontSize = settings.fontSize ?? 'medium';
     document.documentElement.dir = dir;
     platform.setTitleBarTheme(dark);
-  }, [dark, dir, settings.language]);
+  }, [dark, dir, settings.language, settings.fontSize]);
 
   const t = useCallback(
     (k: StringKey, vars?: Record<string, string | number>) => translate(settings.language, k, vars),

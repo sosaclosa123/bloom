@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
-import type { GameModeSetting, HolidaySet, ThemeMode } from '../shared/types';
+import type { FontSize, GameModeSetting, HolidaySet, ThemeMode } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented, Toggle } from './common';
 import { RemindersPicker, SoundSelect } from './editors';
 import { playSound } from './sound';
@@ -67,6 +67,13 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                   value={settings.theme}
                   onChange={(theme) => setSettings({ theme })}
                   options={(['system', 'light', 'dark'] as ThemeMode[]).map((v) => ({ value: v, label: t(`theme_${v}` as StringKey) }))}
+                />
+              </Field>
+              <Field label={t('textSize')}>
+                <Segmented<FontSize>
+                  value={settings.fontSize ?? 'medium'}
+                  onChange={(fontSize) => setSettings({ fontSize })}
+                  options={(['small', 'medium', 'large'] as FontSize[]).map((v) => ({ value: v, label: t(`textSize_${v}` as StringKey) }))}
                 />
               </Field>
               <Field label={t('currency')}>

@@ -1,3 +1,8 @@
+/* Text size setting (Settings → Text size). */
+:root { --fs-scale: 1; }
+:root[data-font-size='small'] { --fs-scale: 0.9; }
+:root[data-font-size='large'] { --fs-scale: 1.15; }
+
 /*
  * Bloom design tokens.
  * `.calendar-light` re-uses the light values so the calendar keeps its soft
@@ -15,12 +20,12 @@
   --font-month: 'Fraunces', 'Frank Ruhl Libre', Georgia, serif;
   /* Day headlines: handwriting (Hebrew falls back to Amatic SC). */
   --font-hand: 'Caveat', 'Amatic SC', 'Segoe Print', cursive;
-  --fs-xs: 11px;
-  --fs-sm: 12.5px;
-  --fs-md: 14px;
-  --fs-lg: 17px;
-  --fs-xl: 22px;
-  --fs-2xl: 28px;
+  --fs-xs: calc(11px * var(--fs-scale, 1));
+  --fs-sm: calc(12.5px * var(--fs-scale, 1));
+  --fs-md: calc(14px * var(--fs-scale, 1));
+  --fs-lg: calc(17px * var(--fs-scale, 1));
+  --fs-xl: calc(22px * var(--fs-scale, 1));
+  --fs-2xl: calc(28px * var(--fs-scale, 1));
 
   /* Spacing & shape */
   --space-1: 4px;

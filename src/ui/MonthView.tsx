@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { addDays, monthGrid, sameDay, toISODate } from '../shared/dates';
 import { hebrewDateLabel } from '../shared/holidays';
 import type { EventOccurrence } from '../shared/recurrence';
@@ -35,6 +35,64 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
   // Show only 5 rows when the 6th row is entirely next month.
   const rows = grid[35].getMonth() !== anchor.getMonth() ? 5 : 6;
 
+  // Fit check: if a day's content doesn't fit its cell (big text, small window),
+  // fold more events into "+N more" instead of letting text get cut off.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<{ key: unknown[]; cut: Record<string, number> }>({ key: [], cut: {} });
+  const [size, setSize] = useState(0);
+  const fitKey = [data.eventsByDay, data.remindersByDay, data.days, data.holidays, anchor, rows, size, settings.fontSize, settings.showHebrewDate, settings.language, selected];
+  const sameKey = fit.key.length === fitKey.length && fit.key.every((k, i) => Object.is(k, fitKey[i]));
+  const cut = sameKey ? fit.cut : {};
+  const passes = useRef(0);
+  useLayoutEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    if (!sameKey) passes.current = 0;
+    if (passes.current > 12) return; // safety: never loop forever
+    const next = { ...cut };
+    let changed = !sameKey;
+    el.querySelectorAll<HTMLElement>('.cell').forEach((c) => {
+      const pills = c.querySelector<HTMLElement>('.pills');
+      const list = pills ? [...pills.querySelectorAll<HTMLElement>('.pill')] : [];
+      if (!pills || list.length === 0) return;
+      const box = pills.getBoundingClientRect();
+      const last = pills.lastElementChild as HTMLElement | null;
+      // Lowest bit of real content (stickers and hover buttons don't count).
+      const cellBottom = c.getBoundingClientRect().top + c.clientTop + c.clientHeight;
+      const contentBottom = Math.max(
+        ...[...c.children]
+          .filter((k) => !k.matches('.sticker-layer, .cell-add'))
+          .map((k) => k.getBoundingClientRect().bottom),
+      );
+      const overflow = contentBottom > cellBottom + 0.5 || (!!last && last.getBoundingClientRect().bottom > box.bottom + 0.5);
+      if (overflow) {
+        const iso = c.dataset.date!;
+        next[iso] = (next[iso] ?? 0) + 1;
+        changed = true;
+      }
+    });
+    if (changed) {
+      passes.current += 1;
+      setFit({ key: fitKey, cut: next });
+    } else passes.current = 0;
+  });
+  useLayoutEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    let w = 0;
+    let h = 0;
+    const ro = new ResizeObserver(([e]) => {
+      const { width, height } = e.contentRect;
+      if (Math.abs(width - w) > 0.5 || Math.abs(height - h) > 0.5) {
+        w = width;
+        h = height;
+        setSize((n) => n + 1);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div className={`month calendar-light season-${seasonOf(m)}`} style={{ ['--rows' as string]: rows, ['--month-ink' as string]: monthInk(m, false) }}>
       <div className="month-weekdays">
@@ -42,7 +100,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
           <div key={n}>{n}</div>
         ))}
       </div>
-      <div className="month-grid">
+      <div className="month-grid" ref={gridRef}>
         {grid.slice(0, rows * 7).map((d, cellIdx) => {
           const iso = toISODate(d);
           const entry = data.days.get(iso);
@@ -57,7 +115,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
             rems.length > 0 ||
             !!entry?.cards.some((c) => (c.kind === 'text' ? c.text.trim() : c.items.some((i) => i.text.trim())));
           const maxPills = Math.max(1, 3 - (entry?.headline ? 1 : 0) - (hasChips ? 1 : 0));
-          const shown = occs.slice(0, maxPills);
+          const shown = occs.slice(0, Math.max(0, maxPills - (cut[iso] ?? 0)));
           const hidden = occs.length - shown.length;
           const cls = [
             'cell',

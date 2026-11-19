@@ -146,11 +146,13 @@ export type MoneyItem = MoneyAccount | MoneyTxn | MoneyBudget | MoneyGoal;
 export type HolidaySet = 'none' | 'jewish' | 'christian' | 'both';
 export type Language = 'en' | 'he';
 export type ThemeMode = 'system' | 'light' | 'dark';
+export type FontSize = 'small' | 'medium' | 'large';
 export type GameModeSetting = 'auto' | 'always' | 'off';
 
 export interface Settings {
   language: Language;
   theme: ThemeMode;
+  fontSize: FontSize;
   weekStart: 0 | 1; // 0 = Sunday
   holidays: HolidaySet;
   holidaysIsrael: boolean; // Israel vs diaspora Jewish calendar
@@ -171,6 +173,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   language: 'en',
   theme: 'system',
+  fontSize: 'medium',
   weekStart: 0,
   holidays: 'jewish',
   holidaysIsrael: true,

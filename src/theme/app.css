@@ -370,7 +370,7 @@ input[type='range'] {
   color: var(--text-muted);
   padding: 7px 2px 6px;
   border-radius: var(--radius-md);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--fs-scale, 1));
   font-weight: 600;
 }
 .rail-icon {
@@ -409,7 +409,7 @@ input[type='range'] {
   border-radius: 8px;
   background: var(--danger);
   color: #fff;
-  font-size: 10px;
+  font-size: calc(10px * var(--fs-scale, 1));
   font-weight: 700;
   display: grid;
   place-items: center;
@@ -590,7 +590,7 @@ input[type='range'] {
   background: var(--surface-hover);
 }
 .add-option-emoji {
-  font-size: 22px;
+  font-size: calc(22px * var(--fs-scale, 1));
   line-height: 1;
 }
 .opt-journal {
@@ -651,7 +651,7 @@ input[type='range'] {
   padding: 80px 20px 0;
 }
 .page-empty-art {
-  font-size: 44px;
+  font-size: calc(44px * var(--fs-scale, 1));
   margin-bottom: 8px;
 }
 .up-day {
@@ -742,11 +742,11 @@ button.up-row:hover {
   box-shadow: var(--shadow-md);
 }
 .cd-emoji {
-  font-size: 30px;
+  font-size: calc(30px * var(--fs-scale, 1));
 }
 .cd-num {
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: calc(40px * var(--fs-scale, 1));
   font-weight: 700;
   line-height: 1.1;
   color: var(--accent-text);
@@ -1007,7 +1007,7 @@ button.status-dot:hover {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: calc(12px * var(--fs-scale, 1));
   line-height: 1;
 }
 .marker-dot {
@@ -1374,7 +1374,7 @@ button.status-dot:hover {
   background: var(--journal-accent);
 }
 .tab-badge {
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--fs-scale, 1));
   font-weight: 700;
   background: var(--surface-2);
   color: var(--text-muted);
@@ -1588,7 +1588,7 @@ button.status-dot:hover {
   background: transparent;
   display: grid;
   place-items: center;
-  font-size: 16px;
+  font-size: calc(16px * var(--fs-scale, 1));
 }
 .emoji-btn:hover {
   background: var(--surface-hover);
@@ -1615,7 +1615,7 @@ button.status-dot:hover {
   border: none;
   background: transparent;
   border-radius: 8px;
-  font-size: 17px;
+  font-size: calc(17px * var(--fs-scale, 1));
   display: grid;
   place-items: center;
 }
@@ -2022,7 +2022,7 @@ button.status-dot:hover {
   padding: 80px 20px 0;
 }
 .journal-empty-art {
-  font-size: 44px;
+  font-size: calc(44px * var(--fs-scale, 1));
   margin-bottom: 8px;
 }
 
@@ -2044,7 +2044,7 @@ button.status-dot:hover {
   height: 18px;
   padding: 0 6px;
   border-radius: var(--radius-pill);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--fs-scale, 1));
   font-weight: 650;
   line-height: 1;
   border: none;
@@ -2109,7 +2109,7 @@ button.status-dot:hover {
   color: var(--journal-muted);
 }
 .journal-cta-emoji {
-  font-size: 26px;
+  font-size: calc(26px * var(--fs-scale, 1));
 }
 .journal-preview {
   display: flex;
@@ -2206,7 +2206,7 @@ button.status-dot:hover {
   padding: 0 4px;
 }
 .jm-book {
-  font-size: 30px;
+  font-size: calc(30px * var(--fs-scale, 1));
 }
 .jm-day {
   font-family: var(--font-display);
@@ -2245,13 +2245,13 @@ button.status-dot:hover {
   position: absolute;
   color: #fff;
   opacity: 0.7;
-  font-size: 14px;
+  font-size: calc(14px * var(--fs-scale, 1));
   pointer-events: none;
 }
 .jm-floaties span:nth-child(1) { top: 12px; inset-inline-end: 120px; }
-.jm-floaties span:nth-child(2) { bottom: 10px; inset-inline-end: 190px; font-size: 12px; }
-.jm-floaties span:nth-child(3) { top: 22px; inset-inline-end: 260px; font-size: 11px; }
-.jm-floaties span:nth-child(4) { bottom: 8px; inset-inline-end: 80px; font-size: 18px; }
+.jm-floaties span:nth-child(2) { bottom: 10px; inset-inline-end: 190px; font-size: calc(12px * var(--fs-scale, 1)); }
+.jm-floaties span:nth-child(3) { top: 22px; inset-inline-end: 260px; font-size: calc(11px * var(--fs-scale, 1)); }
+.jm-floaties span:nth-child(4) { bottom: 8px; inset-inline-end: 80px; font-size: calc(18px * var(--fs-scale, 1)); }
 
 .jm-body {
   flex: 1;
@@ -2264,7 +2264,7 @@ button.status-dot:hover {
   box-shadow: none !important;
   resize: none;
   color: var(--journal-ink);
-  font-size: 15.5px;
+  font-size: calc(15.5px * var(--fs-scale, 1));
   padding: 0 2px !important;
   min-height: 248px !important;
   overflow: hidden;
@@ -2768,7 +2768,7 @@ input {
 .period-title.is-month {
   font-family: var(--font-month);
   font-weight: 600;
-  font-size: 28px;
+  font-size: calc(28px * var(--fs-scale, 1));
   letter-spacing: -0.01em;
   font-variation-settings: 'SOFT' 100, 'WONK' 0;
   transition: color var(--dur-slow) var(--ease);
@@ -2805,7 +2805,7 @@ input {
   letter-spacing: 0.01em;
 }
 .headline-input {
-  font-size: 22px !important;
+  font-size: calc(22px * var(--fs-scale, 1)) !important;
 }
 
 /* ------------------------------------------------------------ notes on the calendar */
@@ -2957,7 +2957,7 @@ button.chip-note:hover {
   padding: 0 2px;
   background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--journal-line) 27px 28px);
   background-attachment: local;
-  font-size: 15px;
+  font-size: calc(15px * var(--fs-scale, 1));
 }
 .np-del {
   position: absolute;
@@ -3236,7 +3236,7 @@ button.chip-note:hover {
 }
 .w-tile-value {
   font-family: var(--font-month);
-  font-size: 28px;
+  font-size: calc(28px * var(--fs-scale, 1));
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: start;
@@ -3448,7 +3448,7 @@ button.chip-note:hover {
   background: var(--surface-hover);
 }
 .w-txn-emoji {
-  font-size: 22px;
+  font-size: calc(22px * var(--fs-scale, 1));
   width: 34px;
   text-align: center;
 }
@@ -3480,7 +3480,7 @@ button.chip-note:hover {
 }
 .w-total strong {
   font-family: var(--font-month);
-  font-size: 28px;
+  font-size: calc(28px * var(--fs-scale, 1));
 }
 .w-goals {
   display: grid;
@@ -3511,7 +3511,7 @@ button.chip-note:hover {
   text-align: start;
 }
 .w-goal-emoji {
-  font-size: 26px;
+  font-size: calc(26px * var(--fs-scale, 1));
 }
 .w-goal-name {
   flex: 1;
@@ -3520,7 +3520,7 @@ button.chip-note:hover {
 }
 .w-goal-amount {
   font-family: var(--font-month);
-  font-size: 22px;
+  font-size: calc(22px * var(--fs-scale, 1));
   font-weight: 600;
   text-align: start;
 }
@@ -3580,7 +3580,7 @@ button.chip-note:hover {
   color: var(--accent-text);
 }
 .cat-emoji {
-  font-size: 20px;
+  font-size: calc(20px * var(--fs-scale, 1));
 }
 .cat-name {
   max-width: 100%;
@@ -3706,7 +3706,7 @@ button.chip-note:hover {
 }
 .ym-head {
   text-align: center;
-  font-size: 10px;
+  font-size: calc(10px * var(--fs-scale, 1));
   font-weight: 650;
   color: var(--text-faint);
   padding-bottom: 2px;
@@ -3716,7 +3716,7 @@ button.chip-note:hover {
   border: none;
   border-radius: 5px;
   aspect-ratio: 1.25;
-  font-size: 11px;
+  font-size: calc(11px * var(--fs-scale, 1));
   font-weight: 650;
   background: transparent;
   padding: 0;
@@ -4091,7 +4091,7 @@ button.chip-note:hover {
   background: var(--accent-soft);
   display: grid;
   place-items: center;
-  font-size: 18px;
+  font-size: calc(18px * var(--fs-scale, 1));
   flex: none;
 }
 .alert-main {
@@ -4172,4 +4172,63 @@ button.chip-note:hover {
 .header > :not(.season-layer) {
   position: relative;
   z-index: 1;
+}
+/* Never cut the Hebrew date or holiday name: wrap to the next line instead. */
+.cell-top {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+.cell .hebdate {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  min-width: 0;
+}
+.cell .holiday-label,
+.week-day-head .holiday-label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  flex: none;
+}
+/* Rows always share the available height; content that doesn't fit folds into "+N more". */
+.month-grid {
+  min-height: 0;
+}
+/* Day cell content keeps its natural height (never squashed); the fit check
+   in MonthView folds extra events into "+N more" instead. */
+.cell > *,
+.cell .pills > * {
+  flex-shrink: 0;
+}
+.cell .pills {
+  overflow: visible;
+}
+.cell .headline {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.cell > .pills {
+  flex: none;
+}
+.cell > .headline {
+  overflow: visible;
+  text-overflow: clip;
+}
+/* Date/time boxes grow with the text size and wrap instead of cutting the date. */
+.dt {
+  flex-wrap: wrap;
+}
+.dt input[type='date'] {
+  flex: 1 1 calc(132px * var(--fs-scale, 1));
+  min-width: calc(132px * var(--fs-scale, 1));
+}
+.dt input[type='time'] {
+  width: calc(126px * var(--fs-scale, 1)) !important;
+}
+input[type='date'] {
+  min-width: calc(132px * var(--fs-scale, 1));
+}
+input[type='time'] {
+  min-width: calc(112px * var(--fs-scale, 1));
 }
