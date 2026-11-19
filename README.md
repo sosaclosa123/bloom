@@ -6,13 +6,9 @@ A soft, simple calendar for Windows, built so the same code can become a phone a
 
 - **Month and week views** in light pastel colors, with light and dark mode.
 - **Day colors.** Click the dot in a day's corner to cycle green (free) → yellow (some plans) → red (packed).
-- **Day Cards.** Click any day to open a side panel with:
-  - a headline
-  - events and reminders
-  - free notes and checklists
-  
-  The month grid stays tidy: it shows only the headline, a few event pills and tiny emoji markers.
-- **Journal.** Each Day Card has a journal entry with free writing and photos. Every entry has its own **Private / Shared** switch, private by default. The **Journal** page (press `J`) reads like a diary, newest first, and can be filtered by private or shared. Photos open in a full-screen viewer.
+- **Click any date** to get an **Add to this day** row: ✅ To-do list · 📝 Note · 📖 Journal · 📅 Event · 🔔 Reminder.
+- **Everything shows on the calendar.** Each date displays small chips: 📖 Journal, ☑ 2/5 to-dos done (turns green when all are done), 📝 notes and 🔔 reminders. Clicking the 📖 chip opens that day's journal.
+- **Journal pop-up.** A blue notebook window over a dimmed, blurred background, with lined paper, photos and a **Private / Shared** switch per entry (private by default). The arrows step to the previous or next day. It opens from the calendar chip, the day panel or the **Journal** page (press `J`), which lists all entries like a diary.
 - **Events** with times, all-day and multi-day spans, colors, location, notes, repeats and a private flag.
 - **Reminders** fire at the exact minute:
   - repeat daily, weekly, monthly or yearly
@@ -82,7 +78,7 @@ electron/       Windows shell: window, tray, JSON file store, scheduler,
 
 ### Ready for new designs
 
-All visual decisions live in `src/theme/tokens.css` (colors, spacing, radii, shadows, fonts). Components use only those tokens and logical CSS properties, so a new design means editing tokens and component styles, not app logic.
+All visual decisions live in `src/theme/tokens.css`: colors (including the `--journal-*` blue notebook and the `--chip-*` calendar chips), spacing, radii, shadows, fonts and timing. Every animation is in `src/theme/motion.css` and turns off automatically when Windows animations are disabled. Components use only those tokens and logical CSS properties, so a new design means editing tokens and component styles, not app logic.
 
 ### Ready for the phone app and live sync
 
