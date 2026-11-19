@@ -207,15 +207,19 @@ input[type='range'] {
 }
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-3);
 }
 .dt {
   display: flex;
   gap: var(--space-2);
 }
+.dt input[type='date'] {
+  flex: 1;
+  min-width: 0;
+}
 .dt input[type='time'] {
-  width: 128px !important;
+  width: 126px !important;
   flex: none;
 }
 .title-input {
