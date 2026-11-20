@@ -4673,7 +4673,8 @@ input[type='time'] {
 }
 .glance-head strong {
   flex: 1;
-  font-family: var(--font-month);
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
   font-size: var(--fs-lg);
 }
 .glance-logo {
@@ -4915,4 +4916,11 @@ input[type='time'] {
   line-height: 0;
   display: grid;
   place-items: center;
+}
+
+/* Startup window: modern font for day names and times too. */
+.glance-dayname,
+.glance-time,
+.glance-num {
+  font-family: 'Outfit', var(--font-sans);
 }

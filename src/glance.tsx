@@ -16,7 +16,7 @@ import { stripMarks } from './ui/NoteRich';
 import './theme/tokens.css';
 import './theme/app.css';
 import './theme/motion.css';
-import '@fontsource/fraunces/600.css';
+import '@fontsource/outfit/600.css';
 import '@fontsource/caveat/600.css';
 import '@fontsource/gveret-levin/400.css';
 
