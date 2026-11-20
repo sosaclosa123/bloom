@@ -3,13 +3,13 @@ import { addDays, monthGrid, sameDay, toISODate } from '../shared/dates';
 import { hebrewDateLabel } from '../shared/holidays';
 import type { EventOccurrence } from '../shared/recurrence';
 import type { ISODate } from '../shared/types';
-import { formatTime, isDailyNudge, useRangeData, weekdayNames } from './calendarData';
+import { countdownsOn, formatTime, isDailyNudge, useRangeData, weekdayNames } from './calendarData';
 import { newDayEntry, nextStatus } from './drafts';
 import { Icon } from './common';
 import { dayColor, inkOf, monthColor, monthInk, seasonOf } from './season';
 import { DayChips } from './DayChips';
-import { StickerLayer } from './Stickers';
-import { useBloom } from './store';
+import { repeatingStickersOn, StickerLayer } from './Stickers';
+import { useAlive, useBloom } from './store';
 
 interface Props {
   anchor: Date;
@@ -30,6 +30,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
     [anchor, settings.weekStart],
   );
   const data = useRangeData(grid[0], addDays(grid[41], 1));
+  const countdowns = useAlive('countdowns');
   const today = new Date();
   const names = weekdayNames(locale, settings.weekStart, 'short');
   // Show only 5 rows when the 6th row is entirely next month.
@@ -122,6 +123,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
           // Daily reminders would put a bell on every day — keep those to the drawer/week view.
           const rems = (data.remindersByDay.get(iso) ?? []).filter((r) => r.reminder.repeat !== 'daily');
           const hol = data.holidays.get(iso) ?? [];
+          const cds = countdownsOn(countdowns, iso);
           const outside = d.getMonth() !== anchor.getMonth();
           const isToday = sameDay(d, today);
           // Leave room so the day's chips (to-dos, notes) are never pushed out of view.
@@ -182,6 +184,12 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
                   {hol[0].name}
                 </div>
               )}
+              {cds.length > 0 && (
+                <div className="countdown-label" dir="auto" title={cds.map((c) => `${c.emoji} ${c.title}`).join(' · ')}>
+                  <span aria-hidden="true">{cds[0].emoji}</span> {cds[0].title || '—'}
+                  {cds.length > 1 && <span className="cd-more"> +{cds.length - 1}</span>}
+                </div>
+              )}
               {entry?.headline && <div className="headline" dir="auto" title={entry.headline}>{entry.headline}</div>}
               <div className="pills">
                 {shown.map((o) => (
@@ -209,7 +217,17 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
                 onOpenTodos={(el) => onOpenNotes(iso, el, 'todos')}
                 lead={hasChips ? moreEl : null}
               />
-              <StickerLayer date={iso} entry={entry} selectedId={selectedSticker} onSelect={onSelectSticker} />
+              <StickerLayer
+                date={iso}
+                entry={entry}
+                // Stickers repeat on the day each occurrence starts.
+                repeating={repeatingStickersOn(
+                  (data.eventsByDay.get(iso) ?? []).filter((o) => o.event.stickers?.length && toISODate(o.start) === iso).map((o) => o.event),
+                  iso,
+                )}
+                selectedId={selectedSticker}
+                onSelect={onSelectSticker}
+              />
               <button
                 type="button"
                 className="cell-add cell-sticker"

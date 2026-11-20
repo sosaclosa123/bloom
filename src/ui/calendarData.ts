@@ -94,3 +94,6 @@ export function weekdayNames(locale: string, weekStart: 0 | 1, style: 'short' | 
     new Date(2023, 0, 1 + ((i + weekStart) % 7)).toLocaleDateString(locale, { weekday: style }),
   );
 }
+
+
+export { countdownsOn } from '../shared/schedule';

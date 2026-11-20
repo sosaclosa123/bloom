@@ -3,12 +3,12 @@ import { addDays, sameDay, startOfDay, startOfWeek, toISODate } from '../shared/
 import { hebrewDateLabel } from '../shared/holidays';
 import type { EventOccurrence } from '../shared/recurrence';
 import type { ISODate } from '../shared/types';
-import { formatTime, useRangeData, type ReminderOccurrence } from './calendarData';
+import { countdownsOn, formatTime, useRangeData, type ReminderOccurrence } from './calendarData';
 import { Icon } from './common';
 import { dayColor, inkOf, monthColor } from './season';
 import { newDayEntry, nextStatus } from './drafts';
 import { DayChips } from './DayChips';
-import { useBloom } from './store';
+import { useAlive, useBloom } from './store';
 
 const HOUR_H = 52;
 
@@ -75,6 +75,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
   const start = useMemo(() => startOfWeek(anchor, settings.weekStart), [anchor, settings.weekStart]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
   const data = useRangeData(start, addDays(start, 7));
+  const countdowns = useAlive('countdowns');
   const scroller = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(new Date());
 
@@ -132,6 +133,11 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
               </div>
               {settings.showHebrewDate && <div className="hebdate">{hebrewDateLabel(d, settings.language)}</div>}
               {hol[0] && <div className="holiday-label">{hol[0].name}</div>}
+              {countdownsOn(countdowns, iso).map((c) => (
+                <div key={c.id} className="countdown-label" dir="auto" title={c.title}>
+                  <span aria-hidden="true">{c.emoji}</span> {c.title || '—'}
+                </div>
+              ))}
               {entry?.headline && <div className="headline" dir="auto">{entry.headline}</div>}
               <DayChips compact entry={entry} onOpenNotes={(el) => onOpenNotes(iso, el, 'view')} onOpenTodos={(el) => onOpenNotes(iso, el, 'todos')} />
             </div>

@@ -40,6 +40,8 @@ export interface CalendarEvent extends SyncMeta {
   repeat: Repeat;
   /** Repeat every N days/weeks/months/years (e.g. 2 = every 2 weeks). Missing = 1. */
   repeatEvery?: number;
+  /** Stickers that repeat on every occurrence of this event (from the day they were added). */
+  stickers?: PlacedSticker[];
   /** Minutes before start to remind. 0 = at start time. */
   remindBefore: number[];
   sound: string; // sound id (built-in or custom)
@@ -63,6 +65,9 @@ export interface PlacedSticker {
   size: number; // px
   rot: number; // degrees
   locked: boolean;
+  /** Repeating stickers (kept on an event): first day shown, and days it was removed from. */
+  from?: ISODate;
+  skip?: ISODate[];
 }
 
 /** Everything written *on* a day (the "Day Card"). */

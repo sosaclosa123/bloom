@@ -1,7 +1,7 @@
 // Left navigation tabs + the Upcoming and Countdowns pages.
 import { useMemo } from 'react';
 import { addDays, dayDiff, parseISODate, sameDay, startOfDay, toISODate } from '../shared/dates';
-import type { EventOccurrence } from '../shared/recurrence';
+import { expandEvents, type EventOccurrence } from '../shared/recurrence';
 import type { Countdown, ISODate } from '../shared/types';
 import { formatTime, isDailyNudge, useRangeData, type ReminderOccurrence } from './calendarData';
 import { Icon, type IconName } from './common';
@@ -60,20 +60,41 @@ interface UpcomingProps {
   onOpenReminder: (r: ReminderOccurrence) => void;
 }
 
+export { repeatLabel } from '../shared/schedule';
+import { repeatLabel } from '../shared/schedule';
+
 export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: UpcomingProps) {
   const { t, locale, save } = useBloom();
   const today = startOfDay(new Date());
   const range = useRangeData(today, addDays(today, 14));
   const days = useAlive('days');
+  const events = useAlive('events');
   const now = Date.now();
+
+  // Repeating events: listed once each with their next time, not on every day.
+  const repeating = useMemo(() => {
+    const from = new Date(now);
+    const until = addDays(today, 800);
+    const out: EventOccurrence[] = [];
+    for (const ev of events) {
+      if (ev.repeat === 'none') continue;
+      const next = expandEvents([ev], from, until).find((o) => o.end.getTime() >= now);
+      if (next) out.push(next);
+    }
+    return out.sort((a, b) => a.start.getTime() - b.start.getTime());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, toISODate(today)]);
 
   const list = useMemo(() => {
     const out: { date: ISODate; occs: EventOccurrence[]; rems: ReminderOccurrence[]; todos: { cardId: string; id: string; text: string }[] }[] = [];
     for (let i = 0; i < 14; i++) {
       const iso = toISODate(addDays(today, i));
-      const occs = (range.eventsByDay.get(iso) ?? []).filter((o) => o.end.getTime() >= now && (i === 0 || !isDailyNudge(o)));
-      // Daily reminders only on today, so they don't repeat down the whole list.
-      const rems = (range.remindersByDay.get(iso) ?? []).filter((r) => r.at.getTime() >= now && (i === 0 || r.reminder.repeat !== 'daily'));
+      // One-time things only; repeating ones live in their own section above.
+      // Multi-day events show once: on the day they start (or today, if already going).
+      const occs = (range.eventsByDay.get(iso) ?? []).filter(
+        (o) => o.end.getTime() >= now && o.event.repeat === 'none' && !isDailyNudge(o) && (toISODate(o.start) === iso || (i === 0 && o.start < today)),
+      );
+      const rems = (range.remindersByDay.get(iso) ?? []).filter((r) => r.at.getTime() >= now && r.reminder.repeat === 'none');
       const entry = days.find((d) => d.date === iso);
       const todos = (entry?.cards ?? [])
         .filter((c) => c.kind === 'checklist')
@@ -83,6 +104,11 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range, days, toISODate(today)]);
+
+  // Last day an event covers (an all-day event "ends" at midnight after it).
+  const lastDay = (o: EventOccurrence) => toISODate(new Date(o.end.getTime() - (o.event.allDay ? 1 : 0)));
+  const nextLabel = (d: Date) =>
+    sameDay(d, today) ? t('today') : sameDay(d, addDays(today, 1)) ? t('tomorrow') : d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
 
   const dayLabel = (iso: ISODate) => {
     const d = parseISODate(iso);
@@ -102,7 +128,7 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
 
   return (
     <div className="page">
-      {list.length === 0 && (
+      {list.length === 0 && repeating.length === 0 && (
         <div className="page-empty">
           <div className="page-empty-art" aria-hidden="true">
             🌤️
@@ -111,6 +137,31 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
         </div>
       )}
       <div className="page-scroll">
+        {repeating.length > 0 && (
+          <section className="up-day up-repeating">
+            <h3 className="up-section-title">
+              <Icon name="repeat" size={15} /> {t('repeatingSection')}
+            </h3>
+            <ul className="up-list">
+              {repeating.map((o) => (
+                <li key={o.event.id}>
+                  <button type="button" className={`up-row ev-${o.event.color}`} onClick={() => onOpenEvent(o)}>
+                    <span className="up-bar" />
+                    <span className="up-title" dir="auto">
+                      {o.event.title || '—'}
+                    </span>
+                    <span className="up-repeat">{repeatLabel(o.event, t)}</span>
+                    <span className="up-next">
+                      {t('nextAt', { d: nextLabel(o.start), time: o.event.allDay ? t('allDay') : formatTime(o.start, locale) })}
+                    </span>
+                    {o.event.visibility === 'shared' && <Icon name="people" size={14} className="shared-ico" />}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {list.length > 0 && repeating.length > 0 && <h3 className="up-section-title up-once">{t('onceSection')}</h3>}
         {list.map((day, di) => (
           <section key={day.date} className="up-day" style={{ ['--i' as string]: di }}>
             <button type="button" className="up-day-title" onClick={() => onOpenDay(day.date)}>
@@ -125,6 +176,9 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
                     <span className="up-title" dir="auto">
                       {o.event.title || '—'}
                     </span>
+                    {lastDay(o) > toISODate(o.start) && (
+                      <span className="up-next">{t('untilDate', { d: parseISODate(lastDay(o)).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }) })}</span>
+                    )}
                     {o.event.visibility === 'shared' && <Icon name="people" size={14} className="shared-ico" />}
                   </button>
                 </li>

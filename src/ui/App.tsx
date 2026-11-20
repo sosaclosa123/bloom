@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { platform } from '../platform/api';
 import { addDays, addMonths, parseISODate, toISODate } from '../shared/dates';
-import type { EventOccurrence } from '../shared/recurrence';
+import { expandEvents, type EventOccurrence } from '../shared/recurrence';
 import type { CalendarEvent, Countdown, FiredAlert, ISODate, Reminder } from '../shared/types';
 import { AlertCards } from './AlertCards';
 import type { ReminderOccurrence } from './calendarData';
@@ -11,7 +11,7 @@ import { newCountdown, newEvent, newReminder } from './drafts';
 import { CountdownEditor, EventEditor, ReminderEditor } from './editors';
 import { Header, type CalView, type Tab } from './Header';
 import { NotePopover, type NotePopState } from './NotePopover';
-import { addSticker, StickerDefs, StickerPicker } from './Stickers';
+import { addSticker, stickerKey, StickerDefs, StickerPicker } from './Stickers';
 import { MonthView } from './MonthView';
 import { Search } from './Search';
 import { SettingsPanel } from './Settings';
@@ -43,6 +43,16 @@ function load<T extends string>(key: string, fallback: T): T {
 
 const isTyping = (el: Element | null) =>
   !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el as HTMLElement).isContentEditable);
+
+/** Repeating events that start on `date` (a sticker added there can repeat with them). */
+function repeatingEventsOn(events: CalendarEvent[], date: ISODate): CalendarEvent[] {
+  const day = parseISODate(date);
+  const next = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
+  const seen = new Set<string>();
+  return expandEvents(events.filter((e) => !e.deletedAt && e.repeat !== 'none'), day, next)
+    .filter((o) => toISODate(o.start) === date && !seen.has(o.event.id) && seen.add(o.event.id))
+    .map((o) => o.event);
+}
 
 export function App() {
   const { snap, settings, t, save } = useBloom();
@@ -271,10 +281,20 @@ export function App() {
         <StickerPicker
           anchor={stickerPick.anchor}
           onClose={() => setStickerPick(null)}
-          onPick={(kind) => {
-            const { entry, id } = addSticker(snap.days.find((d) => d.date === stickerPick.date && !d.deletedAt), stickerPick.date, kind);
-            save('days', entry);
-            setSelectedSticker(id);
+          repeatOptions={repeatingEventsOn(snap.events, stickerPick.date).map((e) => ({ id: e.id, title: e.title }))}
+          onPick={(kind, repeatWith) => {
+            const ev = repeatWith ? snap.events.find((e) => e.id === repeatWith && !e.deletedAt) : undefined;
+            if (ev) {
+              // Repeats with the event from this day on.
+              const { entry } = addSticker(undefined, stickerPick.date, kind);
+              const st = { ...entry.stickers![0], from: stickerPick.date };
+              save('events', { ...ev, stickers: [...(ev.stickers ?? []), st] });
+              setSelectedSticker(stickerKey(st.id, stickerPick.date, true));
+            } else {
+              const { entry, id } = addSticker(snap.days.find((d) => d.date === stickerPick.date && !d.deletedAt), stickerPick.date, kind);
+              save('days', entry);
+              setSelectedSticker(id);
+            }
             setStickerPick(null);
           }}
         />
