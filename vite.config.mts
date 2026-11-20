@@ -15,6 +15,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         popup: resolve(__dirname, 'popup.html'),
+        glance: resolve(__dirname, 'glance.html'),
       },
     },
   },

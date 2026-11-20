@@ -35,6 +35,7 @@ export interface PlatformAPI {
   onMissed(cb: (m: FiredAlert[]) => void): () => void;
   onPlaySound(cb: (soundId: string, soft: boolean) => void): () => void;
   onOpenDate(cb: (date: string) => void): () => void;
+  onHidden(cb: (hidden: boolean) => void): () => void;
   /** Web only: in-page alerts (desktop shows its own popup window). */
   onInPageAlert(cb: (alerts: FiredAlert[]) => void): () => void;
   testPopup(): Promise<void>;
@@ -71,6 +72,7 @@ function desktop(b: DesktopBridge): PlatformAPI {
     onMissed: (cb) => b.onMissed(cb),
     onPlaySound: (cb) => b.onPlaySound(cb),
     onOpenDate: (cb) => b.onOpenDate(cb),
+    onHidden: (cb) => b.onHidden(cb),
     onInPageAlert: () => () => {},
     testPopup: () => b.testPopup(),
     gameStatus: () => b.gameStatus(),
@@ -282,6 +284,7 @@ function web(): PlatformAPI {
       return () => soundListeners.delete(cb);
     },
     onOpenDate: () => () => {},
+    onHidden: () => () => {},
     onInPageAlert: (cb) => {
       alertListeners.add(cb);
       return () => alertListeners.delete(cb);

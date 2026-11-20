@@ -183,6 +183,8 @@ export interface Settings {
   gameMode: GameModeSetting;
   gameModeSoftSound: boolean;
   startWithWindows: boolean;
+  /** Small "Coming up" window in the corner when the PC starts. */
+  startupGlance: boolean;
   closeToTray: boolean;
   defaultSound: string;
   defaultRemindBefore: number[];
@@ -204,6 +206,7 @@ export const DEFAULT_SETTINGS: Settings = {
   gameMode: 'auto',
   gameModeSoftSound: true,
   startWithWindows: true,
+  startupGlance: true,
   closeToTray: true,
   defaultSound: 'builtin:chime',
   defaultRemindBefore: [15],

@@ -66,8 +66,8 @@ const isDark = () => {
   return t === 'system' ? nativeTheme.shouldUseDarkColors : t === 'dark';
 };
 
-function loadPage(win: BrowserWindow, page: 'index' | 'popup') {
-  if (DEV_URL) win.loadURL(`${DEV_URL}/${page === 'index' ? '' : 'popup.html'}`);
+function loadPage(win: BrowserWindow, page: 'index' | 'popup' | 'glance') {
+  if (DEV_URL) win.loadURL(`${DEV_URL}/${page === 'index' ? '' : `${page}.html`}`);
   else win.loadFile(join(DIST, `${page}.html`));
 }
 
@@ -117,6 +117,18 @@ function createMainWindow() {
   mainWin.on('resize', saveBounds);
   mainWin.on('move', saveBounds);
 
+  // Tell the page when it's out of sight (tray / minimized) so it can stop
+  // all animations; the window still runs so sync keeps reminders up to date.
+  const sendHidden = () => {
+    if (!mainWin || mainWin.isDestroyed()) return;
+    mainWin.webContents.send('app:hidden', !mainWin.isVisible() || mainWin.isMinimized());
+  };
+  mainWin.on('hide', sendHidden);
+  mainWin.on('show', sendHidden);
+  mainWin.on('minimize', sendHidden);
+  mainWin.on('restore', sendHidden);
+  mainWin.webContents.on('did-finish-load', sendHidden);
+
   mainWin.on('close', (e) => {
     if (!quitting && store.get().settings.closeToTray) {
       e.preventDefault();
@@ -151,6 +163,67 @@ setOwnWindowCheck((hwnd) => {
   }
   return false;
 });
+
+// ---------------------------------------------------------------- "Coming up" at startup
+//
+// When the PC starts (Bloom launched at login) a small window shows the next
+// events in the corner on the same side as the Start button: right on
+// right-to-left Windows (Hebrew…), left otherwise. It never takes focus,
+// stays until closed, and is destroyed when closed, so it costs nothing after.
+
+const GLANCE_W = 360;
+let glanceWin: BrowserWindow | null = null;
+
+/** Is Windows itself in a right-to-left language? */
+function windowsIsRtl(): boolean {
+  const langs = [...(app.getPreferredSystemLanguages?.() ?? []), app.getSystemLocale?.() ?? '', app.getLocale()];
+  const first = langs.find(Boolean) ?? '';
+  return /^(he|iw|ar|fa|ur|yi)\b/i.test(first);
+}
+
+function showGlance() {
+  if (glanceWin && !glanceWin.isDestroyed()) return;
+  glanceWin = new BrowserWindow({
+    width: GLANCE_W,
+    height: 200,
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    focusable: false, // never pull focus from what she's doing
+    alwaysOnTop: true,
+    hasShadow: false,
+    webPreferences: {
+      preload: join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  loadPage(glanceWin, 'glance');
+  glanceWin.on('closed', () => {
+    glanceWin = null;
+  });
+}
+
+function closeGlance() {
+  if (glanceWin && !glanceWin.isDestroyed()) glanceWin.destroy();
+  glanceWin = null;
+}
+
+function positionGlance(height: number) {
+  if (!glanceWin || glanceWin.isDestroyed()) return;
+  const area = screen.getPrimaryDisplay().workArea;
+  const h = Math.min(Math.ceil(height), area.height - 24);
+  const x = windowsIsRtl() ? area.x + area.width - GLANCE_W - 12 : area.x + 12;
+  glanceWin.setBounds({ x, y: area.y + area.height - h - 12, width: GLANCE_W, height: h });
+  if (!glanceWin.isVisible()) glanceWin.showInactive();
+}
 
 // ---------------------------------------------------------------- popup
 
@@ -520,6 +593,13 @@ function registerIpc() {
   });
 
   // Popup
+  ipcMain.handle('app:hidden-state', () => !mainWin || !mainWin.isVisible() || mainWin.isMinimized());
+  ipcMain.on('glance:resize', (_e, h: number) => positionGlance(h));
+  ipcMain.on('glance:close', () => closeGlance());
+  ipcMain.on('glance:open', (_e, date: string) => {
+    closeGlance();
+    showMain(date);
+  });
   ipcMain.on('popup:ready', () => {
     popupReady = true;
     sendPopup();
@@ -572,6 +652,7 @@ app.whenReady().then(() => {
 
   store.onChange((snap: Snapshot) => {
     mainWin?.webContents.send('data:changed', snap);
+    if (glanceWin && !glanceWin.isDestroyed()) glanceWin.webContents.send('data:changed', snap);
     onSettingsChanged(snap.settings);
   });
 
@@ -580,6 +661,8 @@ app.whenReady().then(() => {
   initUpdater(() => mainWin);
   onSettingsChanged(store.get().settings);
   ensurePopup(); // pre-load so the first reminder appears instantly
+  // "Coming up" when the PC starts (Bloom launched with Windows), unless turned off.
+  if ((startHidden || process.argv.includes('--glance')) && store.get().settings.startupGlance !== false) showGlance();
   scheduler.start();
 
   powerMonitor.on('resume', () => scheduler.tick());

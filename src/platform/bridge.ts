@@ -35,6 +35,8 @@ export interface DesktopBridge {
   onMissed(cb: (missed: FiredAlert[]) => void): () => void;
   onPlaySound(cb: (soundId: string, soft: boolean) => void): () => void;
   onOpenDate(cb: (date: string) => void): () => void;
+  /** The window went to the tray / was minimized (true) or came back (false). */
+  onHidden(cb: (hidden: boolean) => void): () => void;
   testPopup(): Promise<void>;
   gameStatus(): Promise<{ available: boolean; gamingNow: boolean; error: string | null }>;
   setTitleBarTheme(dark: boolean): void;
@@ -45,6 +47,12 @@ export interface DesktopBridge {
   checkForUpdates(): Promise<void>;
   installUpdate(): Promise<void>;
 
+  /** The small "Coming up" window shown when the PC starts. */
+  glance: {
+    open(date: string): void;
+    close(): void;
+    resize(height: number): void;
+  };
   popup: {
     onAlerts(cb: (alerts: FiredAlert[], reason: DeliveryReason, lang: string, dark: boolean) => void): () => void;
     ready(): void;

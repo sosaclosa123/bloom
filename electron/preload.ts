@@ -33,6 +33,12 @@ const bridge: DesktopBridge = {
   onMissed: (cb) => on('missed:changed', cb),
   onPlaySound: (cb) => on('sound:play', cb),
   onOpenDate: (cb) => on('app:open-date', cb),
+  onHidden: (cb) => {
+    const off = on('app:hidden', cb);
+    // Also ask once now, in case the window started hidden (PC start).
+    ipcRenderer.invoke('app:hidden-state').then((h: boolean) => cb(h));
+    return off;
+  },
   testPopup: () => ipcRenderer.invoke('popup:test'),
   gameStatus: () => ipcRenderer.invoke('game:status'),
   setTitleBarTheme: (dark) => ipcRenderer.send('window:titlebar', dark),
@@ -43,6 +49,11 @@ const bridge: DesktopBridge = {
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
 
+  glance: {
+    open: (date) => ipcRenderer.send('glance:open', date),
+    close: () => ipcRenderer.send('glance:close'),
+    resize: (height) => ipcRenderer.send('glance:resize', height),
+  },
   popup: {
     onAlerts: (cb) => on('popup:alerts', cb),
     ready: () => ipcRenderer.send('popup:ready'),

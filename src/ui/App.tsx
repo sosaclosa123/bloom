@@ -71,6 +71,21 @@ export function App() {
   const [stickerPick, setStickerPick] = useState<{ date: ISODate; anchor: HTMLElement } | null>(null);
   const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
   // Clicking anywhere that isn't a sticker deselects it.
+  // While hidden in the tray: pause every animation (nothing is on screen anyway).
+  useEffect(() => {
+    let trayHidden = false;
+    const apply = () => document.documentElement.classList.toggle('app-hidden', trayHidden || document.visibilityState === 'hidden');
+    apply();
+    document.addEventListener('visibilitychange', apply);
+    const off = platform.onHidden((h) => {
+      trayHidden = h;
+      apply();
+    });
+    return () => {
+      document.removeEventListener('visibilitychange', apply);
+      off();
+    };
+  }, []);
   useWindowControls(platform.kind === 'desktop');
   useEffect(() => {
     const onDown = (e: PointerEvent) => !(e.target as HTMLElement).closest?.('.placed-sticker') && setSelectedSticker(null);

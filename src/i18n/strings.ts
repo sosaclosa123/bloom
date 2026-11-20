@@ -160,6 +160,9 @@ const en = {
   windows: 'Windows',
   startWithWindows: 'Start Bloom when Windows starts',
   closeToTray: 'Keep running in the tray when closed (needed for reminders)',
+  startupGlance: 'Show “Coming up” in the corner when the PC starts',
+  glanceTitle: 'Coming up',
+  openBloom: 'Open Bloom',
   backup: 'Backup',
   backupIntro:
     'One file holds everything — events, notes, journal, photos and sounds. Moving to a new PC? Save a backup here, install Bloom there, then Restore. Restoring merges, so nothing is lost.',
@@ -552,6 +555,9 @@ const he: Record<StringKey, string> = {
   windows: 'Windows',
   startWithWindows: 'הפעלת Bloom עם עליית Windows',
   closeToTray: 'להמשיך לרוץ במגש המערכת כשסוגרים (נדרש לתזכורות)',
+  startupGlance: 'להציג „בקרוב” בפינת המסך כשהמחשב נדלק',
+  glanceTitle: 'בקרוב',
+  openBloom: 'פתיחת Bloom',
   backup: 'גיבוי',
   backupIntro:
     'קובץ אחד מכיל הכל — אירועים, פתקים, יומן, תמונות וצלילים. עוברים למחשב חדש? שומרים גיבוי כאן, מתקינים את Bloom שם ומשחזרים. השחזור ממזג, אז שום דבר לא הולך לאיבוד.',

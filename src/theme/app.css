@@ -4650,3 +4650,174 @@ input[type='time'] {
     transition: none;
   }
 }
+/* ------------------------------------------------------------ "Coming up" at startup */
+.glance {
+  margin: 8px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  font-size: var(--fs-md);
+  animation: note-pop-in 320ms var(--spring) both;
+  user-select: none;
+}
+.glance-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: linear-gradient(90deg, #f1dbd1, #ede2d2);
+  color: #2f2a33;
+}
+.glance-head strong {
+  flex: 1;
+  font-family: var(--font-month);
+  font-size: var(--fs-lg);
+}
+.glance-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: #3f4f49;
+  color: #f3ebe2;
+  font-weight: 800;
+  font-size: 14px;
+}
+.glance-x {
+  border: none;
+  background: transparent;
+  color: #7a6f78;
+  font-size: 15px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.glance-x:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+.glance-days {
+  display: flex;
+  flex-direction: column;
+  max-height: 460px;
+  overflow-y: auto;
+}
+.glance-day {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 9px 12px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  width: 100%;
+}
+.glance-day:hover {
+  background: var(--surface-hover);
+}
+.glance-sq {
+  position: relative;
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.glance-num {
+  position: absolute;
+  top: 4px;
+  inset-inline-start: 6px;
+  font-weight: 800;
+  font-size: var(--fs-sm);
+  z-index: 1;
+}
+.glance-sticker {
+  position: absolute;
+  line-height: 0;
+}
+.glance-todo {
+  position: absolute;
+  inset-inline-start: 4px;
+  bottom: 4px;
+  z-index: 1;
+  font-size: calc(10px * var(--fs-scale, 1));
+  font-weight: 700;
+  background: var(--chip-todo-bg);
+  color: var(--chip-todo-text);
+  border-radius: 999px;
+  padding: 1px 5px;
+}
+.glance-todo.all-done {
+  background: var(--status-free);
+  color: #fff;
+}
+.glance-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+.glance-dayname {
+  font-weight: 800;
+}
+.glance-ev {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  min-width: 0;
+}
+.glance-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ev);
+  flex: none;
+  align-self: center;
+}
+.glance-time {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.glance-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.glance-note,
+.glance-cd {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.glance-cd {
+  color: #7a4d63;
+  font-weight: 650;
+}
+.glance-foot {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+.glance-open {
+  border: none;
+  background: none;
+  color: var(--accent-text);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+/* While Bloom is hidden in the tray, nothing animates (saves CPU/battery). */
+:root.app-hidden *,
+:root.app-hidden *::before,
+:root.app-hidden *::after {
+  animation-play-state: paused !important;
+}

@@ -102,6 +102,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 <>
               <Toggle checked={settings.startWithWindows} label={t('startWithWindows')} onChange={(startWithWindows) => setSettings({ startWithWindows })} />
               <Toggle checked={settings.closeToTray} label={t('closeToTray')} onChange={(closeToTray) => setSettings({ closeToTray })} />
+              <Toggle checked={settings.startupGlance ?? true} label={t('startupGlance')} onChange={(startupGlance) => setSettings({ startupGlance })} />
                             </>
               )}
               <UpdateSettings />
