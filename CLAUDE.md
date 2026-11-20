@@ -70,7 +70,7 @@ installed apps auto-update. Commit messages: clear "what + why".
 - Scheduled tab: repeating events listed once ("Every 2 weeks · next …");
   one-time items by day; multi-day events once with "until …".
 - Countdowns show on their date (yearly ones every year; 29 Feb -> 28 Feb)
-  and use sticker art, not emoji.
+  and use sticker art, not emoji (same for Wallet goals and payments).
 - Reminders must never pull her out of a full-screen game (game mode;
   popups never take focus). Reminders also post a Windows notification.
 - Startup "Coming up" window: next 5 events, on the Start button's side,

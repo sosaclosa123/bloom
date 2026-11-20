@@ -402,7 +402,17 @@ const FROM_EMOJI: Record<string, string> = {
   '🏠': 'home',
   '🌸': 'flowers',
   '⭐': 'important',
+  // savings goals
+  '🚗': 'car',
+  '💻': 'homework',
+  '🛋️': 'home',
+  '👶': 'baby',
+  '🐶': 'pet',
+  '🐷': 'bills',
 };
+
+/** Stickers offered for savings goals. */
+export const GOAL_STICKERS = ['home', 'car', 'travel', 'vacation', 'beach', 'anniversary', 'study', 'homework', 'baby', 'pet', 'gift', 'shopping', 'bills', 'music', 'gaming', 'gym', 'party', 'flowers', 'important', 'idea'].filter((k) => STICKERS[k]);
 
 /** The sticker kind for a countdown's icon value (a sticker kind, or an old emoji). */
 export const countdownSticker = (value: string): string | null => (STICKERS[value] ? value : (FROM_EMOJI[value] ?? null));

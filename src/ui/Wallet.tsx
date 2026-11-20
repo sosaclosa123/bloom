@@ -31,6 +31,8 @@ import type { ISODate, MoneyDeposit, MoneyGoal, MoneyItem, MoneyLimit, MoneyRecu
 import { Button, Field, Icon, IconButton, Modal, Segmented, Toggle } from './common';
 import { ShareToggle } from './editors';
 import { useAlive, useBloom } from './store';
+import { CountdownIcon, countdownSticker, GOAL_STICKERS, StickerArt } from './Stickers';
+import { STICKERS } from './stickerDesigns';
 import { useSync } from './sync';
 
 type Editing =
@@ -413,7 +415,7 @@ function RecurringCard({ all, side, onEdit }: { all: MoneyItem[]; side: Visibili
       <li key={r.id}>
         <button type="button" className={`wl-rec ${isActive(r, today) ? '' : 'stopped'}`} onClick={() => onEdit({ kind: 'recurring', item: r, isNew: false })}>
           <span className="wl-rec-icon" aria-hidden="true">
-            {r.subscription ? '📺' : '🔁'}
+            <StickerArt kind={r.subscription ? 'movie' : 'bills'} size={30} />
           </span>
           <span className="wl-rec-text">
             <span className="wl-rec-title" dir="auto">
@@ -465,7 +467,7 @@ function RecurringCard({ all, side, onEdit }: { all: MoneyItem[]; side: Visibili
 function GoalsCard({ all, side, onEdit }: { all: MoneyItem[]; side: Visibility; onEdit: (e: Editing) => void }) {
   const { t } = useBloom();
   const goals = goalsOf(all, side).sort((a, b) => a.createdAt - b.createdAt);
-  const newGoal = (): MoneyGoal => ({ ...newMeta(), visibility: side, kind: 'goal', name: '', emoji: side === 'shared' ? '🏠' : '🐷', target: 0, targetDate: null });
+  const newGoal = (): MoneyGoal => ({ ...newMeta(), visibility: side, kind: 'goal', name: '', emoji: side === 'shared' ? 'home' : 'bills', target: 0, targetDate: null });
   return (
     <Card
       title={t('wlGoals')}
@@ -513,7 +515,7 @@ function GoalTile({ goal, all, onEdit }: { goal: MoneyGoal; all: MoneyItem[]; on
       <span className="wl-goal-fill" style={{ width: `${ratio * 100}%` }} aria-hidden="true" />
       <button type="button" className="wl-goal-head" onClick={onEdit}>
         <span className="wl-goal-emoji" aria-hidden="true">
-          {goal.emoji}
+          <CountdownIcon value={goal.emoji} size={34} />
         </span>
         <span className="wl-goal-name" dir="auto">
           {goal.name || '—'}
@@ -766,7 +768,11 @@ function RecurringEditor({ init, isNew, onClose }: { init: MoneyRecurring; isNew
             : t('wlChargedMonthly', { d: Number(v.startDate.slice(8, 10)) })}
         </p>
       )}
-      <Toggle checked={v.subscription} label={<>📺 {t('wlIsSubscription')}</>} onChange={(subscription) => set({ subscription })} />
+      <Toggle checked={v.subscription} label={
+          <>
+            <StickerArt kind="movie" size={20} /> {t('wlIsSubscription')}
+          </>
+        } onChange={(subscription) => set({ subscription })} />
       <Field label={t('wlNote')}>
         <input dir="auto" value={v.note} onChange={(e) => set({ note: e.target.value })} />
       </Field>
@@ -798,10 +804,9 @@ function RecurringEditor({ init, isNew, onClose }: { init: MoneyRecurring; isNew
   );
 }
 
-const GOAL_EMOJIS = ['🏠', '🚗', '✈️', '💍', '🎓', '💻', '🛋️', '👶', '🐶', '🏖️', '🎁', '🐷'];
 
 function GoalEditor({ init, isNew, onClose }: { init: MoneyGoal; isNew: boolean; onClose: () => void }) {
-  const { t, save, del } = useBloom();
+  const { t, save, del, settings } = useBloom();
   const { fmt, day } = useMoney();
   const all = useAlive('money') as MoneyItem[];
   const [v, setV] = useState(init);
@@ -826,10 +831,17 @@ function GoalEditor({ init, isNew, onClose }: { init: MoneyGoal; isNew: boolean;
       canSave={!!v.name.trim() && v.target > 0}
     >
       <input className="title-input" dir="auto" autoFocus value={v.name} placeholder={t('wlGoalPh')} onChange={(e) => set({ name: e.target.value })} />
-      <div className="emoji-grid">
-        {GOAL_EMOJIS.map((e) => (
-          <button type="button" key={e} className={e === v.emoji ? 'active' : ''} onClick={() => set({ emoji: e })}>
-            {e}
+      <div className="emoji-grid cd-sticker-grid">
+        {GOAL_STICKERS.map((k) => (
+          <button
+            type="button"
+            key={k}
+            className={k === countdownSticker(v.emoji) ? 'active' : ''}
+            title={settings.language === 'he' ? STICKERS[k].labelHe : STICKERS[k].label}
+            aria-label={settings.language === 'he' ? STICKERS[k].labelHe : STICKERS[k].label}
+            onClick={() => set({ emoji: k })}
+          >
+            <StickerArt kind={k} size={34} />
           </button>
         ))}
       </div>

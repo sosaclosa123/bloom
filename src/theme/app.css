@@ -4905,3 +4905,14 @@ input[type='time'] {
   font-weight: 600;
   letter-spacing: 0;
 }
+/* Wallet icons drawn as stickers */
+.wl-rec-icon {
+  line-height: 0;
+  display: grid;
+  place-items: center;
+}
+.wl-goal-emoji {
+  line-height: 0;
+  display: grid;
+  place-items: center;
+}
