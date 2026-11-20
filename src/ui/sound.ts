@@ -40,9 +40,6 @@ function playBuiltin(name: string, vol: number) {
     case 'harp':
       [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, i * 0.09, 0.9, vol * 0.35, 'triangle'));
       break;
-    case 'soft':
-      tone(740, 0, 0.7, vol * 0.25);
-      break;
   }
 }
 
@@ -50,15 +47,13 @@ const cache = new Map<string, string>();
 
 export async function playSound(id: string, volume: number, soft = false) {
   if (!id || id === 'builtin:silent') return;
-  const vol = Math.max(0, Math.min(1, volume)) * (soft ? 0.35 : 1);
+  // In a game: her own reminder sound, gentler but still clearly audible over
+  // the game (the old single faint beep was easy to miss).
+  const vol = Math.max(0, Math.min(1, volume)) * (soft ? 0.65 : 1);
   try {
     if (audio().state === 'suspended') await audio().resume();
   } catch {
     /* ignore */
-  }
-  if (soft) {
-    playBuiltin('soft', vol * 2);
-    return;
   }
   if (id.startsWith('builtin:')) {
     playBuiltin(id.slice(8), vol);
