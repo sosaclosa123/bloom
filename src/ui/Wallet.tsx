@@ -723,7 +723,7 @@ function RecurringEditor({ init, isNew, onClose }: { init: MoneyRecurring; isNew
         !init.replacedBy &&
         (active ? (
           <Button variant="ghost" onClick={cancel}>
-            {t('wlStop')}
+            {init.subscription ? t('wlStop') : t('wlStopPayment')}
           </Button>
         ) : (
           <Button variant="ghost" disabled={!canSave} onClick={resume}>
@@ -732,7 +732,7 @@ function RecurringEditor({ init, isNew, onClose }: { init: MoneyRecurring; isNew
         ))
       }
     >
-      {armed && <p className="wl-warn" role="alert">{t('wlDeleteConfirm')}</p>}
+      {armed && <p className="wl-warn" role="alert">{t('wlDeleteConfirm', { b: init.subscription ? t('wlStop') : t('wlStopPayment') })}</p>}
       <input className="title-input" dir="auto" autoFocus value={v.title} placeholder={t('wlPaymentPh')} onChange={(e) => set({ title: e.target.value })} />
       <div className="grid-2">
         <Field label={t('wlAmount')}>
