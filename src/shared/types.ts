@@ -138,6 +138,8 @@ export interface MoneyRecurring extends SyncMeta {
   endDate: ISODate | null;
   subscription: boolean;
   note: string;
+  /** Set when the price/schedule changed "from now on": the record that continues this one. */
+  replacedBy?: string | null;
 }
 export interface MoneyGoal extends SyncMeta {
   kind: 'goal';

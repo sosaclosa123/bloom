@@ -17,6 +17,11 @@ import {
   monthSpending,
   nextCharge,
   recurringTotals,
+  changesCharges,
+  latestPart,
+  paymentChain,
+  paymentHistory,
+  splitFromNow,
   recurringOf,
   savedByPerson,
   yearSpending,
@@ -292,7 +297,7 @@ function SpendingList({ all, side, month, onEdit }: { all: MoneyItem[]; side: Vi
       title: c.rec.title,
       amount: c.rec.amount,
       tag: c.rec.subscription ? t('wlSubscription') : c.rec.cycle === 'yearly' ? t('wlYearlyTag') : t('wlPaymentTag'),
-      open: () => onEdit({ kind: 'recurring', item: c.rec, isNew: false }),
+      open: () => onEdit({ kind: 'recurring', item: latestPart(all, c.rec), isNew: false }),
     })),
   ].sort((a, b) => b.date.localeCompare(a.date));
   return (
@@ -391,7 +396,8 @@ function RecurringCard({ all, side, onEdit }: { all: MoneyItem[]; side: Visibili
   const today = todayISO();
   const list = recurringOf(all, side).sort((a, b) => a.title.localeCompare(b.title));
   const active = list.filter((r) => isActive(r, today));
-  const cancelled = list.filter((r) => !isActive(r, today));
+  // Parts replaced by a price change live on in their successor's history.
+  const cancelled = list.filter((r) => !isActive(r, today) && !r.replacedBy);
   const subs = active.filter((r) => r.subscription);
   const totals = recurringTotals(active);
   const [showCancelled, setShowCancelled] = useState(false);
@@ -665,40 +671,68 @@ function SpendEditor({ init, onClose }: { init: MoneySpend; onClose: () => void 
 
 function RecurringEditor({ init, isNew, onClose }: { init: MoneyRecurring; isNew: boolean; onClose: () => void }) {
   const { t, save, del, locale } = useBloom();
+  const { fmt, day } = useMoney();
+  const all = useAlive('money') as MoneyItem[];
   const [v, setV] = useState(init);
   const set = (p: Partial<MoneyRecurring>) => setV((x) => ({ ...x, ...p }));
   const today = todayISO();
-  const active = isActive(v, today);
+  const active = isActive(init, today);
+  const history = isNew ? [] : paymentHistory(all, init, today);
+  const paid = Math.round(history.reduce((s, h) => s + h.amount, 0) * 100) / 100;
+  // With payments already made, a new price/schedule applies from now on by
+  // default, so past months keep what was really paid.
+  const [keepPast, setKeepPast] = useState(true);
+  const [armed, setArmed] = useState(false);
+  const askKeep = history.length > 0 && changesCharges(init, v);
+  const canSave = !!v.title.trim() && v.amount > 0 && !!v.startDate;
+
   const commit = (x: MoneyRecurring) => {
-    save('money', { ...x, title: x.title.trim() });
+    const clean = { ...x, title: x.title.trim() };
+    if (!isNew && history.length > 0 && keepPast && changesCharges(init, clean)) {
+      const [ended, next] = splitFromNow(init, clean, today, newMeta());
+      save('money', ended);
+      save('money', next);
+    } else save('money', clean);
     onClose();
   };
-  const canSave = !!v.title.trim() && v.amount > 0 && !!v.startDate;
+  // Cancel = stop the existing payment today; everything already paid stays.
+  const cancel = () => {
+    save('money', { ...init, title: v.title.trim() || init.title, note: v.note, subscription: v.subscription, visibility: v.visibility, endDate: today });
+    onClose();
+  };
+  const resume = () => commit({ ...v, endDate: null });
+  const remove = () => {
+    if (history.length > 0 && !armed) {
+      setArmed(true);
+      return;
+    }
+    for (const part of paymentChain(all, init)) del('money', part);
+    onClose();
+  };
+
   return (
     <EditorShell
       title={isNew ? t('wlNewPayment') : t('wlEditPayment')}
       isNew={isNew}
       onClose={onClose}
       onSave={() => commit(v)}
-      onDelete={() => {
-        del('money', init);
-        onClose();
-      }}
+      onDelete={remove}
       canSave={canSave}
       extra={
         !isNew &&
+        !init.replacedBy &&
         (active ? (
-          // Cancelling keeps the past months' charges, it just stops counting from now on.
-          <Button variant="ghost" disabled={!canSave} onClick={() => commit({ ...v, endDate: today })}>
+          <Button variant="ghost" onClick={cancel}>
             {t('wlStop')}
           </Button>
         ) : (
-          <Button variant="ghost" disabled={!canSave} onClick={() => commit({ ...v, endDate: null })}>
+          <Button variant="ghost" disabled={!canSave} onClick={resume}>
             {t('wlResume')}
           </Button>
         ))
       }
     >
+      {armed && <p className="wl-warn" role="alert">{t('wlDeleteConfirm')}</p>}
       <input className="title-input" dir="auto" autoFocus value={v.title} placeholder={t('wlPaymentPh')} onChange={(e) => set({ title: e.target.value })} />
       <div className="grid-2">
         <Field label={t('wlAmount')}>
@@ -727,7 +761,30 @@ function RecurringEditor({ init, isNew, onClose }: { init: MoneyRecurring; isNew
       <Field label={t('wlNote')}>
         <input dir="auto" value={v.note} onChange={(e) => set({ note: e.target.value })} />
       </Field>
+      {askKeep && <Toggle checked={keepPast} label={t('wlKeepPast')} onChange={setKeepPast} />}
       <ShareToggle value={v.visibility} onChange={(visibility) => set({ visibility })} />
+      {!isNew && (
+        <div className="wl-history">
+          <span className="field-label">{t('wlPayHistory')}</span>
+          {history.length === 0 ? (
+            <p className="empty-note">{t('wlNoPaymentsYet')}</p>
+          ) : (
+            <>
+              <p className="wl-paid">{t(history.length === 1 ? 'wlHistoryPaid1' : 'wlHistoryPaid', { a: fmt(paid), n: history.length })}</p>
+              <ul className="wl-history-list">
+                {history.map((h) => (
+                  <li key={h.date}>
+                    <span className="wl-row-title">{day(h.date, true)}</span>
+                    <span className="wl-row-amount" dir="ltr">
+                      {fmt(h.amount)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
     </EditorShell>
   );
 }

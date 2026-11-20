@@ -10,6 +10,11 @@ import {
   monthSpending,
   nextCharge,
   recurringTotals,
+  chargeDates,
+  splitFromNow,
+  paymentHistory,
+  latestPart,
+  isActive,
   yearSpending,
   savedByPerson,
 } from './money';
@@ -108,6 +113,51 @@ describe('wallet: yearly payments', () => {
     const full = yearSpending(items, 'private', 2026, '2027-01-05'); // a past year: all 12 months
     expect(full.byMonth[11]).toBe(260);
     expect(full.total).toBe(100 + 20 * 12 + 240);
+  });
+});
+
+describe('wallet: payment history', () => {
+  const netflix = rec({ amount: 50, startDate: '2026-08-05' });
+
+  it('cancelling keeps the months already paid and stops after', () => {
+    const cancelled = { ...netflix, endDate: '2026-11-19' }; // cancelled on the 19th, after the 5th was paid
+    expect(chargeDateIn(cancelled, '2026-11')).toBe('2026-11-05');
+    expect(chargeDateIn(cancelled, '2026-12')).toBeNull();
+    expect(chargeDates(cancelled, '2027-03-01')).toEqual(['2026-08-05', '2026-09-05', '2026-10-05', '2026-11-05']);
+    // cancelled on the 3rd, before November's charge: November is not paid
+    expect(chargeDateIn({ ...netflix, endDate: '2026-11-03' }, '2026-11')).toBeNull();
+  });
+
+  it('a new price applies from now on, past months keep the old one', () => {
+    const meta = { id: 'new', createdAt: 9, updatedAt: 9 };
+    const [ended, next] = splitFromNow(netflix, { ...netflix, amount: 60 }, '2026-11-19', meta);
+    expect(ended).toMatchObject({ amount: 50, endDate: '2026-12-04' });
+    expect(next).toMatchObject({ id: 'new', amount: 60, startDate: '2026-12-05', endDate: null });
+    const items: MoneyItem[] = [ended, next];
+    expect(monthSpending(items, 'private', '2026-10').total).toBe(50);
+    expect(monthSpending(items, 'private', '2026-11').total).toBe(50);
+    expect(monthSpending(items, 'private', '2026-12').total).toBe(60);
+    expect(monthSpending(items, 'private', '2027-01').total).toBe(60);
+    // Only the new part is "running" (no double counting in the totals).
+    expect(isActive(ended, '2026-11-19')).toBe(false);
+    expect(isActive(next, '2026-11-19')).toBe(true);
+    expect(recurringTotals([ended, next].filter((r) => isActive(r, '2026-11-19'))).monthly).toBe(60);
+    // One history for the whole payment, old and new price parts together.
+    expect(latestPart(items, ended).id).toBe('new');
+    expect(paymentHistory(items, next, '2027-01-10').map((h) => `${h.date}:${h.amount}`)).toEqual([
+      '2027-01-05:60',
+      '2026-12-05:60',
+      '2026-11-05:50',
+      '2026-10-05:50',
+      '2026-09-05:50',
+      '2026-08-05:50',
+    ]);
+  });
+
+  it('a split never re-opens a payment that was already cancelled', () => {
+    const old = { ...netflix, endDate: '2026-09-10' };
+    const [ended] = splitFromNow(old, { ...old, amount: 60 }, '2026-11-19', { id: 'n', createdAt: 1, updatedAt: 1 });
+    expect(ended.endDate).toBe('2026-09-10');
   });
 });
 

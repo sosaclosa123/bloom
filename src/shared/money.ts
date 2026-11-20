@@ -93,8 +93,75 @@ export function nextCharge(r: MoneyRecurring, today: ISODate): ISODate | null {
   return null;
 }
 
-/** Still running (a payment cancelled today already counts as cancelled). */
-export const isActive = (r: MoneyRecurring, today: ISODate) => !r.endDate || r.endDate > today;
+/** Every day this payment was charged, from its start up to `until` (inclusive). */
+export function chargeDates(r: MoneyRecurring, until: ISODate): ISODate[] {
+  const out: ISODate[] = [];
+  const [sy, sm] = r.startDate.split('-').map(Number);
+  const last = r.endDate && r.endDate < until ? r.endDate : until;
+  for (let i = 0; ; i++) {
+    const d = new Date(sy, sm - 1 + i, 1);
+    const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+    if (key > monthKey(last)) break;
+    const date = chargeDateIn(r, key);
+    if (date && date <= last) out.push(date);
+  }
+  return out;
+}
+
+const dayBefore = (d: ISODate) => {
+  const [y, m, dd] = d.split('-').map(Number);
+  const x = new Date(y, m - 1, dd - 1);
+  return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
+};
+
+/** True when an edit changes what is charged (price, how often, or on which day). */
+export const changesCharges = (a: MoneyRecurring, b: MoneyRecurring) => a.amount !== b.amount || a.cycle !== b.cycle || a.startDate !== b.startDate;
+
+/**
+ * Change a payment "from now on" and keep its history: the old record stops
+ * the day before the first new charge (so every past month keeps the old
+ * price), and a new record carries the change from that charge onwards.
+ */
+export function splitFromNow(old: MoneyRecurring, edited: MoneyRecurring, today: ISODate, meta: { id: string; createdAt: number; updatedAt: number }): [MoneyRecurring, MoneyRecurring] {
+  const start = edited.startDate >= today ? edited.startDate : (nextCharge({ ...edited, endDate: null }, today) ?? today);
+  const ended: MoneyRecurring = { ...old, replacedBy: meta.id, title: edited.title, note: edited.note, subscription: edited.subscription, visibility: edited.visibility, endDate: old.endDate && old.endDate < dayBefore(start) ? old.endDate : dayBefore(start) };
+  const next: MoneyRecurring = { ...edited, ...meta, startDate: start, replacedBy: null };
+  return [ended, next];
+}
+
+/** A payment plus the earlier parts it continues (after price changes), oldest first. */
+export function paymentChain(items: MoneyItem[], r: MoneyRecurring): MoneyRecurring[] {
+  const all = items.filter((x): x is MoneyRecurring => x.kind === 'recurring' && !x.deletedAt);
+  const chain = [r];
+  for (let cur = r, guard = 0; guard < 50; guard++) {
+    const prev = all.find((x) => x.replacedBy === cur.id);
+    if (!prev) break;
+    chain.unshift(prev);
+    cur = prev;
+  }
+  return chain;
+}
+
+/** The current part of a payment (follows price changes forward). */
+export function latestPart(items: MoneyItem[], r: MoneyRecurring): MoneyRecurring {
+  let cur = r;
+  for (let guard = 0; cur.replacedBy && guard < 50; guard++) {
+    const next = items.find((x): x is MoneyRecurring => x.kind === 'recurring' && !x.deletedAt && x.id === cur.replacedBy);
+    if (!next) break;
+    cur = next;
+  }
+  return cur;
+}
+
+/** Every payment made so far for this payment (all its parts), newest first. */
+export function paymentHistory(items: MoneyItem[], r: MoneyRecurring, today: ISODate): { date: ISODate; amount: number }[] {
+  return paymentChain(items, r)
+    .flatMap((x) => chargeDates(x, today).map((date) => ({ date, amount: x.amount })))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** Still running (a payment cancelled today already counts as cancelled; an old price part never does). */
+export const isActive = (r: MoneyRecurring, today: ISODate) => !r.replacedBy && (!r.endDate || r.endDate > today);
 
 /**
  * What the running payments cost: `monthly` = every-month payments only
