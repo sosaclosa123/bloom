@@ -1,6 +1,7 @@
 // The little chips that show what's written on a day, right on the calendar:
 //   ☑ 2/5 to-dos   📝 notes (opens the note window)   🔔 reminders
 // Shared by the month grid and the week header so they always look the same.
+import type { ReactNode } from 'react';
 import type { DayEntry } from '../shared/types';
 import type { ReminderOccurrence } from './calendarData';
 import { Icon } from './common';
@@ -11,10 +12,13 @@ interface Props {
   entry?: DayEntry;
   reminders?: ReminderOccurrence[];
   onOpenNotes?: (anchor: HTMLElement) => void;
+  onOpenTodos?: (anchor: HTMLElement) => void;
+  /** Shown first on the row (the month grid puts "+N more" here to save a line). */
+  lead?: ReactNode;
   compact?: boolean;
 }
 
-export function DayChips({ entry, reminders = [], onOpenNotes, compact }: Props) {
+export function DayChips({ entry, reminders = [], onOpenNotes, onOpenTodos, compact, lead }: Props) {
   const { t } = useBloom();
   const cards = entry?.cards ?? [];
   const todos = cards.filter((c) => c.kind === 'checklist').flatMap((c) => c.items.filter((i) => i.text.trim()));
@@ -25,14 +29,21 @@ export function DayChips({ entry, reminders = [], onOpenNotes, compact }: Props)
 
   return (
     <div className={`day-chips ${compact ? 'compact' : ''}`}>
+      {lead}
       {todos.length > 0 && (
-        <span
+        <button
+          type="button"
           className={`chip-day chip-todo ${doneCount === todos.length ? 'all-done' : ''}`}
           title={t('todosDone', { d: doneCount, n: todos.length })}
+          aria-label={t('todosDone', { d: doneCount, n: todos.length })}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenTodos?.(e.currentTarget);
+          }}
         >
-          <Icon name="check" size={10} />
+          <Icon name="check" size={12} />
           {doneCount}/{todos.length}
-        </span>
+        </button>
       )}
       {notes.length > 0 && (
         <button

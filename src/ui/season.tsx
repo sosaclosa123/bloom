@@ -150,3 +150,46 @@ export function SeasonLayer({ month, count = 15 }: { month: number; count?: numb
     </div>
   );
 }
+
+/**
+ * Weather vibe as the furthest-back layer of the main area: blurred, dim
+ * particles drifting down the whole height (summer motes float up). Pages and
+ * the calendar sit on top, so it only peeks out around them.
+ */
+export function SeasonBackdrop({ month, count = 26 }: { month: number; count?: number }) {
+  const season = seasonOf(month);
+  const items = useMemo(() => {
+    const r = rand(month * 131 + 7);
+    return Array.from({ length: count }, (_, i) => ({
+      i,
+      left: r() * 100,
+      size: (10 + r() * 10) * 1.035,
+      dur: (26 + r() * 22) * 0.98,
+      delay: -r() * 48,
+      sway: 14 + r() * 30,
+      spin: r() < 0.5 ? -1 : 1,
+      shape: SHAPES[season][i % SHAPES[season].length],
+    }));
+  }, [month, count, season]);
+  return (
+    <div className={`season-bg season-${season}`} aria-hidden="true">
+      {items.map((p) => (
+        <span
+          key={p.i}
+          className="bg-particle"
+          style={{
+            left: `${p.left}%`,
+            width: p.size,
+            height: p.size,
+            animationDuration: `${p.dur}s`,
+            animationDelay: `${p.delay}s`,
+            ['--sway' as string]: `${p.sway}px`,
+            ['--spin' as string]: p.spin,
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="100%" height="100%" style={{ animationDuration: `${p.dur / 3}s`, animationDelay: `${p.delay}s` }} dangerouslySetInnerHTML={{ __html: p.shape }} />
+        </span>
+      ))}
+    </div>
+  );
+}

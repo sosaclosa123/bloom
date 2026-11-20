@@ -38,8 +38,8 @@ export function Header(p: Props) {
 
   return (
     <header className={`header ${p.isDesktop ? 'desktop' : ''}`}>
-      {/* Weather vibe on every page: follows today's real season, not the month being viewed. */}
-      <SeasonLayer month={new Date().getMonth()} />
+      {/* Calendar: the season of the month on screen. Other pages: today's season. */}
+      <SeasonLayer month={p.tab === 'calendar' ? p.anchor.getMonth() : new Date().getMonth()} />
       {/* Arrows come first so they never move when the month name changes length. */}
       {p.tab === 'calendar' && (
         <div className="nav">

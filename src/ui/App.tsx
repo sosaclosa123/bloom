@@ -21,6 +21,7 @@ import { startSync } from './sync';
 import { useBloom } from './store';
 import { UpdateBanner } from './Updates';
 import { WalletPage } from './Wallet';
+import { SeasonBackdrop } from './season';
 import { WeekView } from './WeekView';
 import { YearView } from './YearView';
 
@@ -64,7 +65,7 @@ export function App() {
     return () => window.removeEventListener('pointerdown', onDown);
   }, []);
   const openNotes = useCallback(
-    (date: ISODate, anchor: HTMLElement, mode: 'view' | 'new') => setNotePop((p) => ({ date, anchor, mode, n: (p?.n ?? 0) + 1 })),
+    (date: ISODate, anchor: HTMLElement, mode: 'view' | 'new' | 'todos') => setNotePop((p) => ({ date, anchor, mode, n: (p?.n ?? 0) + 1 })),
     [],
   );
   const [missed, setMissed] = useState<FiredAlert[]>([]);
@@ -191,6 +192,8 @@ export function App() {
         />
         <div className="main">
           <div className="content">
+            {/* Calendar: the season of the month on screen. Other pages: today's season. */}
+            <SeasonBackdrop month={tab === 'calendar' ? anchor.getMonth() : new Date().getMonth()} />
             {missed.length > 0 && (
               <div className="missed-bar" role="status">
                 <Icon name="gamepad" size={16} />

@@ -4,7 +4,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { parseISODate } from '../shared/dates';
 import type { ISODate, NoteCard } from '../shared/types';
-import { Icon } from './common';
+import { EditableText, Icon } from './common';
+import { NewTodo } from './DayDrawer';
+import { uuid } from '../shared/db';
 import { newCard, newDayEntry } from './drafts';
 import { NoteRich } from './NoteRich';
 import { monthColor, monthInk } from './season';
@@ -14,8 +16,8 @@ export interface NotePopState {
   date: ISODate;
   /** Element the window points at (note chip or + button). */
   anchor: HTMLElement;
-  /** 'new' starts a fresh note (from the + button). */
-  mode: 'view' | 'new';
+  /** 'new' starts a fresh note (from the + button); 'todos' shows the day's to-do list. */
+  mode: 'view' | 'new' | 'todos';
   n: number;
 }
 
@@ -38,6 +40,8 @@ export function NotePopover({ state, onClose }: { state: NotePopState; onClose: 
   const days = useAlive('days');
   const entry = days.find((d) => d.date === state.date);
   const notes = (entry?.cards ?? []).filter((c) => c.kind === 'text');
+  const isTodos = state.mode === 'todos';
+  const todos = (entry?.cards ?? []).filter((c) => c.kind === 'checklist').flatMap((c) => c.items.map((i) => ({ ...i, cardId: c.id })));
   const [brush, setBrush] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number; below: boolean } | null>(null);
@@ -60,8 +64,26 @@ export function NotePopover({ state, onClose }: { state: NotePopState; onClose: 
   const setText = (id: string, text: string) => update((latest.current?.cards ?? []).map((c) => (c.id === id ? { ...c, text } : c)));
   const remove = (id: string) => update((latest.current?.cards ?? []).filter((c) => c.id !== id));
 
+  // ---------- to-dos (same data as the day panel's To-do tab)
+  const addTodo = (text: string) => {
+    const item = { id: uuid(), text, done: false };
+    const list = latest.current?.cards ?? [];
+    const first = list.find((c) => c.kind === 'checklist');
+    if (first) update(list.map((c) => (c.id === first.id ? { ...c, items: [...c.items, item] } : c)));
+    else update([...list, { ...newCard('checklist'), items: [item] }]);
+  };
+  const setTodo = (cardId: string, id: string, patch: { text?: string; done?: boolean }) =>
+    update((latest.current?.cards ?? []).map((c) => (c.id === cardId ? { ...c, items: c.items.map((i) => (i.id === id ? { ...i, ...patch } : i)) } : c)));
+  const removeTodo = (cardId: string, id: string) =>
+    update(
+      (latest.current?.cards ?? [])
+        .map((c) => (c.id === cardId ? { ...c, items: c.items.filter((i) => i.id !== id) } : c))
+        .filter((c) => c.kind !== 'checklist' || c.items.length > 0),
+    );
+
   // New note right away when opened from "+" (or when the day has none yet).
   useEffect(() => {
+    if (state.mode === 'todos') return;
     if (state.mode === 'new' || notes.length === 0) addNote();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.n]);
@@ -92,7 +114,9 @@ export function NotePopover({ state, onClose }: { state: NotePopState; onClose: 
     // Blur first so a note still being typed saves before we tidy up.
     (document.activeElement as HTMLElement | null)?.blur?.();
     const cards = latest.current?.cards ?? [];
-    const cleaned = cards.filter((c) => c.kind !== 'text' || c.text.trim());
+    const cleaned = cards
+      .map((c) => (c.kind === 'checklist' ? { ...c, items: c.items.filter((i) => i.text.trim()) } : c))
+      .filter((c) => (c.kind === 'text' ? c.text.trim() : c.items.length > 0));
     if (cleaned.length !== cards.length) update(cleaned);
     onClose();
   };
@@ -104,7 +128,7 @@ export function NotePopover({ state, onClose }: { state: NotePopState; onClose: 
       ref={box}
       className={`note-pop calendar-light ${pos?.below ? 'below' : 'above'}`}
       role="dialog"
-      aria-label={t('notes')}
+      aria-label={isTodos ? t('tileTodo') : t('notes')}
       style={{
         left: pos?.left ?? -9999,
         top: pos?.top ?? -9999,
@@ -118,34 +142,71 @@ export function NotePopover({ state, onClose }: { state: NotePopState; onClose: 
       }}
     >
       <header className="np-head">
-        <NoteIcon size={20} />
+        {isTodos ? <span className="np-todo-icon"><Icon name="checklist" size={18} /></span> : <NoteIcon size={20} />}
         <div className="np-date">{d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}</div>
         <button type="button" className="jm-icon np-close" aria-label={t('close')} onClick={close}>
           <Icon name="close" size={16} />
         </button>
       </header>
-      <div className="np-body">
-        {notes.map((c) => (
-          <div className="np-note" key={c.id}>
-            <NoteRich className="np-text" value={c.text} brush={brush} autoFocus={focusId === c.id} placeholder={t('notePlaceholder')} onSave={(v) => setText(c.id, v)} />
-            <button type="button" className="np-del" aria-label={t('delete')} title={t('delete')} onClick={() => remove(c.id)}>
-              <Icon name="trash" size={13} />
-            </button>
+      {isTodos ? (
+        <>
+          <div className="np-body">
+            {todos.length > 0 && (
+              <div className="todo-progress">
+                <span style={{ width: `${(todos.filter((i) => i.done).length / todos.length) * 100}%` }} />
+              </div>
+            )}
+            <ul className="checklist">
+              {todos.map((it) => (
+                <li key={it.id} className={it.done ? 'done' : ''}>
+                  <label className="check">
+                    <input type="checkbox" checked={it.done} onChange={(e) => setTodo(it.cardId, it.id, { done: e.target.checked })} />
+                    <span className="check-box">
+                      <Icon name="check" size={12} />
+                    </span>
+                  </label>
+                  <EditableText className="check-text" value={it.text} onSave={(v) => setTodo(it.cardId, it.id, { text: v })} />
+                  <button type="button" className="check-remove" aria-label={t('delete')} onClick={() => removeTodo(it.cardId, it.id)}>
+                    <Icon name="close" size={12} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <NewTodo key={todos.length} autoFocus={todos.length === 0} placeholder={t('checklistItem')} onAdd={addTodo} />
           </div>
-        ))}
-      </div>
-      <footer className="np-foot">
-        <button type="button" className={`np-tool ${brush ? 'active' : ''}`} aria-pressed={brush} title={t('brushHint')} onClick={() => setBrush((b) => !b)}>
-          <BrushIcon /> {t('brush')}
-        </button>
-        <button type="button" className="np-tool" onClick={addNote}>
-          <Icon name="plus" size={14} /> {t('tileNote')}
-        </button>
-        <span className="spacer" />
-        <button type="button" className="jm-btn jm-done" onClick={close}>
-          {t('done')}
-        </button>
-      </footer>
+          <footer className="np-foot">
+            <span className="spacer" />
+            <button type="button" className="jm-btn jm-done" onClick={close}>
+              {t('done')}
+            </button>
+          </footer>
+        </>
+      ) : (
+        <>
+        <div className="np-body">
+          {notes.map((c) => (
+            <div className="np-note" key={c.id}>
+              <NoteRich className="np-text" value={c.text} brush={brush} autoFocus={focusId === c.id} placeholder={t('notePlaceholder')} onSave={(v) => setText(c.id, v)} />
+              <button type="button" className="np-del" aria-label={t('delete')} title={t('delete')} onClick={() => remove(c.id)}>
+                <Icon name="trash" size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+        <footer className="np-foot">
+          <button type="button" className={`np-tool ${brush ? 'active' : ''}`} aria-pressed={brush} title={t('brushHint')} onClick={() => setBrush((b) => !b)}>
+            <BrushIcon /> {t('brush')}
+          </button>
+          <button type="button" className="np-tool" onClick={addNote}>
+            <Icon name="plus" size={14} /> {t('tileNote')}
+          </button>
+          <span className="spacer" />
+          <button type="button" className="jm-btn jm-done" onClick={close}>
+            {t('done')}
+          </button>
+        </footer>
+        </>
+      )}
     </div>
   );
 }

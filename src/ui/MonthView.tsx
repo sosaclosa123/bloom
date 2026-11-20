@@ -16,7 +16,7 @@ interface Props {
   selected: ISODate | null;
   onOpenDay: (date: ISODate) => void;
   onOpenEvent: (occ: EventOccurrence) => void;
-  onOpenNotes: (date: ISODate, anchor: HTMLElement, mode: 'view' | 'new') => void;
+  onOpenNotes: (date: ISODate, anchor: HTMLElement, mode: 'view' | 'new' | 'todos') => void;
   onOpenStickers: (date: ISODate, anchor: HTMLElement) => void;
   selectedSticker: string | null;
   onSelectSticker: (id: string | null) => void;
@@ -52,11 +52,13 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
     const next = { ...cut };
     let changed = !sameKey;
     el.querySelectorAll<HTMLElement>('.cell').forEach((c) => {
+      // Steps: first fold events into "+N more" one by one, then (still too
+      // full, e.g. tiny window + big text) tighten the layout in three levels.
+      const maxSteps = Number(c.dataset.fitMax ?? 0);
+      const iso = c.dataset.date!;
+      if ((next[iso] ?? 0) >= maxSteps) return;
       const pills = c.querySelector<HTMLElement>('.pills');
-      const list = pills ? [...pills.querySelectorAll<HTMLElement>('.pill')] : [];
-      if (!pills || list.length === 0) return;
-      const box = pills.getBoundingClientRect();
-      const last = pills.lastElementChild as HTMLElement | null;
+      const last = pills?.lastElementChild as HTMLElement | null | undefined;
       // Lowest bit of real content (stickers and hover buttons don't count).
       const cellBottom = c.getBoundingClientRect().top + c.clientTop + c.clientHeight;
       const contentBottom = Math.max(
@@ -64,9 +66,9 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
           .filter((k) => !k.matches('.sticker-layer, .cell-add'))
           .map((k) => k.getBoundingClientRect().bottom),
       );
-      const overflow = contentBottom > cellBottom + 0.5 || (!!last && last.getBoundingClientRect().bottom > box.bottom + 0.5);
+      const overflow =
+        contentBottom > cellBottom + 0.5 || (!!pills && !!last && last.getBoundingClientRect().bottom > pills.getBoundingClientRect().bottom + 0.5);
       if (overflow) {
-        const iso = c.dataset.date!;
         next[iso] = (next[iso] ?? 0) + 1;
         changed = true;
       }
@@ -90,7 +92,19 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
       }
     });
     ro.observe(el);
-    return () => ro.disconnect();
+    // Fonts often finish loading after the first layout (slower PCs, Windows
+    // scaling): measure again then, or text could stay cut until something
+    // else (like switching language) re-measured it.
+    const refit = () => setSize((n) => n + 1);
+    const fonts = document.fonts;
+    fonts?.addEventListener?.('loadingdone', refit);
+    fonts?.ready.then(refit).catch(() => {});
+    window.addEventListener('focus', refit);
+    return () => {
+      ro.disconnect();
+      fonts?.removeEventListener?.('loadingdone', refit);
+      window.removeEventListener('focus', refit);
+    };
   }, []);
 
   return (
@@ -115,13 +129,18 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
             rems.length > 0 ||
             !!entry?.cards.some((c) => (c.kind === 'text' ? c.text.trim() : c.items.some((i) => i.text.trim())));
           const maxPills = Math.max(1, 3 - (entry?.headline ? 1 : 0) - (hasChips ? 1 : 0));
-          const shown = occs.slice(0, Math.max(0, maxPills - (cut[iso] ?? 0)));
+          const basePills = Math.min(maxPills, occs.length);
+          const steps = cut[iso] ?? 0;
+          const shown = occs.slice(0, Math.max(0, basePills - steps));
+          const tight = Math.max(0, steps - basePills); // 0..3
           const hidden = occs.length - shown.length;
+          const moreEl = hidden > 0 && <span className="more">{t('more', { n: hidden })}</span>;
           const cls = [
             'cell',
             entry?.status ? `status-${entry.status}` : '',
             outside ? 'outside' : '',
             isToday ? 'today' : '',
+            tight ? `tight tight-${tight}` : '',
             selected === iso ? 'selected' : '',
             d.getDay() === 6 ? 'weekend' : '',
           ].join(' ');
@@ -137,6 +156,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
               role="button"
               tabIndex={0}
               data-date={iso}
+              data-fit-max={basePills + 3}
               aria-label={d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
               onClick={() => onOpenDay(iso)}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpenDay(iso))}
@@ -162,7 +182,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
                   {hol[0].name}
                 </div>
               )}
-              {entry?.headline && <div className="headline" dir="auto">{entry.headline}</div>}
+              {entry?.headline && <div className="headline" dir="auto" title={entry.headline}>{entry.headline}</div>}
               <div className="pills">
                 {shown.map((o) => (
                   <button
@@ -180,12 +200,14 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
                     {o.event.visibility === 'shared' && <Icon name="people" size={11} className="pill-shared" />}
                   </button>
                 ))}
-                {hidden > 0 && <span className="more">{t('more', { n: hidden })}</span>}
+                {!hasChips && moreEl}
               </div>
               <DayChips
                 entry={entry}
                 reminders={rems}
                 onOpenNotes={(el) => onOpenNotes(iso, el, 'view')}
+                onOpenTodos={(el) => onOpenNotes(iso, el, 'todos')}
+                lead={hasChips ? moreEl : null}
               />
               <StickerLayer date={iso} entry={entry} selectedId={selectedSticker} onSelect={onSelectSticker} />
               <button

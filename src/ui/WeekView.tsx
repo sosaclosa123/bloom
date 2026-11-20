@@ -19,7 +19,7 @@ interface Props {
   onOpenEvent: (occ: EventOccurrence) => void;
   onOpenReminder: (r: ReminderOccurrence) => void;
   onCreateAt: (date: ISODate, time: string) => void;
-  onOpenNotes: (date: ISODate, anchor: HTMLElement, mode: 'view' | 'new') => void;
+  onOpenNotes: (date: ISODate, anchor: HTMLElement, mode: 'view' | 'new' | 'todos') => void;
 }
 
 interface Placed {
@@ -133,7 +133,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
               {settings.showHebrewDate && <div className="hebdate">{hebrewDateLabel(d, settings.language)}</div>}
               {hol[0] && <div className="holiday-label">{hol[0].name}</div>}
               {entry?.headline && <div className="headline" dir="auto">{entry.headline}</div>}
-              <DayChips compact entry={entry} onOpenNotes={(el) => onOpenNotes(iso, el, 'view')} />
+              <DayChips compact entry={entry} onOpenNotes={(el) => onOpenNotes(iso, el, 'view')} onOpenTodos={(el) => onOpenNotes(iso, el, 'todos')} />
             </div>
           );
         })}

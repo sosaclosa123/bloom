@@ -248,7 +248,7 @@ export function DayDrawer(p: Props) {
 }
 
 /** The always-present "Add a to-do…" line at the bottom of the list. */
-function NewTodo({ onAdd, placeholder, autoFocus }: { onAdd: (text: string) => void; placeholder: string; autoFocus: boolean }) {
+export function NewTodo({ onAdd, placeholder, autoFocus }: { onAdd: (text: string) => void; placeholder: string; autoFocus: boolean }) {
   const [text, setText] = useState('');
   return (
     <div className="new-todo">
