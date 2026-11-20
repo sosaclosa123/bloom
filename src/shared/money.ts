@@ -118,15 +118,37 @@ const dayBefore = (d: ISODate) => {
 export const changesCharges = (a: MoneyRecurring, b: MoneyRecurring) => a.amount !== b.amount || a.cycle !== b.cycle || a.startDate !== b.startDate;
 
 /**
- * Change a payment "from now on" and keep its history: the old record stops
- * the day before the first new charge (so every past month keeps the old
- * price), and a new record carries the change from that charge onwards.
+ * Change a payment "from now on" and keep its history:
+ *  - the old version stops after today (what was already charged stays in
+ *    its months; nothing more is counted under the old price / schedule),
+ *  - a new version starts at its first charge on or after today.
+ * So switching monthly -> yearly stops the monthly charges right away and
+ * counts the full yearly price once, on its renewal date.
  */
 export function splitFromNow(old: MoneyRecurring, edited: MoneyRecurring, today: ISODate, meta: { id: string; createdAt: number; updatedAt: number }): [MoneyRecurring, MoneyRecurring] {
   const start = edited.startDate >= today ? edited.startDate : (nextCharge({ ...edited, endDate: null }, today) ?? today);
-  const ended: MoneyRecurring = { ...old, replacedBy: meta.id, title: edited.title, note: edited.note, subscription: edited.subscription, visibility: edited.visibility, endDate: old.endDate && old.endDate < dayBefore(start) ? old.endDate : dayBefore(start) };
+  // Old version: charges up to today stay; if the new one charges today, the old one stops yesterday (no double charge).
+  const stop = start <= today ? dayBefore(start) : today;
+  const ended: MoneyRecurring = {
+    ...old,
+    replacedBy: meta.id,
+    title: edited.title,
+    note: edited.note,
+    subscription: edited.subscription,
+    visibility: edited.visibility,
+    endDate: old.endDate && old.endDate < stop ? old.endDate : stop,
+  };
   const next: MoneyRecurring = { ...edited, ...meta, startDate: start, replacedBy: null };
   return [ended, next];
+}
+
+/**
+ * When an existing monthly payment becomes yearly, the yearly renewal should
+ * be its next payment date (not the month it first started in).
+ */
+export function yearlyStartFor(r: MoneyRecurring, today: ISODate): ISODate {
+  if (r.cycle !== 'monthly') return r.startDate;
+  return nextCharge({ ...r, endDate: null }, today) ?? r.startDate;
 }
 
 /** A payment plus the earlier parts it continues (after price changes), oldest first. */

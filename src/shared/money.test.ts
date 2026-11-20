@@ -12,6 +12,7 @@ import {
   recurringTotals,
   chargeDates,
   splitFromNow,
+  yearlyStartFor,
   paymentHistory,
   latestPart,
   isActive,
@@ -131,7 +132,7 @@ describe('wallet: payment history', () => {
   it('a new price applies from now on, past months keep the old one', () => {
     const meta = { id: 'new', createdAt: 9, updatedAt: 9 };
     const [ended, next] = splitFromNow(netflix, { ...netflix, amount: 60 }, '2026-11-19', meta);
-    expect(ended).toMatchObject({ amount: 50, endDate: '2026-12-04' });
+    expect(ended).toMatchObject({ amount: 50, endDate: '2026-11-19' }); // stops after today
     expect(next).toMatchObject({ id: 'new', amount: 60, startDate: '2026-12-05', endDate: null });
     const items: MoneyItem[] = [ended, next];
     expect(monthSpending(items, 'private', '2026-10').total).toBe(50);
@@ -158,6 +159,41 @@ describe('wallet: payment history', () => {
     const old = { ...netflix, endDate: '2026-09-10' };
     const [ended] = splitFromNow(old, { ...old, amount: 60 }, '2026-11-19', { id: 'n', createdAt: 1, updatedAt: 1 });
     expect(ended.endDate).toBe('2026-09-10');
+  });
+});
+
+describe('wallet: switching monthly <-> yearly', () => {
+  const meta = { id: 'y', createdAt: 9, updatedAt: 9 };
+  const netflix = rec({ amount: 55, startDate: '2026-03-05' }); // monthly on the 5th
+
+  it('monthly -> yearly: monthly charges stop now, the yearly one is counted once on its renewal', () => {
+    const today = '2026-11-20';
+    const yearlyFrom = yearlyStartFor(netflix, today);
+    expect(yearlyFrom).toBe('2026-12-05'); // the next payment date
+    const [ended, next] = splitFromNow(netflix, { ...netflix, cycle: 'yearly', amount: 500, startDate: yearlyFrom }, today, meta);
+    const items: MoneyItem[] = [ended, next];
+    expect(monthSpending(items, 'private', '2026-11').total).toBe(55); // already paid on the 5th
+    expect(monthSpending(items, 'private', '2026-12').total).toBe(500); // renewal
+    for (const m of ['2027-01', '2027-02', '2027-06', '2027-11']) expect(monthSpending(items, 'private', m).total).toBe(0);
+    expect(monthSpending(items, 'private', '2027-12').total).toBe(500);
+    expect(recurringTotals([next])).toEqual({ monthly: 0, yearly: 500 });
+  });
+
+  it('yearly -> monthly: monthly charges start from the next payment day', () => {
+    const domain = rec({ amount: 120, cycle: 'yearly', startDate: '2025-04-10' });
+    const today = '2026-11-20';
+    const [ended, next] = splitFromNow(domain, { ...domain, cycle: 'monthly', amount: 12 }, today, meta);
+    const items: MoneyItem[] = [ended, next];
+    expect(monthSpending(items, 'private', '2026-04').total).toBe(120); // past yearly payment kept
+    expect(monthSpending(items, 'private', '2026-11').total).toBe(0); // next monthly day is 10 Dec
+    expect(monthSpending(items, 'private', '2026-12').total).toBe(12);
+    expect(monthSpending(items, 'private', '2027-04').total).toBe(12); // no more yearly charge
+  });
+
+  it('no double charge when the new schedule charges today', () => {
+    const r = rec({ amount: 50, startDate: '2026-01-20' }); // monthly on the 20th
+    const [ended, next] = splitFromNow(r, { ...r, amount: 60 }, '2026-11-20', meta);
+    expect(monthSpending([ended, next], 'private', '2026-11').total).toBe(60);
   });
 });
 

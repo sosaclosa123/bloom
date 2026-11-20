@@ -22,6 +22,7 @@ import {
   paymentChain,
   paymentHistory,
   splitFromNow,
+  yearlyStartFor,
   recurringOf,
   savedByPerson,
   yearSpending,
@@ -737,13 +738,19 @@ function RecurringEditor({ init, isNew, onClose }: { init: MoneyRecurring; isNew
         <Field label={t('wlAmount')}>
           <MoneyInput value={v.amount} onChange={(amount) => set({ amount })} />
         </Field>
-        <Field label={t('wlFirstCharge')}>
+        <Field label={v.cycle === 'yearly' ? t('wlRenewsOn') : t('wlFirstCharge')}>
           <input type="date" value={v.startDate} onChange={(e) => e.target.value && set({ startDate: e.target.value })} />
         </Field>
       </div>
       <Segmented
         value={v.cycle}
-        onChange={(cycle) => set({ cycle })}
+        onChange={(cycle) => {
+          // An existing monthly payment that becomes yearly renews on its next
+          // payment date; switching back restores the original date.
+          if (!isNew && cycle === 'yearly' && init.cycle === 'monthly' && v.startDate === init.startDate) set({ cycle, startDate: yearlyStartFor(init, today) });
+          else if (!isNew && cycle === init.cycle && v.startDate === yearlyStartFor(init, today)) set({ cycle, startDate: init.startDate });
+          else set({ cycle });
+        }}
         options={[
           { value: 'monthly', label: t('wlEveryMonth') },
           { value: 'yearly', label: t('wlEveryYear') },
