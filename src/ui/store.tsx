@@ -2,9 +2,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { dirFor, localeFor, translate, type StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
-import { alive } from '../shared/db';
+import { alive, asPrivateDay, personalDays } from '../shared/db';
 import { setCustomMonthColors } from './season';
-import type { CollectionName, RecordOf, Settings, Snapshot } from '../shared/types';
+import type { CollectionName, DayEntry, RecordOf, Settings, Snapshot } from '../shared/types';
 
 export interface Toast {
   id: number;
@@ -78,7 +78,12 @@ export function BloomProvider({ initial, children }: { initial: Snapshot; childr
     [dismissToast],
   );
 
-  const save = useCallback(<C extends CollectionName>(coll: C, item: RecordOf<C>) => {
+  const snapRef = useRef(snap);
+  snapRef.current = snap;
+  const save = useCallback(<C extends CollectionName>(coll: C, item0: RecordOf<C>) => {
+    // Day info is private: never write into a shared day record.
+    const item = (coll === 'days' ? asPrivateDay(item0 as DayEntry, snapRef.current.days) : item0) as RecordOf<C>;
+    if (coll === 'days') snapRef.current = { ...snapRef.current, days: upsertLocal(snapRef.current.days, item as DayEntry) };
     // Optimistic update so typing feels instant; the platform echoes the result.
     setSnap((s) => {
       const list = s[coll] as RecordOf<C>[];
@@ -134,5 +139,14 @@ export function useBloom(): Ctx {
 /** Live (non-deleted) records of a collection. */
 export function useAlive<C extends CollectionName>(coll: C): RecordOf<C>[] {
   const { snap } = useBloom();
-  return useMemo(() => alive(snap[coll] as RecordOf<C>[]) as RecordOf<C>[], [snap, coll]);
+  return useMemo(
+    () => (coll === 'days' ? personalDays(snap.days) : alive(snap[coll] as RecordOf<C>[])) as RecordOf<C>[],
+    [snap, coll],
+  );
+}
+
+/** Insert or replace by id (keeps the snapshot ref current between quick saves). */
+function upsertLocal(list: DayEntry[], item: DayEntry): DayEntry[] {
+  const i = list.findIndex((x) => x.id === item.id);
+  return i >= 0 ? list.map((x, k) => (k === i ? item : x)) : [...list, item];
 }

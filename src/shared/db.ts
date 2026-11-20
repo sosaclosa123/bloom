@@ -6,6 +6,7 @@ import {
   DEFAULT_SETTINGS,
   SCHEMA_VERSION,
   type CollectionName,
+  type DayEntry,
   type Collections,
   type RecordOf,
   type Settings,
@@ -158,4 +159,33 @@ export function compact(snap: Snapshot, maxAgeDays = 90): Snapshot {
 
 export function alive<T extends SyncMeta>(list: T[]): T[] {
   return list.filter((x) => !x.deletedAt);
+}
+
+// ---------------------------------------------------------------- day info is always private
+//
+// What's written on a day (busy dot, notes, to-dos, stickers) belongs to the
+// person who wrote it. Older versions could save it as shared, so a date may
+// still have a shared record (yours from back then, or your partner's).
+
+/** One day record per date for this person: their private one if it exists, else an older shared one. */
+export function personalDays(list: DayEntry[]): DayEntry[] {
+  const byDate = new Map<string, DayEntry>();
+  for (const d of list) {
+    if (d.deletedAt) continue;
+    const cur = byDate.get(d.date);
+    if (!cur || (cur.visibility === 'shared' && d.visibility === 'private')) byDate.set(d.date, d);
+  }
+  return [...byDate.values()];
+}
+
+/**
+ * Saving day info never writes into a shared record: the change goes into
+ * this person's private record for that date (created if needed). The shared
+ * record itself is left untouched, so nothing changes for the partner.
+ */
+export function asPrivateDay(item: DayEntry, list: DayEntry[], now = Date.now()): DayEntry {
+  if (item.visibility === 'private') return item;
+  const mine = list.find((d) => d.date === item.date && d.visibility === 'private' && !d.deletedAt);
+  const meta = mine ? { id: mine.id, createdAt: mine.createdAt, ownerId: mine.ownerId } : { id: uuid(), createdAt: now, ownerId: 'local' };
+  return { ...item, ...meta, visibility: 'private', deletedAt: null };
 }

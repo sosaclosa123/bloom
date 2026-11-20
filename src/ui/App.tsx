@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { platform } from '../platform/api';
 import { addDays, addMonths, parseISODate, toISODate } from '../shared/dates';
+import { personalDays } from '../shared/db';
 import { expandEvents, type EventOccurrence } from '../shared/recurrence';
 import type { CalendarEvent, Countdown, FiredAlert, ISODate, Reminder } from '../shared/types';
 import { AlertCards } from './AlertCards';
@@ -293,7 +294,7 @@ export function App() {
               save('events', { ...ev, stickers: [...(ev.stickers ?? []), st] });
               setSelectedSticker(stickerKey(st.id, stickerPick.date, true));
             } else {
-              const { entry, id } = addSticker(snap.days.find((d) => d.date === stickerPick.date && !d.deletedAt), stickerPick.date, kind);
+              const { entry, id } = addSticker(personalDays(snap.days).find((d) => d.date === stickerPick.date), stickerPick.date, kind);
               save('days', entry);
               setSelectedSticker(id);
             }

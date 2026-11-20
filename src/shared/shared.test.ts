@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { alertsDueBetween } from './alerts';
 import { parseLocal } from './dates';
-import { emptySnapshot, merge, newMeta, normalizeSnapshot, remove, upsert } from './db';
+import { asPrivateDay, emptySnapshot, merge, newMeta, normalizeSnapshot, personalDays, remove, upsert } from './db';
 import { easterSunday, hebrewDateLabel, holidaysBetween } from './holidays';
 import { parseQuickAdd } from './quickAdd';
 import { expandEvents, occurrencesBetween } from './recurrence';
-import type { CalendarEvent, Reminder } from './types';
+import type { CalendarEvent, DayEntry, Reminder } from './types';
 
 const NOW = new Date(2026, 10, 19, 10, 0); // Thu 19 Nov 2026
 
@@ -180,5 +180,35 @@ describe('repeat every N', () => {
     expect(expandEvents([e], new Date(2026, 10, 1), new Date(2026, 11, 1)).map((o) => d(o.start))).toEqual(['2026-11-02', '2026-11-16', '2026-11-30']);
     const fired = alertsDueBetween({ events: [e], reminders: [] }, new Date(2026, 10, 8).getTime(), new Date(2026, 10, 17).getTime());
     expect(fired.map((a) => a.when)).toEqual(['2026-11-16T08:00']); // not on the 9th
+  });
+});
+
+describe('day info stays private', () => {
+  const day = (p: Partial<DayEntry>): DayEntry => ({ ...newMeta(), date: '2026-11-20', status: null, headline: '', cards: [], ...p });
+
+  it('tapping the busy dot on a day that has an old shared record creates my own private one', () => {
+    const shared = day({ id: 'old', visibility: 'shared', headline: 'From before' });
+    const edited = { ...shared, status: 'packed' as const };
+    const saved = asPrivateDay(edited, [shared]);
+    expect(saved.visibility).toBe('private');
+    expect(saved.id).not.toBe('old'); // the shared record is not touched
+    expect(saved.status).toBe('packed');
+  });
+  it('more edits go into that same private record (no duplicates)', () => {
+    const shared = day({ id: 'old', visibility: 'shared' });
+    const mine = day({ id: 'mine', visibility: 'private' });
+    expect(asPrivateDay({ ...shared, status: 'free' }, [shared, mine]).id).toBe('mine');
+  });
+  it('private records are saved as they are', () => {
+    const mine = day({ id: 'mine' });
+    expect(asPrivateDay(mine, [mine])).toBe(mine);
+  });
+  it('the calendar shows my private record when both exist, one per date', () => {
+    const shared = day({ id: 'old', visibility: 'shared' });
+    const mine = day({ id: 'mine' });
+    const other = day({ id: 'x', date: '2026-11-21', visibility: 'shared' });
+    expect(personalDays([shared, mine, other]).map((d) => d.id).sort()).toEqual(['mine', 'x']);
+    expect(personalDays([mine, shared]).map((d) => d.id)).toEqual(['mine']);
+    expect(personalDays([{ ...mine, deletedAt: 5 }, shared]).map((d) => d.id)).toEqual(['old']);
   });
 });
