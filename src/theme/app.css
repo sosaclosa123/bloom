@@ -4610,3 +4610,43 @@ input[type='time'] {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Savings goal card fills up like money: the soft green of a banknote. It only
+   animates when the amount changes (not when the page opens). */
+.wl-goal {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.wl-goal-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, #cfe8ca, #a9d6a2);
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  transition: width 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+[dir='rtl'] .wl-goal-fill {
+  background: linear-gradient(270deg, #cfe8ca, #a9d6a2);
+}
+.wl-goal-fill[style*='width: 100%'] {
+  border-radius: inherit;
+}
+.wl-goal .wl-goal-pct {
+  color: #3f7a57;
+}
+[data-theme='dark'] .wl-goal-fill {
+  background: linear-gradient(90deg, #3c5a40, #4f7a52);
+}
+[data-theme='dark'][dir='rtl'] .wl-goal-fill {
+  background: linear-gradient(270deg, #3c5a40, #4f7a52);
+}
+[data-theme='dark'] .wl-goal .wl-goal-pct {
+  color: #a9d6a2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wl-goal-fill {
+    transition: none;
+  }
+}

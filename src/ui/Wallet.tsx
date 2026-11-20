@@ -505,6 +505,8 @@ function GoalTile({ goal, all, onEdit }: { goal: MoneyGoal; all: MoneyItem[]; on
 
   return (
     <div className="wl-goal">
+      {/* The card itself fills up (left to right; right to left in Hebrew) as money is added. */}
+      <span className="wl-goal-fill" style={{ width: `${ratio * 100}%` }} aria-hidden="true" />
       <button type="button" className="wl-goal-head" onClick={onEdit}>
         <span className="wl-goal-emoji" aria-hidden="true">
           {goal.emoji}
@@ -514,9 +516,6 @@ function GoalTile({ goal, all, onEdit }: { goal: MoneyGoal; all: MoneyItem[]; on
         </span>
         <span className="wl-goal-pct">{Math.round(ratio * 100)}%</span>
       </button>
-      <div className="wl-bar goal">
-        <span style={{ width: `${ratio * 100}%` }} />
-      </div>
       <div className="wl-goal-amounts" dir="auto">
         {t('wlSavedOf', { a: fmt(saved), b: fmt(goal.target) })}
       </div>
