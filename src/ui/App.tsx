@@ -24,6 +24,7 @@ import { WalletPage } from './Wallet';
 import { SeasonBackdrop } from './season';
 import { WeekView } from './WeekView';
 import { YearView } from './YearView';
+import { useWindowControls } from './windowControls';
 
 type ModalState =
   | { kind: 'event'; ev: CalendarEvent; isNew: boolean }
@@ -69,6 +70,7 @@ export function App() {
   const [stickerPick, setStickerPick] = useState<{ date: ISODate; anchor: HTMLElement } | null>(null);
   const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
   // Clicking anywhere that isn't a sticker deselects it.
+  useWindowControls(platform.kind === 'desktop');
   useEffect(() => {
     const onDown = (e: PointerEvent) => !(e.target as HTMLElement).closest?.('.placed-sticker') && setSelectedSticker(null);
     window.addEventListener('pointerdown', onDown);

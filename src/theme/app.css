@@ -427,15 +427,23 @@ input[type='range'] {
   -webkit-app-region: drag;
 }
 .header.desktop {
-  /* Exact room for the Windows minimize / maximize / close buttons, read from
-     the window itself (titlebar-area), with a safe fallback. They are always
-     at the right edge of the window. */
-  --wco-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 150px)));
-  padding-right: max(var(--space-4), calc(var(--wco-right) + 8px));
+  /* Room for the Windows minimize / maximize / close buttons. Their exact
+     place is measured live (windowControls.ts): right on English Windows,
+     LEFT on Hebrew Windows. The side menu (84px) sits under the buttons'
+     side on the left (English) or right (Hebrew app), so it absorbs part. */
+  --wco-r: var(--wco-right, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 150px))));
+  --wco-l: var(--wco-left, env(titlebar-area-x, 0px));
+  padding-left: max(var(--space-5), calc(var(--wco-l) - 84px + 8px));
+  padding-right: max(var(--space-4), calc(var(--wco-r) + 8px));
 }
-/* In Hebrew the side menu is on the right, under part of those buttons. */
 [dir='rtl'] .header.desktop {
-  padding-right: max(var(--space-4), calc(var(--wco-right) - 84px + 8px));
+  padding-left: max(var(--space-4), calc(var(--wco-l) + 8px));
+  padding-right: max(var(--space-5), calc(var(--wco-r) - 84px + 8px));
+}
+/* When the buttons sit right above the side menu, keep its logo below them. */
+:root[data-wco='left']:not([dir='rtl']) .desktop .rail,
+:root[data-wco='right'][dir='rtl'] .desktop .rail {
+  padding-top: calc(var(--wco-h, 52px) + 6px);
 }
 .header {
   min-width: 0;
