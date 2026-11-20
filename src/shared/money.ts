@@ -96,8 +96,50 @@ export function nextCharge(r: MoneyRecurring, today: ISODate): ISODate | null {
 /** Still running (a payment cancelled today already counts as cancelled). */
 export const isActive = (r: MoneyRecurring, today: ISODate) => !r.endDate || r.endDate > today;
 
-/** What a payment costs per month on average (yearly ones spread over 12). */
-export const perMonth = (r: MoneyRecurring) => round(r.cycle === 'monthly' ? r.amount : r.amount / 12);
+/**
+ * What the running payments cost: `monthly` = every-month payments only
+ * (yearly ones are NOT spread over the months); `yearly` = the full cost of a
+ * whole year (monthly × 12 + each yearly payment once).
+ */
+export function recurringTotals(list: MoneyRecurring[]): { monthly: number; yearly: number } {
+  let monthly = 0;
+  let yearlyOnly = 0;
+  for (const r of list) {
+    if (r.cycle === 'monthly') monthly += r.amount;
+    else yearlyOnly += r.amount;
+  }
+  return { monthly: round(monthly), yearly: round(monthly * 12 + yearlyOnly) };
+}
+
+export interface YearSpending {
+  year: number;
+  /** Spent per month, Jan..Dec (purchases + payments charged that month). */
+  byMonth: number[];
+  /** Sum of the month totals (for the current year: January up to this month). */
+  total: number;
+  spendTotal: number;
+  chargeTotal: number;
+}
+/** A year's spending. For the current year, months after this one don't count yet ("so far"). */
+export function yearSpending(items: MoneyItem[], vis: Visibility, year: number, today: ISODate): YearSpending {
+  const byMonth: number[] = [];
+  let spendTotal = 0;
+  let chargeTotal = 0;
+  const thisMonth = monthKey(today);
+  for (let m = 1; m <= 12; m++) {
+    const key = `${year}-${pad(m)}`;
+    if (key > thisMonth) {
+      byMonth.push(0);
+      continue;
+    }
+    // Same numbers as each month's own total, so the two always agree.
+    const ms = monthSpending(items, vis, key);
+    spendTotal += ms.spendTotal;
+    chargeTotal += ms.chargeTotal;
+    byMonth.push(ms.total);
+  }
+  return { year, byMonth, spendTotal: round(spendTotal), chargeTotal: round(chargeTotal), total: round(spendTotal + chargeTotal) };
+}
 
 export function goalSaved(items: MoneyItem[], goal: MoneyGoal): number {
   return round(depositsOf(items, goal.id).reduce((s, d) => s + d.amount, 0));

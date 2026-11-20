@@ -9,7 +9,8 @@ import {
   migrateMoneyToV4,
   monthSpending,
   nextCharge,
-  perMonth,
+  recurringTotals,
+  yearSpending,
   savedByPerson,
 } from './money';
 import type { MoneyDeposit, MoneyGoal, MoneyItem, MoneyRecurring, MoneySpend } from './types';
@@ -77,7 +78,36 @@ describe('wallet: spending vs. the monthly limit', () => {
     expect(chargeDateIn(r, '2025-12')).toBeNull(); // before it started
     expect(nextCharge(r, '2026-11-19')).toBe('2026-11-30');
     expect(nextCharge(rec({ endDate: '2026-11-10' }), '2026-11-19')).toBeNull();
-    expect(perMonth(rec({ cycle: 'yearly', amount: 120 }))).toBe(10);
+  });
+});
+
+describe('wallet: yearly payments', () => {
+  // A yearly payment renewed every December, plus a monthly one.
+  const items: MoneyItem[] = [
+    rec({ title: 'Antivirus', amount: 240, cycle: 'yearly', startDate: '2025-12-10' }),
+    rec({ title: 'Spotify', amount: 20, cycle: 'monthly', startDate: '2026-01-15' }),
+    spend({ amount: 100, date: '2026-03-02' }),
+  ];
+
+  it('counts only in its own month, never spread over the others', () => {
+    expect(monthSpending(items, 'private', '2026-11').total).toBe(20); // just Spotify
+    expect(monthSpending(items, 'private', '2026-12').total).toBe(260); // + Antivirus, in December only
+    expect(monthSpending(items, 'private', '2026-12').charges.map((c) => c.date)).toEqual(['2026-12-10', '2026-12-15']);
+  });
+
+  it('shows what the running payments cost a month and a whole year', () => {
+    const list = items.filter((x): x is MoneyRecurring => x.kind === 'recurring');
+    expect(recurringTotals(list)).toEqual({ monthly: 20, yearly: 20 * 12 + 240 });
+  });
+
+  it('adds up a year from its months (so far, for the current year)', () => {
+    const y = yearSpending(items, 'private', 2026, '2026-11-20');
+    expect(y.byMonth).toEqual([20, 20, 120, 20, 20, 20, 20, 20, 20, 20, 20, 0]); // December not reached yet
+    expect(y.total).toBe(y.byMonth.reduce((a, b) => a + b, 0));
+    expect(y).toMatchObject({ spendTotal: 100, chargeTotal: 220 });
+    const full = yearSpending(items, 'private', 2026, '2027-01-05'); // a past year: all 12 months
+    expect(full.byMonth[11]).toBe(260);
+    expect(full.total).toBe(100 + 20 * 12 + 240);
   });
 });
 

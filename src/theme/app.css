@@ -4359,3 +4359,89 @@ input[type='time'] {
   min-width: 0;
   flex: 1 1 auto;
 }
+/* wallet: the whole year */
+.wl-year {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.wl-year-total {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: calc(200px * var(--fs-scale, 1));
+}
+.wl-year-total .wl-split {
+  border-top: none;
+  padding-top: 0;
+}
+.wl-year-amount {
+  font-family: var(--font-month);
+  font-size: calc(28px * var(--fs-scale, 1));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: start;
+}
+.wl-year-bars {
+  flex: 1 1 calc(320px * var(--fs-scale, 1));
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 4px;
+  min-width: 0;
+}
+.wl-ybar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 0;
+}
+.wl-ybar:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.wl-ybar-track {
+  height: 70px;
+  display: flex;
+  align-items: flex-end;
+  background: var(--surface-2);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.wl-ybar-track > span {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+  background: color-mix(in srgb, var(--accent) 45%, var(--surface));
+  border-radius: 5px 5px 0 0;
+  transition: height var(--dur-slow) var(--ease);
+}
+.wl-ybar.active .wl-ybar-track > span {
+  background: var(--accent);
+}
+.wl-ybar:not(:disabled):hover .wl-ybar-track {
+  outline: 2px solid var(--accent-soft);
+}
+.wl-ybar-label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+.wl-ybar.active .wl-ybar-label {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.wl-cycle-hint {
+  margin: -4px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}

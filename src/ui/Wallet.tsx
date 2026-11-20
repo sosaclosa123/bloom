@@ -16,9 +16,10 @@ import {
   limitStatus,
   monthSpending,
   nextCharge,
-  perMonth,
+  recurringTotals,
   recurringOf,
   savedByPerson,
+  yearSpending,
 } from '../shared/money';
 import type { ISODate, MoneyDeposit, MoneyGoal, MoneyItem, MoneyLimit, MoneyRecurring, MoneySpend, Visibility } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented, Toggle } from './common';
@@ -102,6 +103,7 @@ export function WalletPage() {
         <LimitCard all={all} side={side} month={month} />
         <QuickAdd side={side} month={month} />
         <SpendingList all={all} side={side} month={month} onEdit={setEditing} />
+        <YearCard all={all} side={side} month={month} onPickMonth={setMonth} />
         <div className="wl-cols">
           <RecurringCard all={all} side={side} onEdit={setEditing} />
           <GoalsCard all={all} side={side} onEdit={setEditing} />
@@ -323,6 +325,64 @@ function SpendingList({ all, side, month, onEdit }: { all: MoneyItem[]; side: Vi
   );
 }
 
+// ---------------------------------------------------------------- the whole year
+
+function YearCard({ all, side, month, onPickMonth }: { all: MoneyItem[]; side: Visibility; month: string; onPickMonth: (m: string) => void }) {
+  const { t, locale } = useBloom();
+  const { fmt } = useMoney();
+  const today = todayISO();
+  const year = Number(month.slice(0, 4));
+  const isThisYear = year === Number(today.slice(0, 4));
+  const ys = yearSpending(all, side, year, today);
+  const fixed = recurringTotals(recurringOf(all, side).filter((r) => isActive(r, today)));
+  const peak = Math.max(1, ...ys.byMonth);
+  if (year > Number(today.slice(0, 4))) return null;
+  return (
+    <Card title={isThisYear ? `${t('wlYear')} · ${year}` : t('wlYearPast', { y: year })} sub={fixed.yearly > 0 ? t('wlYearFixed', { a: fmt(fixed.yearly) }) : undefined}>
+      <div className="wl-year">
+        <div className="wl-year-total">
+          <span className="wl-limit-label">{isThisYear ? t('wlYearSoFar', { y: year }) : t('wlYearSpent', { y: year })}</span>
+          <span className="wl-year-amount" dir="ltr">
+            {fmt(ys.total)}
+          </span>
+          <span className="wl-split">
+            <span>
+              {t('wlPurchases')} <b dir="ltr">{fmt(ys.spendTotal)}</b>
+            </span>
+            <span>
+              {t('wlPayments')} <b dir="ltr">{fmt(ys.chargeTotal)}</b>
+            </span>
+          </span>
+        </div>
+        <div className="wl-year-bars" role="list">
+          {ys.byMonth.map((v, i) => {
+            const key = `${year}-${pad(i + 1)}`;
+            const label = new Date(year, i, 1).toLocaleDateString(locale, { month: 'short' });
+            const future = key > today.slice(0, 7);
+            return (
+              <button
+                type="button"
+                role="listitem"
+                key={key}
+                className={`wl-ybar ${key === month ? 'active' : ''} ${future ? 'future' : ''}`}
+                disabled={future}
+                title={`${new Date(year, i, 1).toLocaleDateString(locale, { month: 'long' })}: ${fmt(v)}`}
+                aria-label={`${label}: ${fmt(v)}`}
+                onClick={() => onPickMonth(key)}
+              >
+                <span className="wl-ybar-track">
+                  <span style={{ height: `${(v / peak) * 100}%` }} />
+                </span>
+                <span className="wl-ybar-label">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 // ---------------------------------------------------------------- repeating payments & subscriptions
 
 function RecurringCard({ all, side, onEdit }: { all: MoneyItem[]; side: Visibility; onEdit: (e: Editing) => void }) {
@@ -333,7 +393,7 @@ function RecurringCard({ all, side, onEdit }: { all: MoneyItem[]; side: Visibili
   const active = list.filter((r) => isActive(r, today));
   const cancelled = list.filter((r) => !isActive(r, today));
   const subs = active.filter((r) => r.subscription);
-  const monthly = active.reduce((s, r) => s + perMonth(r), 0);
+  const totals = recurringTotals(active);
   const [showCancelled, setShowCancelled] = useState(false);
   const newRec = (): MoneyRecurring => ({ ...newMeta(), visibility: side, kind: 'recurring', title: '', amount: 0, cycle: 'monthly', startDate: today, endDate: null, subscription: true, note: '' });
 
@@ -365,7 +425,11 @@ function RecurringCard({ all, side, onEdit }: { all: MoneyItem[]; side: Visibili
   return (
     <Card
       title={t('wlRecurring')}
-      sub={active.length ? t(subs.length === 0 ? 'wlSubsTotal0' : subs.length === 1 ? 'wlSubsTotal1' : 'wlSubsTotal', { a: fmt(Math.round(monthly * 100) / 100), n: subs.length }) : t('wlRecurringHint')}
+      sub={
+        active.length
+          ? [t('wlRecTotals', { m: fmt(totals.monthly), y: fmt(totals.yearly) }), subs.length ? t(subs.length === 1 ? 'wlSubsCount1' : 'wlSubsCount', { n: subs.length }) : ''].filter(Boolean).join(' · ')
+          : t('wlRecurringHint')
+      }
       action={
         <Button variant="soft" size="sm" icon="plus" onClick={() => onEdit({ kind: 'recurring', item: newRec(), isNew: true })}>
           {t('wlAddPayment')}
@@ -600,7 +664,7 @@ function SpendEditor({ init, onClose }: { init: MoneySpend; onClose: () => void 
 }
 
 function RecurringEditor({ init, isNew, onClose }: { init: MoneyRecurring; isNew: boolean; onClose: () => void }) {
-  const { t, save, del } = useBloom();
+  const { t, save, del, locale } = useBloom();
   const [v, setV] = useState(init);
   const set = (p: Partial<MoneyRecurring>) => setV((x) => ({ ...x, ...p }));
   const today = todayISO();
@@ -652,6 +716,13 @@ function RecurringEditor({ init, isNew, onClose }: { init: MoneyRecurring; isNew
           { value: 'yearly', label: t('wlEveryYear') },
         ]}
       />
+      {v.startDate && (
+        <p className="wl-cycle-hint">
+          {v.cycle === 'yearly'
+            ? t('wlChargedYearly', { m: parseISODate(v.startDate).toLocaleDateString(locale, { month: 'long' }) })
+            : t('wlChargedMonthly', { d: Number(v.startDate.slice(8, 10)) })}
+        </p>
+      )}
       <Toggle checked={v.subscription} label={<>📺 {t('wlIsSubscription')}</>} onChange={(subscription) => set({ subscription })} />
       <Field label={t('wlNote')}>
         <input dir="auto" value={v.note} onChange={(e) => set({ note: e.target.value })} />
