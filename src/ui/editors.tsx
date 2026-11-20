@@ -57,6 +57,41 @@ export function RepeatSelect({ value, onChange }: { value: Repeat; onChange: (r:
   );
 }
 
+/** "Every [2] weeks": how many days/weeks/months/years between repeats. */
+export function RepeatEvery({ repeat, value, onChange }: { repeat: Repeat; value: number; onChange: (n: number) => void }) {
+  const { t } = useBloom();
+  const [text, setText] = useState(String(value));
+  const unit = repeat === 'hebrewYearly' ? 'yearly' : repeat;
+  const n = Number(text);
+  return (
+    <div className="repeat-every">
+      <span>{t('repeatEvery')}</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={99}
+        value={text}
+        aria-label={`${t('repeatEvery')} (1–99)`}
+        onChange={(e) => {
+          const raw = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
+          setText(raw);
+          const v = Number(raw);
+          if (v >= 1 && v <= 99) onChange(v);
+        }}
+        onBlur={() => {
+          if (!(n >= 1 && n <= 99)) {
+            setText('1');
+            onChange(1);
+          }
+        }}
+      />
+      <span>{t(`repeatUnit_${unit}${(n || 1) === 1 ? '' : '_n'}` as StringKey)}</span>
+      <span className="muted small">{t('repeatEveryHint')}</span>
+    </div>
+  );
+}
+
 export function SoundSelect({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const { t, settings } = useBloom();
   const sounds = useAlive('sounds');
@@ -291,6 +326,7 @@ export function EventEditor({ initial, isNew, onClose }: { initial: CalendarEven
         <MoreOptions open={ev.repeat !== 'none' || !!ev.notes}>
           <Field label={t('repeat')}>
             <RepeatSelect value={ev.repeat} onChange={(repeat) => set({ repeat })} />
+            {ev.repeat !== 'none' && <RepeatEvery repeat={ev.repeat} value={ev.repeatEvery ?? 1} onChange={(repeatEvery) => set({ repeatEvery })} />}
             {ev.repeat === 'hebrewYearly' && (
               <span className="muted small">{t('hebrewRepeatHint', { d: hebrewDateLabel(parseLocal(ev.start), 'he') })}</span>
             )}

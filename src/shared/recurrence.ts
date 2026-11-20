@@ -4,8 +4,12 @@ import { HDate, months } from '@hebcal/core';
 import { addDays, addMonths, daysInMonth, parseLocal, toLocalDateTime } from './dates';
 import type { CalendarEvent, LocalDateTime, Repeat } from './types';
 
-/** Occurrence n of a repeating start time (n = 0 is the original). */
-export function nthOccurrence(start: Date, repeat: Repeat, n: number): Date {
+/** A safe "every N" value: a whole number from 1 to 99 (anything else = 1). */
+export const everyOf = (every: number | undefined) => (Number.isInteger(every) && every! >= 1 && every! <= 99 ? every! : 1);
+
+/** Occurrence n of a repeating start time (n = 0 is the original), repeating every `every` units. */
+export function nthOccurrence(start: Date, repeat: Repeat, n0: number, every = 1): Date {
+  const n = n0 * everyOf(every);
   switch (repeat) {
     case 'none':
       return start;
@@ -53,8 +57,10 @@ export function occurrencesBetween(
   from: Date,
   to: Date,
   durationMs = 0,
+  every = 1,
 ): Date[] {
   const s = parseLocal(start);
+  const k = everyOf(every);
   const out: Date[] = [];
   if (repeat === 'none') {
     if (s.getTime() + durationMs >= from.getTime() && s < to) out.push(s);
@@ -64,13 +70,13 @@ export function occurrencesBetween(
   let n = 0;
   const lead = from.getTime() - durationMs - s.getTime();
   if (lead > 0) {
-    if (repeat === 'daily') n = Math.max(0, Math.floor(lead / 86400000) - 1);
-    else if (repeat === 'weekly') n = Math.max(0, Math.floor(lead / (7 * 86400000)) - 1);
-    else if (repeat === 'monthly') n = Math.max(0, Math.floor(lead / (31 * 86400000)) - 1);
-    else if (repeat === 'yearly' || repeat === 'hebrewYearly') n = Math.max(0, Math.floor(lead / (390 * 86400000)) - 1);
+    if (repeat === 'daily') n = Math.max(0, Math.floor(lead / (k * 86400000)) - 1);
+    else if (repeat === 'weekly') n = Math.max(0, Math.floor(lead / (k * 7 * 86400000)) - 1);
+    else if (repeat === 'monthly') n = Math.max(0, Math.floor(lead / (k * 31 * 86400000)) - 1);
+    else if (repeat === 'yearly' || repeat === 'hebrewYearly') n = Math.max(0, Math.floor(lead / (k * 390 * 86400000)) - 1);
   }
   for (let guard = 0; guard < 5000; guard++, n++) {
-    const occ = nthOccurrence(s, repeat, n);
+    const occ = nthOccurrence(s, repeat, n, k);
     if (occ >= to) break;
     if (occ.getTime() + durationMs >= from.getTime()) out.push(occ);
   }
@@ -94,7 +100,7 @@ export function expandEvents(events: CalendarEvent[], from: Date, to: Date): Eve
   for (const ev of events) {
     if (ev.deletedAt) continue;
     const dur = eventDuration(ev);
-    for (const start of occurrencesBetween(ev.start, ev.repeat, from, to, dur)) {
+    for (const start of occurrencesBetween(ev.start, ev.repeat, from, to, dur, ev.repeatEvery)) {
       // An event ending exactly at midnight shouldn't spill into the next day.
       const end = new Date(start.getTime() + dur);
       if (end.getTime() === from.getTime() && dur > 0) continue;

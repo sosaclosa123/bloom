@@ -38,6 +38,8 @@ export interface CalendarEvent extends SyncMeta {
   notes: string;
   location: string;
   repeat: Repeat;
+  /** Repeat every N days/weeks/months/years (e.g. 2 = every 2 weeks). Missing = 1. */
+  repeatEvery?: number;
   /** Minutes before start to remind. 0 = at start time. */
   remindBefore: number[];
   sound: string; // sound id (built-in or custom)

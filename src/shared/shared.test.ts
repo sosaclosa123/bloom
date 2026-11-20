@@ -153,3 +153,32 @@ describe('hebrew dates', () => {
     expect(occ.map((d) => hebrewDateLabel(d, 'he'))).toEqual(['ט״ז בכסלו', 'ט״ז בכסלו']);
   });
 });
+
+describe('repeat every N', () => {
+  const d = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+
+  it('every 2 weeks (medicine)', () => {
+    const occ = occurrencesBetween('2026-11-02T08:00', 'weekly', new Date(2026, 10, 1), new Date(2027, 0, 1), 0, 2);
+    expect(occ.map(d)).toEqual(['2026-11-02', '2026-11-16', '2026-11-30', '2026-12-14', '2026-12-28']);
+  });
+  it('every 2 weeks, far in the future, stays on the right week', () => {
+    const occ = occurrencesBetween('2026-11-02T08:00', 'weekly', new Date(2030, 0, 1), new Date(2030, 0, 31), 0, 2);
+    for (const o of occ) expect(Math.round((o.getTime() - new Date(2026, 10, 2, 8).getTime()) / 86400000) % 14).toBe(0);
+    expect(occ).toHaveLength(2);
+  });
+  it('every 3 days and every 3 months (keeps the 31st clamped)', () => {
+    expect(occurrencesBetween('2026-11-01T09:00', 'daily', new Date(2026, 10, 1), new Date(2026, 10, 11), 0, 3).map(d)).toEqual(['2026-11-01', '2026-11-04', '2026-11-07', '2026-11-10']);
+    expect(occurrencesBetween('2026-01-31T09:00', 'monthly', new Date(2026, 0, 1), new Date(2027, 0, 1), 0, 3).map(d)).toEqual(['2026-01-31', '2026-04-30', '2026-07-31', '2026-10-31']);
+  });
+  it('bad values fall back to 1', () => {
+    for (const bad of [0, -2, 1.5, NaN, 500, undefined]) {
+      expect(occurrencesBetween('2026-11-01T09:00', 'daily', new Date(2026, 10, 1), new Date(2026, 10, 4), 0, bad as number)).toHaveLength(3);
+    }
+  });
+  it('calendar and reminders follow the interval', () => {
+    const e: CalendarEvent = { ...newMeta(), title: 'Pill', allDay: false, start: '2026-11-02T08:00', end: '2026-11-02T08:15', color: 'mint', notes: '', location: '', repeat: 'weekly', repeatEvery: 2, remindBefore: [0], sound: 'builtin:chime' };
+    expect(expandEvents([e], new Date(2026, 10, 1), new Date(2026, 11, 1)).map((o) => d(o.start))).toEqual(['2026-11-02', '2026-11-16', '2026-11-30']);
+    const fired = alertsDueBetween({ events: [e], reminders: [] }, new Date(2026, 10, 8).getTime(), new Date(2026, 10, 17).getTime());
+    expect(fired.map((a) => a.when)).toEqual(['2026-11-16T08:00']); // not on the 9th
+  });
+});

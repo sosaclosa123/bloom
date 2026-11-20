@@ -12,7 +12,7 @@ export function alertsDueBetween(data: Pick<Snapshot, 'events' | 'reminders'>, f
   for (const ev of data.events) {
     if (ev.deletedAt || ev.remindBefore.length === 0) continue;
     // Look at occurrences that start in (from, to + maxLead].
-    const occs = occurrencesBetween(ev.start, ev.repeat, new Date(from), new Date(to + maxLead * 60000 + 1));
+    const occs = occurrencesBetween(ev.start, ev.repeat, new Date(from), new Date(to + maxLead * 60000 + 1), 0, ev.repeatEvery);
     for (const occ of occs) {
       for (const mins of ev.remindBefore) {
         const due = occ.getTime() - mins * 60000;

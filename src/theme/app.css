@@ -4475,3 +4475,16 @@ input[type='time'] {
   font-size: var(--fs-sm);
   font-weight: 600;
 }
+/* "Every [2] weeks" under the repeat choice */
+.repeat-every {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: var(--fs-md);
+}
+.repeat-every input {
+  width: calc(64px * var(--fs-scale, 1)) !important;
+  text-align: center;
+}
