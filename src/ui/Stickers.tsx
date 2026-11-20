@@ -382,3 +382,38 @@ export function addSticker(entry: DayEntry | undefined, date: ISODate, kind: str
   const st: PlacedSticker = { id, kind, x: 0.62 - (n % 3) * 0.12, y: 0.62, size: 44, rot: 0, locked: false };
   return { entry: { ...base, stickers: [...(base.stickers ?? []), st] }, id };
 }
+
+// ---------------------------------------------------------------- countdown icons
+
+/** Stickers offered for countdowns (birthdays, trips, holidays…). */
+export const COUNTDOWN_STICKERS = ['birthday', 'anniversary', 'date', 'gift', 'party', 'travel', 'vacation', 'beach', 'home', 'flowers', 'baby', 'study', 'important', 'shabbat', 'dayoff', 'car', 'pet', 'music', 'movie', 'gaming', 'gym', 'work', 'done', 'idea'].filter((k) => STICKERS[k]);
+
+// Countdowns made before used emojis; show them as the matching sticker.
+const FROM_EMOJI: Record<string, string> = {
+  '💗': 'date',
+  '💍': 'anniversary',
+  '🎂': 'birthday',
+  '✈️': 'travel',
+  '🎉': 'party',
+  '🏖️': 'beach',
+  '🎄': 'gift',
+  '🕎': 'shabbat',
+  '🎓': 'study',
+  '🏠': 'home',
+  '🌸': 'flowers',
+  '⭐': 'important',
+};
+
+/** The sticker kind for a countdown's icon value (a sticker kind, or an old emoji). */
+export const countdownSticker = (value: string): string | null => (STICKERS[value] ? value : (FROM_EMOJI[value] ?? null));
+
+/** A countdown's icon in the sticker style (falls back to the text if unknown). */
+export function CountdownIcon({ value, size }: { value: string; size: number }) {
+  const kind = countdownSticker(value);
+  if (!kind) return <span style={{ fontSize: size * 0.7 }}>{value}</span>;
+  return (
+    <span className="cd-sticker" style={{ width: size, height: size }} aria-hidden="true">
+      <StickerArt kind={kind} size={size} />
+    </span>
+  );
+}

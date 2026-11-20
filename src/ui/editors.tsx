@@ -3,7 +3,9 @@ import { formatRemindBefore, type StringKey } from '../i18n/strings';
 import { dateOf, parseLocal, timeOf, toLocalDateTime } from '../shared/dates';
 import type { CalendarEvent, Countdown, Repeat, Reminder } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Toggle } from './common';
-import { COUNTDOWN_EMOJIS, EVENT_COLORS } from './drafts';
+import { EVENT_COLORS } from './drafts';
+import { COUNTDOWN_STICKERS, countdownSticker, StickerArt } from './Stickers';
+import { STICKERS } from './stickerDesigns';
 import { platform } from '../platform/api';
 import { hebrewDateLabel } from '../shared/holidays';
 import { BUILTIN_SOUNDS, playSound } from './sound';
@@ -427,7 +429,7 @@ export function ReminderEditor({ initial, isNew, onClose }: { initial: Reminder;
 // ------------------------------------------------------------------ countdown
 
 export function CountdownEditor({ initial, isNew, onClose }: { initial: Countdown; isNew: boolean; onClose: () => void }) {
-  const { t, save, del } = useBloom();
+  const { t, save, del, settings } = useBloom();
   const [c, setC] = useState(initial);
   const set = (patch: Partial<Countdown>) => setC((x) => ({ ...x, ...patch }));
   const commit = () => {
@@ -482,11 +484,18 @@ export function CountdownEditor({ initial, isNew, onClose }: { initial: Countdow
         <Field label={t('date')}>
           <input type="date" value={c.date} onChange={(e) => e.target.value && set({ date: e.target.value })} />
         </Field>
-        <Field label={t('emoji')}>
-          <div className="emoji-grid">
-            {COUNTDOWN_EMOJIS.map((e) => (
-              <button type="button" key={e} className={e === c.emoji ? 'active' : ''} onClick={() => set({ emoji: e })}>
-                {e}
+        <Field label={t('sticker')}>
+          <div className="emoji-grid cd-sticker-grid">
+            {COUNTDOWN_STICKERS.map((k) => (
+              <button
+                type="button"
+                key={k}
+                className={k === countdownSticker(c.emoji) ? 'active' : ''}
+                title={settings.language === 'he' ? STICKERS[k].labelHe : STICKERS[k].label}
+                aria-label={settings.language === 'he' ? STICKERS[k].labelHe : STICKERS[k].label}
+                onClick={() => set({ emoji: k })}
+              >
+                <StickerArt kind={k} size={34} />
               </button>
             ))}
           </div>

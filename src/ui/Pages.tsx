@@ -6,6 +6,7 @@ import type { Countdown, ISODate } from '../shared/types';
 import { formatTime, isDailyNudge, useRangeData, type ReminderOccurrence } from './calendarData';
 import { Icon, type IconName } from './common';
 import type { Tab } from './Header';
+import { CountdownIcon } from './Stickers';
 import { useAlive, useBloom } from './store';
 
 // ------------------------------------------------------------------ nav rail
@@ -246,7 +247,9 @@ export function CountdownsPage({ onEdit }: { onEdit: (c: Countdown | null) => vo
         <div className="cd-grid">
           {list.map(({ c, target, days }, i) => (
             <button type="button" key={c.id} className="cd-card" style={{ ['--i' as string]: i }} onClick={() => onEdit(c)}>
-              <span className="cd-emoji">{c.emoji}</span>
+              <span className="cd-emoji">
+                <CountdownIcon value={c.emoji} size={58} />
+              </span>
               <span className="cd-num">{days === 0 ? '🎉' : days}</span>
               <span className="cd-unit">{days === 0 ? t('isToday') : days === 1 ? t('oneDayToGo') : t('daysLeft')}</span>
               <span className="cd-title" dir="auto">

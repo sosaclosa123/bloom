@@ -8,7 +8,7 @@ import { newDayEntry, nextStatus } from './drafts';
 import { Icon } from './common';
 import { dayColor, inkOf, monthColor, monthInk, seasonOf } from './season';
 import { DayChips } from './DayChips';
-import { repeatingStickersOn, StickerLayer } from './Stickers';
+import { CountdownIcon, repeatingStickersOn, StickerLayer } from './Stickers';
 import { useAlive, useBloom } from './store';
 
 interface Props {
@@ -185,8 +185,8 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
                 </div>
               )}
               {cds.length > 0 && (
-                <div className="countdown-label" dir="auto" title={cds.map((c) => `${c.emoji} ${c.title}`).join(' · ')}>
-                  <span aria-hidden="true">{cds[0].emoji}</span> {cds[0].title || '—'}
+                <div className="countdown-label" dir="auto" title={cds.map((c) => c.title).join(' · ')}>
+                  <CountdownIcon value={cds[0].emoji} size={18} /> {cds[0].title || '—'}
                   {cds.length > 1 && <span className="cd-more"> +{cds.length - 1}</span>}
                 </div>
               )}

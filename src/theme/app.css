@@ -4821,3 +4821,30 @@ input[type='time'] {
 :root.app-hidden *::after {
   animation-play-state: paused !important;
 }
+/* Countdown icons drawn as stickers */
+.cd-sticker {
+  display: inline-grid;
+  place-items: center;
+  line-height: 0;
+  vertical-align: middle;
+  flex: none;
+}
+.cd-emoji {
+  display: grid;
+  place-items: center;
+  min-height: calc(58px * var(--fs-scale, 1));
+}
+.cd-sticker-grid {
+  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+}
+.cd-sticker-grid button {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  aspect-ratio: 1;
+}
+.countdown-label .cd-sticker,
+.glance-cd .cd-sticker {
+  margin-inline-end: 2px;
+  margin-block: -3px;
+}

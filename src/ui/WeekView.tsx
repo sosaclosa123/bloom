@@ -9,6 +9,7 @@ import { dayColor, inkOf, monthColor } from './season';
 import { newDayEntry, nextStatus } from './drafts';
 import { DayChips } from './DayChips';
 import { useAlive, useBloom } from './store';
+import { CountdownIcon } from './Stickers';
 
 const HOUR_H = 52;
 
@@ -135,7 +136,7 @@ export function WeekView({ anchor, selected, onOpenDay, onOpenEvent, onOpenRemin
               {hol[0] && <div className="holiday-label">{hol[0].name}</div>}
               {countdownsOn(countdowns, iso).map((c) => (
                 <div key={c.id} className="countdown-label" dir="auto" title={c.title}>
-                  <span aria-hidden="true">{c.emoji}</span> {c.title || '—'}
+                  <CountdownIcon value={c.emoji} size={18} /> {c.title || '—'}
                 </div>
               ))}
               {entry?.headline && <div className="headline" dir="auto">{entry.headline}</div>}

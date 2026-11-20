@@ -31,7 +31,7 @@ export function newReminder(date: ISODate, settings: Settings, time?: string): R
 }
 
 export function newCountdown(date: ISODate): Countdown {
-  return { ...newMeta(), title: '', date, emoji: '💗', yearly: false };
+  return { ...newMeta(), title: '', date, emoji: 'birthday', yearly: false };
 }
 
 export function newDayEntry(date: ISODate): DayEntry {
@@ -55,5 +55,4 @@ export function nextStatus(s: DayStatus | null): DayStatus | null {
 
 export const EVENT_COLORS = ['lilac', 'rose', 'peach', 'butter', 'mint', 'sky', 'sand'] as const;
 export const CARD_EMOJIS = ['', '💗', '⭐', '🎂', '🎉', '✈️', '🏋️', '🍽️', '🛒', '💼', '📚', '🩺', '🎮', '🐾', '🌸', '☕', '🎵', '💡'];
-export const COUNTDOWN_EMOJIS = ['💗', '💍', '🎂', '✈️', '🎉', '🏖️', '🎄', '🕎', '🎓', '🏠', '🌸', '⭐'];
 export const REMIND_PRESETS = [0, 5, 10, 15, 30, 60, 120, 1440, 2880];

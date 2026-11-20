@@ -11,7 +11,7 @@ import { expandEvents, type EventOccurrence } from './shared/recurrence';
 import { countdownsOn } from './shared/schedule';
 import type { DayEntry, Snapshot } from './shared/types';
 import { dayColor, inkOf, monthColor, setCustomMonthColors } from './ui/season';
-import { StickerArt, StickerDefs, repeatingStickersOn } from './ui/Stickers';
+import { CountdownIcon, StickerArt, StickerDefs, repeatingStickersOn } from './ui/Stickers';
 import { stripMarks } from './ui/NoteRich';
 import './theme/tokens.css';
 import './theme/app.css';
@@ -142,7 +142,7 @@ function Glance() {
                 <span className="glance-dayname">{dayName(day.date)}</span>
                 {cds.map((c) => (
                   <span key={c.id} className="glance-cd" dir="auto">
-                    {c.emoji} {c.title}
+                    <CountdownIcon value={c.emoji} size={18} /> {c.title}
                   </span>
                 ))}
                 {day.occs.map((o) => (
