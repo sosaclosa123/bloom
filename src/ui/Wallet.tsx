@@ -104,15 +104,18 @@ export function WalletPage() {
         </div>
       </div>
 
-      <div className="page-scroll wallet-body">
-        {side === 'shared' && <p className="wl-shared-hint">{me.inSpace ? t('wlSharedHint') : t('wlConnectHint')}</p>}
-        <LimitCard all={all} side={side} month={month} />
-        <QuickAdd side={side} month={month} />
-        <SpendingList all={all} side={side} month={month} onEdit={setEditing} />
-        <YearCard all={all} side={side} month={month} onPickMonth={setMonth} />
-        <div className="wl-cols">
-          <RecurringCard all={all} side={side} onEdit={setEditing} />
+      {/* Two sides that scroll separately: this month on the left (right in Hebrew), the bigger picture beside it. */}
+      <div className="wallet-body wl-two">
+        <div className="wl-main">
+          {side === 'shared' && <p className="wl-shared-hint">{me.inSpace ? t('wlSharedHint') : t('wlConnectHint')}</p>}
+          <LimitCard all={all} side={side} month={month} />
+          <QuickAdd side={side} month={month} />
+          <SpendingList all={all} side={side} month={month} onEdit={setEditing} />
+        </div>
+        <div className="wl-side">
+          <YearCard all={all} side={side} month={month} onPickMonth={setMonth} />
           <GoalsCard all={all} side={side} onEdit={setEditing} />
+          <RecurringCard all={all} side={side} onEdit={setEditing} />
         </div>
       </div>
 

@@ -63,6 +63,8 @@ installed apps auto-update. Commit messages: clear "what + why".
   monthly<->yearly changes apply "from now on" (old part ends after today,
   history kept). Shared goals: each deposit is its own record (sync-safe).
   Goal cards fill with banknote green, animate only when money is added.
+  Layout: two columns that scroll separately (this month | year, goals,
+  payments); one column on narrow windows. Money numbers use the Outfit font.
 - **Repeating stickers** follow their event from the day added; editing asks
   "Only this day / All days".
 - Scheduled tab: repeating events listed once ("Every 2 weeks · next …");
