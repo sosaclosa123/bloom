@@ -300,11 +300,10 @@ export function SetupCard({ onStart }: { onStart: () => void }) {
 }
 
 /** Water goal + BMI + a short summary, with "Edit profile". */
-export function ProfileCard({ date, onEdit, liquidStools, exerciseMin }: { date: string; onEdit: () => void; liquidStools: number; exerciseMin: number | null }) {
+export function ProfileCard({ date, onEdit, goal }: { date: string; onEdit: () => void; goal: WaterGoal }) {
   const { t, locale } = useBloom();
   const { profile, all, ibd } = useHealth();
   const weight = latestWeight(all, date);
-  const goal = waterGoal(profile, { date, weightKg: weight, ibd, liquidStools, exerciseMin });
   const facts = [
     profile?.age != null ? t('hlAgeYears', { n: profile.age }) : null,
     profile?.heightCm ? `${profile.heightCm.toLocaleString(locale)} ${t('hlUnitCm')}` : null,

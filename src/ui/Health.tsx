@@ -3,9 +3,10 @@
 // shows on a computer where Health is turned on in Settings.
 import { useState } from 'react';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
-import { bathroomStats, forDate, healthOf } from '../shared/health';
+import { bathroomStats, forDate, healthOf, latestWeight, waterGoal } from '../shared/health';
 import { Button, Icon, IconButton, Toggle } from './common';
 import { useHealth } from './healthUi';
+import { CheckinCard } from './HealthCheckin';
 import { ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
 import { useBloom } from './store';
 
@@ -73,6 +74,7 @@ function HealthOn() {
       : parseISODate(date).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
   const stats = bathroomStats(healthOf(all, 'bathroom'), date);
   const body = forDate(all, 'body', date);
+  const goal = waterGoal(profile, { date, weightKg: latestWeight(all, date), ibd, liquidStools: stats.liquid, exerciseMin: body?.exerciseMin ?? null });
 
   return (
     <div className="page hl">
@@ -95,9 +97,10 @@ function HealthOn() {
       <div className="wallet-body wl-two hl-two">
         <div className="wl-main">
           {!profile?.done && <SetupCard onStart={() => setWizard(true)} />}
+          <CheckinCard date={date} isToday={isToday} goal={goal} />
         </div>
         <div className="wl-side">
-          <ProfileCard date={date} onEdit={() => setWizard(true)} liquidStools={ibd ? stats.liquid : 0} exerciseMin={body?.exerciseMin ?? null} />
+          <ProfileCard goal={goal} date={date} onEdit={() => setWizard(true)} />
           <p className="hl-note">
             <Icon name="heartPulse" size={14} /> {t('hlNotAdvice')}
           </p>
