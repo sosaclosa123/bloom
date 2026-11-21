@@ -69,8 +69,10 @@ installed apps auto-update. Commit messages: clear "what + why".
   payments); one column on narrow windows. Money numbers use the Outfit font.
 - **Repeating stickers** follow their event from the day added; editing asks
   "Only this day / All days".
-- Scheduled tab: two sections side by side, "Coming up" (all one-time items
-  by day; shared ones just carry the people icon) | "Repeating" (each
+- Scheduled tab: two sections side by side, "Coming up" (next 30 days: all
+  one-time items by day, plus each repeating event ONCE on its next date with
+  an "Every …" pill; shared ones carry the people icon; re-checks every
+  minute so finished items drop off) | "Repeating" (each
   repeating event once, "Every 2 weeks · next …"), each scrolling on its own,
   same row look as before; multi-day events once with "until …".
 - Countdowns show on their date (yearly ones every year; 29 Feb -> 28 Feb)

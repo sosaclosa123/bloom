@@ -64,6 +64,9 @@ interface UpcomingProps {
 export { repeatLabel } from '../shared/schedule';
 import { repeatLabel } from '../shared/schedule';
 
+/** How many days ahead "Coming up" looks. */
+const COMING_DAYS = 30;
+
 export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: UpcomingProps) {
   const { t, locale, save } = useBloom();
   // Re-check every minute, so finished items drop off by themselves even when
@@ -86,7 +89,7 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
     };
   }, []);
   const today = startOfDay(new Date(clock));
-  const range = useRangeData(today, addDays(today, 14));
+  const range = useRangeData(today, addDays(today, COMING_DAYS));
   const days = useAlive('days');
   const events = useAlive('events');
   const now = clock;
@@ -106,10 +109,11 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
   }, [events, now]);
 
   const list = useMemo(() => {
-    const out: { date: ISODate; occs: EventOccurrence[]; rems: ReminderOccurrence[]; todos: { cardId: string; id: string; text: string }[] }[] = [];
-    for (let i = 0; i < 14; i++) {
+    const out: { date: ISODate; occs: EventOccurrence[]; reps: EventOccurrence[]; rems: ReminderOccurrence[]; todos: { cardId: string; id: string; text: string }[] }[] = [];
+    for (let i = 0; i < COMING_DAYS; i++) {
       const iso = toISODate(addDays(today, i));
-      // One-time things only; repeating ones live in their own section above.
+      // One-time things by day. Repeating events also appear here, but only
+      // once: on their next date (if it's within the 30 days).
       // Multi-day events show once: on the day they start (or today, if already going).
       const occs = (range.eventsByDay.get(iso) ?? []).filter(
         (o) => o.end.getTime() >= now && o.event.repeat === 'none' && !isDailyNudge(o) && (toISODate(o.start) === iso || (i === 0 && o.start < today)),
@@ -119,11 +123,12 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
       const todos = (entry?.cards ?? [])
         .filter((c) => c.kind === 'checklist')
         .flatMap((c) => c.items.filter((it) => !it.done && it.text.trim()).map((it) => ({ cardId: c.id, id: it.id, text: it.text })));
-      if (occs.length || rems.length || todos.length) out.push({ date: iso, occs, rems, todos });
+      const reps = repeating.filter((o) => (o.start < today ? i === 0 : toISODate(o.start) === iso));
+      if (occs.length || reps.length || rems.length || todos.length) out.push({ date: iso, occs, reps, rems, todos });
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, days, now]);
+  }, [range, days, now, repeating]);
 
   // Last day an event covers (an all-day event "ends" at midnight after it).
   const lastDay = (o: EventOccurrence) => toISODate(new Date(o.end.getTime() - (o.event.allDay ? 1 : 0)));
@@ -158,8 +163,10 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
             {dayLabel(day.date)}
           </button>
           <ul className="up-list">
-            {day.occs.map((o) => (
-              <li key={o.key}>
+            {[...day.occs.map((o) => ({ o, rep: false })), ...day.reps.map((o) => ({ o, rep: true }))]
+                .sort((a, b) => a.o.start.getTime() - b.o.start.getTime())
+                .map(({ o, rep }) => (
+              <li key={(rep ? 'r' : '') + o.key}>
                 <button type="button" className={`up-row ev-${o.event.color}`} onClick={() => onOpenEvent(o)}>
                   <span className="up-bar" />
                   <span className="up-time">{o.event.allDay ? t('allDay') : formatTime(o.start, locale)}</span>
@@ -168,6 +175,11 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
                   </span>
                   {lastDay(o) > toISODate(o.start) && (
                     <span className="up-next">{t('untilDate', { d: parseISODate(lastDay(o)).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }) })}</span>
+                  )}
+                  {rep && (
+                    <span className="up-repeat">
+                      <Icon name="repeat" size={11} /> {repeatLabel(o.event, t)}
+                    </span>
                   )}
                   {o.event.visibility === 'shared' && <Icon name="people" size={14} className="shared-ico" />}
                 </button>
