@@ -166,6 +166,154 @@ export interface MoneyDeposit extends SyncMeta {
 }
 export type MoneyItem = MoneyLimit | MoneySpend | MoneyRecurring | MoneyGoal | MoneyDeposit;
 
+
+// ---------------------------------------------------------------- health (Health tab)
+//
+// Health records are ALWAYS private: no share toggle, `visibility` is forced
+// to 'private' on save, on load and in sync (see db.ts `asPrivateHealth` and
+// the sync engine). They never show in Search, the calendar or Scheduled.
+
+export type HealthSex = 'female' | 'male' | 'other';
+export type HealthActivity = 'sedentary' | 'light' | 'active' | 'very';
+export type HealthHot = 'no' | 'summer' | 'yes';
+export type HealthPregnancy = 'none' | 'pregnant' | 'breastfeeding';
+export type IbdType = 'crohns' | 'uc' | 'unsure';
+export type IbdOstomy = 'none' | 'ostomy' | 'jpouch';
+export type FlareMark = 'none' | 'mild' | 'flare';
+
+/** The personal questionnaire (one per person). Any answer can be skipped (null). */
+export interface HealthProfile extends SyncMeta {
+  kind: 'profile';
+  age: number | null;
+  sex: HealthSex | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  activity: HealthActivity | null;
+  exerciseMin: number | null; // typical minutes of exercise per day
+  hot: HealthHot | null;
+  pregnancy: HealthPregnancy | null;
+  /** Kidney/heart condition that limits fluids: follow the doctor's limit. */
+  fluidLimit: boolean | null;
+  fluidLimitMl: number | null;
+  glassMl: number; // size of one glass of water
+  // IBD (only asked / shown when IBD is on)
+  ibdType: IbdType | null;
+  ibdLocation: string;
+  ibdMeds: string;
+  ostomy: IbdOstomy | null;
+  typicalStools: number | null;
+  triggerFoods: string;
+  /** Questionnaire finished or skipped (so it isn't offered again). */
+  done: boolean;
+}
+
+/** Daily check-in, one per date. null = not answered. */
+export interface HealthCheckin extends SyncMeta {
+  kind: 'checkin';
+  date: ISODate;
+  waterMl: number;
+  mood: number | null; // 1..5
+  sleepH: number | null;
+  energy: number | null; // 1..5
+  stress: number | null; // 1..5
+}
+
+/** IBD day: Crohn's/UC symptoms (Harvey-Bradshaw answers), one per date. */
+export interface HealthIbdDay extends SyncMeta {
+  kind: 'ibdday';
+  date: ISODate;
+  wellbeing: number | null; // 0 very well .. 4 terrible
+  pain: number | null; // 0 none .. 3 severe
+  fatigue: number | null; // 0 none .. 3 severe
+  mass: number | null; // 0 none .. 3 definite and tender
+  complications: string[]; // HBI complication ids
+  /** Liquid/soft stools; null = count from the bathroom log. */
+  liquidStools: number | null;
+  /** UC (partial Mayo): rectal bleeding 0..3; null = from the bathroom log. */
+  bleeding: number | null;
+  flare: FlareMark;
+}
+
+/** One bathroom visit (IBD). */
+export interface HealthBathroom extends SyncMeta {
+  kind: 'bathroom';
+  date: ISODate;
+  time: string; // "08:30"
+  bristol: number; // 1..7
+  urgency: number; // 0 none .. 3 severe
+  blood: boolean;
+  pain: number; // 0..3
+  notes: string;
+}
+
+export interface HealthMed extends SyncMeta {
+  kind: 'med';
+  name: string;
+  dose: string;
+  times: string[]; // "08:00"
+  remind: boolean;
+  active: boolean;
+  supplement: boolean;
+}
+
+/** A dose taken (own record per dose, so two devices never overwrite each other). */
+export interface HealthMedTaken extends SyncMeta {
+  kind: 'taken';
+  medId: string;
+  date: ISODate;
+  time: string; // planned time ("08:00"), or "" for an extra dose
+}
+
+export interface HealthFood extends SyncMeta {
+  kind: 'food';
+  date: ISODate;
+  time: string;
+  meal: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  text: string;
+  tags: string[];
+}
+
+/** Body log for a date: weight and/or exercise. */
+export interface HealthBody extends SyncMeta {
+  kind: 'body';
+  date: ISODate;
+  weightKg: number | null;
+  exerciseMin: number | null;
+  steps: number | null;
+}
+
+/** Lab result. `ibd` tests (e.g. calprotectin) are hidden when IBD is off. */
+export interface HealthTest extends SyncMeta {
+  kind: 'test';
+  date: ISODate;
+  name: string;
+  value: number | null;
+  unit: string;
+  ibd: boolean;
+  note: string;
+}
+
+export interface HealthVisit extends SyncMeta {
+  kind: 'visit';
+  date: ISODate;
+  doctor: string;
+  notes: string;
+  /** A (private) calendar event this visit belongs to. */
+  eventId: string | null;
+}
+
+export type HealthItem =
+  | HealthProfile
+  | HealthCheckin
+  | HealthIbdDay
+  | HealthBathroom
+  | HealthMed
+  | HealthMedTaken
+  | HealthFood
+  | HealthBody
+  | HealthTest
+  | HealthVisit;
+
 export type HolidaySet = 'none' | 'jewish' | 'christian' | 'both';
 export type Language = 'en' | 'he';
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -193,6 +341,12 @@ export interface Settings {
   currency: string; // ISO code, e.g. ILS
   /** Custom color per month (Jan..Dec); null = default. */
   monthColors: (string | null)[];
+  /** Health tab (this device only, off by default). */
+  healthEnabled: boolean;
+  /** IBD / Crohn's tracking inside Health (this device only, off by default). */
+  healthIbd: boolean;
+  /** Medication reminders show the medicine's name (off = just "Medication"). */
+  healthMedNames: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -214,6 +368,9 @@ export const DEFAULT_SETTINGS: Settings = {
   snoozeOptions: [10, 60],
   currency: 'ILS',
   monthColors: [],
+  healthEnabled: false,
+  healthIbd: false,
+  healthMedNames: false,
 };
 
 export interface Collections {
@@ -224,6 +381,8 @@ export interface Collections {
   sounds: SoundMeta[];
   journal: JournalEntry[];
   money: MoneyItem[];
+  /** Always private (never synced to the shared calendar). */
+  health: HealthItem[];
 }
 
 export type CollectionName = keyof Collections;
@@ -235,13 +394,14 @@ export interface Snapshot extends Collections {
   deviceId: string;
 }
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /** A reminder that fired — shown in the popup or the "missed while playing" inbox. */
 export interface FiredAlert {
   key: string; // `${sourceId}@${occurrence}`
   sourceId: string;
-  kind: 'event' | 'reminder';
+  /** 'med' = a medication reminder from Health (title may be '' = just "Medication"). */
+  kind: 'event' | 'reminder' | 'med';
   title: string;
   /** When the thing happens (event start / reminder time). */
   when: LocalDateTime;

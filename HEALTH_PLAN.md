@@ -74,7 +74,7 @@ Detailed, one question per screen, skippable, editable later in the tab.
 - Trends: week / month charts for water, sleep, mood, weight, symptoms.
 
 ## Checklist
-- [ ] 1. Data model (`health` collection, types, migration), privacy
+- [x] 1. Data model (`health` collection, types, migration), privacy
       enforcement in save + sync, rules check, unit tests.
 - [ ] 2. Settings: `healthEnabled`, `healthIbd`; rail heart tab (dimmed when
       off + "Turn on in Settings"); strings EN+HE.

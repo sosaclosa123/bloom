@@ -15,6 +15,9 @@ import type { AuthUser, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } fro
 /** Sounds are audio files on this PC, so they don't sync. */
 export const SYNCED: CollectionName[] = COLLECTIONS.filter((c) => c !== 'sounds');
 
+/** Collections that only ever live in the person's own area, never in the shared calendar. */
+export const ALWAYS_PRIVATE: CollectionName[] = ['health'];
+
 export interface LocalPort {
   snapshot(): Snapshot;
   onChange(cb: (s: Snapshot) => void): () => void;
@@ -209,6 +212,8 @@ export class SyncEngine {
     const incoming: Partial<Record<CollectionName, SyncMeta[]>> = {};
     for (const it of items) {
       if (!SYNCED.includes(it.coll)) continue;
+      // Health is never taken from a shared calendar (it can only be in our own area).
+      if (scope.kind === 'space' && ALWAYS_PRIVATE.includes(it.coll)) continue;
       const key = `${it.coll}/${it.id}`;
       const k = this.known[key];
       // Ignore a tombstone left behind in a scope this record moved out of.
@@ -238,9 +243,12 @@ export class SyncEngine {
 
   // ---------------------------------------------------------------- pushing
 
-  private scopeFor(rec: SyncMeta): Scope | null {
+  scopeFor(coll: CollectionName, rec: SyncMeta): Scope | null {
     const { user, profile } = this.state;
     if (!user || !profile) return null;
+    // Health (and anything else always-private) goes to the person's own area,
+    // even if a record somehow says 'shared'.
+    if (ALWAYS_PRIVATE.includes(coll)) return { kind: 'user', uid: user.uid };
     // Use the saved calendar id (not the loaded space info) so nothing is
     // ever moved out of the shared calendar just because it's still loading.
     if (rec.visibility === 'private' || !profile.spaceId) return { kind: 'user', uid: user.uid };
@@ -274,14 +282,14 @@ export class SyncEngine {
 
       for (const coll of SYNCED) {
         for (const rec of snap[coll] as SyncMeta[]) {
-          const scope = this.scopeFor(rec);
+          const scope = this.scopeFor(coll, rec);
           if (!scope) continue;
           const sk = scopeKey(scope);
           const key = `${coll}/${rec.id}`;
           const k = this.known[key];
           const t = rec.updatedAt ?? 0;
           if (k && k.t >= t && k.s === sk) continue; // already online
-          if (k && k.s !== sk && !(k.t > t)) {
+          if (k && k.s !== sk && !(k.t > t) && !(ALWAYS_PRIVATE.includes(coll) && k.s.startsWith('s:'))) {
             // Moved (e.g. shared -> private): leave a tombstone where it was.
             const old: Scope = k.s.startsWith('u:') ? { kind: 'user', uid: k.s.slice(2) } : { kind: 'space', sid: k.s.slice(2) };
             const tomb = { ...rec, deletedAt: rec.deletedAt ?? t, updatedAt: t };

@@ -2,9 +2,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { dirFor, localeFor, translate, type StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
-import { alive, asPrivateDay, personalDays } from '../shared/db';
+import { alive, asPrivateDay, asPrivateHealth, personalDays } from '../shared/db';
 import { setCustomMonthColors } from './season';
-import type { CollectionName, DayEntry, RecordOf, Settings, Snapshot } from '../shared/types';
+import type { CollectionName, DayEntry, HealthItem, RecordOf, Settings, Snapshot } from '../shared/types';
 
 export interface Toast {
   id: number;
@@ -82,7 +82,10 @@ export function BloomProvider({ initial, children }: { initial: Snapshot; childr
   snapRef.current = snap;
   const save = useCallback(<C extends CollectionName>(coll: C, item0: RecordOf<C>) => {
     // Day info is private: never write into a shared day record.
-    const item = (coll === 'days' ? asPrivateDay(item0 as DayEntry, snapRef.current.days) : item0) as RecordOf<C>;
+    // Health is always private too.
+    const item = (
+      coll === 'days' ? asPrivateDay(item0 as DayEntry, snapRef.current.days) : coll === 'health' ? asPrivateHealth(item0 as HealthItem) : item0
+    ) as RecordOf<C>;
     if (coll === 'days') snapRef.current = { ...snapRef.current, days: upsertLocal(snapRef.current.days, item as DayEntry) };
     // Optimistic update so typing feels instant; the platform echoes the result.
     setSnap((s) => {

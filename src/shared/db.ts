@@ -8,13 +8,14 @@ import {
   type CollectionName,
   type DayEntry,
   type Collections,
+  type HealthItem,
   type RecordOf,
   type Settings,
   type Snapshot,
   type SyncMeta,
 } from './types';
 
-export const COLLECTIONS: CollectionName[] = ['events', 'days', 'reminders', 'countdowns', 'sounds', 'journal', 'money'];
+export const COLLECTIONS: CollectionName[] = ['events', 'days', 'reminders', 'countdowns', 'sounds', 'journal', 'money', 'health'];
 
 export function uuid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
@@ -33,6 +34,7 @@ export function emptySnapshot(deviceId = uuid()): Snapshot {
     sounds: [],
     journal: [],
     money: [],
+    health: [],
   };
 }
 
@@ -56,6 +58,9 @@ export function normalizeSnapshot(raw: unknown): Snapshot {
   const from = r.schemaVersion ?? 1;
   if (from < 3 && Array.isArray(r.events)) migrateToV3(snap);
   if (from < 4) snap.money = migrateMoneyToV4(snap.money);
+  // v5 added the `health` collection (an empty list above). Health is always
+  // private, whatever the stored data says.
+  snap.health = snap.health.map(asPrivateHealth);
   return snap;
 }
 
@@ -100,7 +105,8 @@ export function newMeta(now = Date.now()): SyncMeta {
   return { id: uuid(), createdAt: now, updatedAt: now, deletedAt: null, ownerId: 'local', visibility: 'private' };
 }
 
-export function upsert<C extends CollectionName>(snap: Snapshot, coll: C, item: RecordOf<C>): Snapshot {
+export function upsert<C extends CollectionName>(snap: Snapshot, coll: C, item0: RecordOf<C>): Snapshot {
+  const item = (coll === 'health' ? asPrivateHealth(item0 as HealthItem) : item0) as RecordOf<C>;
   const list = snap[coll] as RecordOf<C>[];
   const idx = list.findIndex((x) => x.id === item.id);
   const prev = idx >= 0 ? list[idx].updatedAt ?? 0 : 0;
@@ -132,7 +138,8 @@ export function merge(local: Snapshot, incoming: Snapshot): Snapshot {
   for (const c of COLLECTIONS) {
     const map = new Map<string, SyncMeta>();
     for (const x of local[c] as SyncMeta[]) map.set(x.id, x);
-    for (const x of incoming[c] as SyncMeta[]) {
+    for (const x0 of incoming[c] as SyncMeta[]) {
+      const x = c === 'health' ? asPrivateHealth(x0 as HealthItem) : x0;
       const cur = map.get(x.id);
       const a = x.updatedAt ?? 0;
       const b = cur?.updatedAt ?? 0;
@@ -188,4 +195,11 @@ export function asPrivateDay(item: DayEntry, list: DayEntry[], now = Date.now())
   const mine = list.find((d) => d.date === item.date && d.visibility === 'private' && !d.deletedAt);
   const meta = mine ? { id: mine.id, createdAt: mine.createdAt, ownerId: mine.ownerId } : { id: uuid(), createdAt: now, ownerId: 'local' };
   return { ...item, ...meta, visibility: 'private', deletedAt: null };
+}
+
+// ---------------------------------------------------------------- health is always private
+
+/** Health records are never shared: whatever comes in, it is stored as private. */
+export function asPrivateHealth<T extends HealthItem>(item: T): T {
+  return item.visibility === 'private' ? item : { ...item, visibility: 'private' };
 }
