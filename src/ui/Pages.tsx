@@ -1,5 +1,5 @@
 // Left navigation tabs + the Upcoming and Countdowns pages.
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { addDays, dayDiff, parseISODate, sameDay, startOfDay, toISODate } from '../shared/dates';
 import { expandEvents, type EventOccurrence } from '../shared/recurrence';
 import type { Countdown, ISODate } from '../shared/types';
@@ -66,11 +66,30 @@ import { repeatLabel } from '../shared/schedule';
 
 export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: UpcomingProps) {
   const { t, locale, save } = useBloom();
-  const today = startOfDay(new Date());
+  // Re-check every minute, so finished items drop off by themselves even when
+  // Bloom stays open for hours (and a new day starts on time).
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const next = () => {
+      timer = setTimeout(() => {
+        setClock(Date.now());
+        next();
+      }, 60000 - (Date.now() % 60000) + 50);
+    };
+    next();
+    const wake = () => setClock(Date.now());
+    window.addEventListener('focus', wake);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('focus', wake);
+    };
+  }, []);
+  const today = startOfDay(new Date(clock));
   const range = useRangeData(today, addDays(today, 14));
   const days = useAlive('days');
   const events = useAlive('events');
-  const now = Date.now();
+  const now = clock;
 
   // Repeating events: listed once each with their next time, not on every day.
   const repeating = useMemo(() => {
@@ -84,7 +103,7 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
     }
     return out.sort((a, b) => a.start.getTime() - b.start.getTime());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, toISODate(today)]);
+  }, [events, now]);
 
   const list = useMemo(() => {
     const out: { date: ISODate; occs: EventOccurrence[]; rems: ReminderOccurrence[]; todos: { cardId: string; id: string; text: string }[] }[] = [];
@@ -104,7 +123,7 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, days, toISODate(today)]);
+  }, [range, days, now]);
 
   // Last day an event covers (an all-day event "ends" at midnight after it).
   const lastDay = (o: EventOccurrence) => toISODate(new Date(o.end.getTime() - (o.event.allDay ? 1 : 0)));

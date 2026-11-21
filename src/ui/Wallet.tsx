@@ -412,7 +412,12 @@ function YearCard({ all, side, month, onPickMonth }: { all: MoneyItem[]; side: V
                 <span className="wl-ybar-track">
                   <span style={{ height: `${(v / peak) * 100}%` }} />
                 </span>
-                <span className="wl-ybar-label">{label}</span>
+                <span className="wl-ybar-label">
+                  <span className="lbl-short">{label}</span>
+                  <span className="lbl-narrow" aria-hidden="true">
+                    {new Date(year, i, 1).toLocaleDateString(locale, { month: 'narrow' })}
+                  </span>
+                </span>
               </button>
             );
           })}

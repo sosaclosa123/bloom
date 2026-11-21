@@ -5043,3 +5043,18 @@ input[type='time'] {
 .up-col.up-repeating .shared-ico {
   order: 2;
 }
+/* Year bars: month names switch to one letter when the bars get narrow. */
+.wl-year-bars {
+  container-type: inline-size;
+}
+.wl-ybar-label .lbl-narrow {
+  display: none;
+}
+@container (max-width: 380px) {
+  .wl-ybar-label .lbl-short {
+    display: none;
+  }
+  .wl-ybar-label .lbl-narrow {
+    display: inline;
+  }
+}
