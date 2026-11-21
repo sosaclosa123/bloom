@@ -69,8 +69,10 @@ installed apps auto-update. Commit messages: clear "what + why".
   payments); one column on narrow windows. Money numbers use the Outfit font.
 - **Repeating stickers** follow their event from the day added; editing asks
   "Only this day / All days".
-- Scheduled tab: repeating events listed once ("Every 2 weeks · next …");
-  one-time items by day; multi-day events once with "until …".
+- Scheduled tab: two sections side by side, "Coming up" (all one-time items
+  by day; shared ones just carry the people icon) | "Repeating" (each
+  repeating event once, "Every 2 weeks · next …"), each scrolling on its own,
+  same row look as before; multi-day events once with "until …".
 - Countdowns show on their date (yearly ones every year; 29 Feb -> 28 Feb)
   and use sticker art, not emoji (same for Wallet goals and payments).
 - Reminders must never pull her out of a full-screen game (game mode;

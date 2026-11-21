@@ -4955,3 +4955,91 @@ input[type='time'] {
   background: #fbe0dc;
   color: #b4473a;
 }
+/* Scheduled: Coming up | Repeating side by side (same rows as before),
+   no boxes, just a soft divider; each scrolls on its own. */
+.up-cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  padding: var(--space-4) var(--space-5) 0;
+}
+.up-col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-inline: var(--space-4);
+  border-inline-start: 1px solid var(--border);
+}
+.up-col:first-child {
+  border-inline-start: none;
+  padding-inline-start: 0;
+}
+.up-col:last-child {
+  padding-inline-end: 0;
+}
+.up-col > .up-section-title {
+  flex: none;
+  padding-bottom: var(--space-2);
+}
+.up-col-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: var(--space-5);
+}
+.up-col .up-day {
+  max-width: none;
+  margin-bottom: var(--space-4);
+}
+.up-col .up-repeating {
+  margin: 0;
+}
+.up-none {
+  margin: var(--space-2) 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+@media (max-width: 1050px) {
+  .up-cols {
+    display: block;
+    overflow-y: auto;
+  }
+  .up-col {
+    border-inline-start: none;
+    padding-inline: 0;
+    margin-bottom: var(--space-5);
+  }
+  .up-col-scroll {
+    overflow: visible;
+  }
+}
+/* In the narrower columns: never cut a title; "next …" goes on its own line. */
+.up-col .up-title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.up-col.up-repeating .up-row {
+  flex-wrap: wrap;
+}
+.up-col.up-repeating .up-next {
+  order: 5;
+  flex-basis: 100%;
+  padding-inline-start: 14px;
+}
+.up-col.up-repeating .up-title {
+  flex: 1 1 calc(100% - 48px);
+}
+.up-col.up-repeating .up-repeat {
+  order: 5;
+  margin-inline-start: 14px;
+}
+.up-col.up-repeating .up-next {
+  order: 6;
+  flex-basis: auto;
+  padding-inline-start: 0;
+}
+.up-col.up-repeating .shared-ico {
+  order: 2;
+}

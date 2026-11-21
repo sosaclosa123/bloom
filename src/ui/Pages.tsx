@@ -127,6 +127,64 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
     });
   };
 
+  // All one-time items by day (shared ones carry the people icon).
+  const renderDays = () => {
+    const days = list;
+    if (days.length === 0) return <p className="up-none">{t('nothingHere')}</p>;
+    return (
+      <>
+    {days.map((day, di) => (
+        <section key={day.date} className="up-day" style={{ ['--i' as string]: di }}>
+          <button type="button" className="up-day-title" onClick={() => onOpenDay(day.date)}>
+            {dayLabel(day.date)}
+          </button>
+          <ul className="up-list">
+            {day.occs.map((o) => (
+              <li key={o.key}>
+                <button type="button" className={`up-row ev-${o.event.color}`} onClick={() => onOpenEvent(o)}>
+                  <span className="up-bar" />
+                  <span className="up-time">{o.event.allDay ? t('allDay') : formatTime(o.start, locale)}</span>
+                  <span className="up-title" dir="auto">
+                    {o.event.title || '—'}
+                  </span>
+                  {lastDay(o) > toISODate(o.start) && (
+                    <span className="up-next">{t('untilDate', { d: parseISODate(lastDay(o)).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }) })}</span>
+                  )}
+                  {o.event.visibility === 'shared' && <Icon name="people" size={14} className="shared-ico" />}
+                </button>
+              </li>
+            ))}
+            {day.rems.map((r) => (
+              <li key={r.reminder.id + r.at.getTime()}>
+                <button type="button" className="up-row reminder" onClick={() => onOpenReminder(r)}>
+                  <Icon name="bell" size={14} className="up-ico" />
+                  <span className="up-time">{formatTime(r.at, locale)}</span>
+                  <span className="up-title" dir="auto">
+                    {r.reminder.title || '—'}
+                  </span>
+                </button>
+              </li>
+            ))}
+            {day.todos.map((td) => (
+              <li key={td.id} className="up-row todo">
+                <label className="check">
+                  <input type="checkbox" checked={false} onChange={() => tick(day.date, td.cardId, td.id)} aria-label={td.text} />
+                  <span className="check-box">
+                    <Icon name="check" size={12} />
+                  </span>
+                </label>
+                <span className="up-title" dir="auto">
+                  {td.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+      </>
+    );
+  };
+
   return (
     <div className="page">
       {list.length === 0 && repeating.length === 0 && (
@@ -137,80 +195,42 @@ export function UpcomingPage({ onOpenDay, onOpenEvent, onOpenReminder }: Upcomin
           <p>{t('nothingUpcoming')}</p>
         </div>
       )}
-      <div className="page-scroll">
-        {repeating.length > 0 && (
-          <section className="up-day up-repeating">
-            <h3 className="up-section-title">
-              <Icon name="repeat" size={15} /> {t('repeatingSection')}
-            </h3>
-            <ul className="up-list">
-              {repeating.map((o) => (
-                <li key={o.event.id}>
-                  <button type="button" className={`up-row ev-${o.event.color}`} onClick={() => onOpenEvent(o)}>
-                    <span className="up-bar" />
-                    <span className="up-title" dir="auto">
-                      {o.event.title || '—'}
-                    </span>
-                    <span className="up-repeat">{repeatLabel(o.event, t)}</span>
-                    <span className="up-next">
-                      {t('nextAt', { d: nextLabel(o.start), time: o.event.allDay ? t('allDay') : formatTime(o.start, locale) })}
-                    </span>
-                    {o.event.visibility === 'shared' && <Icon name="people" size={14} className="shared-ico" />}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-        {list.length > 0 && repeating.length > 0 && <h3 className="up-section-title up-once">{t('onceSection')}</h3>}
-        {list.map((day, di) => (
-          <section key={day.date} className="up-day" style={{ ['--i' as string]: di }}>
-            <button type="button" className="up-day-title" onClick={() => onOpenDay(day.date)}>
-              {dayLabel(day.date)}
-            </button>
-            <ul className="up-list">
-              {day.occs.map((o) => (
-                <li key={o.key}>
-                  <button type="button" className={`up-row ev-${o.event.color}`} onClick={() => onOpenEvent(o)}>
-                    <span className="up-bar" />
-                    <span className="up-time">{o.event.allDay ? t('allDay') : formatTime(o.start, locale)}</span>
-                    <span className="up-title" dir="auto">
-                      {o.event.title || '—'}
-                    </span>
-                    {lastDay(o) > toISODate(o.start) && (
-                      <span className="up-next">{t('untilDate', { d: parseISODate(lastDay(o)).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }) })}</span>
-                    )}
-                    {o.event.visibility === 'shared' && <Icon name="people" size={14} className="shared-ico" />}
-                  </button>
-                </li>
-              ))}
-              {day.rems.map((r) => (
-                <li key={r.reminder.id + r.at.getTime()}>
-                  <button type="button" className="up-row reminder" onClick={() => onOpenReminder(r)}>
-                    <Icon name="bell" size={14} className="up-ico" />
-                    <span className="up-time">{formatTime(r.at, locale)}</span>
-                    <span className="up-title" dir="auto">
-                      {r.reminder.title || '—'}
-                    </span>
-                  </button>
-                </li>
-              ))}
-              {day.todos.map((td) => (
-                <li key={td.id} className="up-row todo">
-                  <label className="check">
-                    <input type="checkbox" checked={false} onChange={() => tick(day.date, td.cardId, td.id)} aria-label={td.text} />
-                    <span className="check-box">
-                      <Icon name="check" size={12} />
-                    </span>
-                  </label>
-                  <span className="up-title" dir="auto">
-                    {td.text}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+      {/* Two sections side by side, each scrolling on its own: Coming up (one-time, shared ones marked) | Repeating. */}
+      <div className="up-cols">
+        <section className="up-col">
+          <h3 className="up-section-title">
+            <Icon name="calendar" size={14} /> {t('onceSection')}
+          </h3>
+          <div className="up-col-scroll">{renderDays()}</div>
+        </section>
+        <section className="up-col up-repeating">
+          <h3 className="up-section-title">
+            <Icon name="repeat" size={15} /> {t('repeatingSection')}
+          </h3>
+          <div className="up-col-scroll">
+            {repeating.length === 0 ? (
+              <p className="up-none">{t('nothingHere')}</p>
+            ) : (
+              <ul className="up-list">
+                {repeating.map((o) => (
+                  <li key={o.event.id}>
+                    <button type="button" className={`up-row ev-${o.event.color}`} onClick={() => onOpenEvent(o)}>
+                      <span className="up-bar" />
+                      <span className="up-title" dir="auto">
+                        {o.event.title || '—'}
+                      </span>
+                      <span className="up-repeat">{repeatLabel(o.event, t)}</span>
+                      <span className="up-next">
+                        {t('nextAt', { d: nextLabel(o.start), time: o.event.allDay ? t('allDay') : formatTime(o.start, locale) })}
+                      </span>
+                      {o.event.visibility === 'shared' && <Icon name="people" size={14} className="shared-ico" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );
