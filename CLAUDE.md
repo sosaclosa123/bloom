@@ -84,6 +84,13 @@ installed apps auto-update. Commit messages: clear "what + why".
 - Text size setting (small/medium/large); day squares never cut text
   (fit logic folds events into "+N more").
 
+## In progress
+- **Health tab** (private health tracking incl. Crohn's/IBD) and **automatic
+  backups**: full approved plan + checklist in `HEALTH_PLAN.md`. Build it in a
+  fresh session, ticking the checklist as you go; any session continues from
+  the first unticked box. The owner keeps using the long main chat for later
+  updates, so keep `HEALTH_PLAN.md` and this file accurate.
+
 ## Open ideas
 - **Android app** (owner wants Android only, free install via APK, no Play
   Store): Capacitor wrapper reusing the web code, same Firebase sync, local
