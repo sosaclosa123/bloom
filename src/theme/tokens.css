@@ -75,6 +75,12 @@
 
   /* Event colors: background / strong */
   --ev-rose-bg: #fbe0e8;   --ev-rose: #d9708f;
+  /* Health: soft pink for IBD cards and flare days */
+  --hl-pink: #d2607f;
+  --hl-pink-soft: #fcecf1;
+  --hl-pink-line: #f3c6d4;
+  --hl-water: #4f9fd0;
+  --hl-water-soft: #e4f1fa;
   --ev-peach-bg: #fde6d6;  --ev-peach: #e3955f;
   --ev-butter-bg: #fdf1c9; --ev-butter: #cfa52c;
   --ev-mint-bg: #d9f3e6;   --ev-mint: #4fb184;
@@ -159,6 +165,11 @@
   --status-packed: #f09a9a;
 
   --ev-rose-bg: #452a35;   --ev-rose: #f0a0b8;
+  --hl-pink: #f0a0b8;
+  --hl-pink-soft: #3a2630;
+  --hl-pink-line: #5a3443;
+  --hl-water: #84c3ea;
+  --hl-water-soft: #22323e;
   --ev-peach-bg: #45302a;  --ev-peach: #f3b388;
   --ev-butter-bg: #403820; --ev-butter: #ebcd6c;
   --ev-mint-bg: #233b31;   --ev-mint: #7fd3aa;

@@ -76,7 +76,7 @@ Detailed, one question per screen, skippable, editable later in the tab.
 ## Checklist
 - [x] 1. Data model (`health` collection, types, migration), privacy
       enforcement in save + sync, rules check, unit tests.
-- [ ] 2. Settings: `healthEnabled`, `healthIbd`; rail heart tab (dimmed when
+- [x] 2. Settings: `healthEnabled`, `healthIbd`; rail heart tab (dimmed when
       off + "Turn on in Settings"); strings EN+HE.
 - [ ] 3. Profile questionnaire + `src/shared/health.ts` formulas (water goal,
       BMI, HBI) with tests.

@@ -5058,3 +5058,81 @@ input[type='time'] {
     display: inline;
   }
 }
+
+/* ------------------------------------------------------------ health */
+/* Rail tab while Health is off on this computer: dimmed, still clickable. */
+.rail-tab.off {
+  opacity: 0.45;
+}
+.rail-tab.off.active {
+  opacity: 0.75;
+}
+.hl-off {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.hl-off p {
+  margin: 0;
+}
+.hl-off .button,
+.hl-off button {
+  margin-top: var(--space-3);
+}
+.hl-off-icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--hl-pink-soft);
+  color: var(--hl-pink);
+  margin-bottom: var(--space-2);
+}
+.hl-off-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  color: var(--text);
+}
+.hl-set-intro {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--hl-pink-soft);
+  color: var(--text);
+}
+.hl-set-intro p {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.hl-set-intro .icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--hl-pink);
+}
+.hl-set-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-inline-start: var(--space-4);
+  border-inline-start: 2px solid var(--border);
+}
+.hl-set-sub p {
+  margin: 0;
+}
+.hl-note {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs, var(--fs-sm));
+}
+.hl-note .icon {
+  color: var(--hl-pink);
+  flex: none;
+}

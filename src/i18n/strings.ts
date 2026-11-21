@@ -396,6 +396,17 @@ const en = {
   min: '{n} min',
   hours: '{n} h',
   days: '{n} d',
+  health: "Health",
+  hlOffTitle: "Health is off",
+  hlOffBody: "Turn on in Settings",
+  hlOpenSettings: "Open Settings",
+  hlEnable: "Health tab on this computer",
+  hlEnableHint: "Private: only you see it. Never shared, never in Search, the calendar or Scheduled.",
+  hlIbd: "IBD / Crohn's tracking",
+  hlIbdHint: "Bathroom log, symptoms, flares, IBD tests and food insights.",
+  hlDeviceOnly: "These settings are for this computer only.",
+  hlNotAdvice: "Not medical advice. Talk to your doctor.",
+  hlTurnOn: "Turn on Health",
 };
 
 export type StringKey = keyof typeof en;
@@ -794,6 +805,17 @@ const he: Record<StringKey, string> = {
   min: '{n} דק׳',
   hours: '{n} שע׳',
   days: '{n} ימים',
+  health: "בריאות",
+  hlOffTitle: "הבריאות כבויה",
+  hlOffBody: "אפשר להפעיל בהגדרות",
+  hlOpenSettings: "פתיחת ההגדרות",
+  hlEnable: "לשונית בריאות במחשב הזה",
+  hlEnableHint: "פרטי: רק לך. לא משותף, ולא מופיע בחיפוש, בלוח השנה או במתוכנן.",
+  hlIbd: "מעקב IBD / קרוהן",
+  hlIbdHint: "יומן שירותים, תסמינים, התלקחויות, בדיקות IBD ותובנות על אוכל.",
+  hlDeviceOnly: "ההגדרות האלה חלות רק על המחשב הזה.",
+  hlNotAdvice: "זה לא ייעוץ רפואי. כדאי להתייעץ עם הרופא.",
+  hlTurnOn: "הפעלת בריאות",
 };
 
 const dict: Record<Language, Record<StringKey, string>> = { en, he };

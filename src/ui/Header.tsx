@@ -5,7 +5,7 @@ import { IconButton, Segmented } from './common';
 import { monthInk, SeasonLayer } from './season';
 import { useBloom } from './store';
 
-export type Tab = 'calendar' | 'upcoming' | 'countdowns' | 'wallet';
+export type Tab = 'calendar' | 'upcoming' | 'countdowns' | 'wallet' | 'health';
 export type CalView = 'month' | 'week' | 'year';
 
 interface Props {
@@ -25,7 +25,7 @@ export function Header(p: Props) {
   const rtl = settings.language === 'he';
 
   const title = useMemo(() => {
-    if (p.tab !== 'calendar') return t(p.tab === 'upcoming' ? 'upcoming' : p.tab === 'wallet' ? 'wallet' : 'countdowns');
+    if (p.tab !== 'calendar') return t(p.tab === 'upcoming' ? 'upcoming' : p.tab === 'wallet' ? 'wallet' : p.tab === 'health' ? 'health' : 'countdowns');
     if (p.view === 'year') return String(p.anchor.getFullYear());
     if (p.view === 'month') return p.anchor.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
     const s = startOfWeek(p.anchor, settings.weekStart);

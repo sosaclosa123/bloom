@@ -8,13 +8,15 @@ import { playSound } from './sound';
 import { useAlive, useBloom } from './store';
 import { UpdateSettings } from './Updates';
 import { AccountSettings } from './Account';
+import { HealthSettings } from './Health';
 
-type Tab = 'account' | 'general' | 'calendar' | 'reminders' | 'backup';
+export type SettingsTab = 'account' | 'general' | 'calendar' | 'reminders' | 'health' | 'backup';
+type Tab = SettingsTab;
 
-export function SettingsPanel({ onClose }: { onClose: () => void }) {
+export function SettingsPanel({ onClose, initialTab }: { onClose: () => void; initialTab?: SettingsTab }) {
   const { t, settings, setSettings, toast, del } = useBloom();
   const sounds = useAlive('sounds');
-  const [tab, setTab] = useState<Tab>('general');
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'general');
   const [game, setGame] = useState<{ available: boolean; gamingNow: boolean } | null>(null);
 
   useEffect(() => {
@@ -34,6 +36,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     { id: 'general', label: t('general'), icon: 'settings' },
     { id: 'calendar', label: t('calendar'), icon: 'calendar' },
     { id: 'reminders', label: t('notifications'), icon: 'bell' },
+    { id: 'health', label: t('health'), icon: 'heartPulse' },
     { id: 'backup', label: t('backup'), icon: 'note' },
   ];
 
@@ -196,6 +199,8 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             </>
           )}
 
+
+          {tab === 'health' && <HealthSettings />}
 
           {tab === 'backup' && (
             <>

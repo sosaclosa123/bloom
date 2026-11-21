@@ -15,13 +15,14 @@ import { NotePopover, type NotePopState } from './NotePopover';
 import { addSticker, stickerKey, StickerDefs, StickerPicker } from './Stickers';
 import { MonthView } from './MonthView';
 import { Search } from './Search';
-import { SettingsPanel } from './Settings';
+import { SettingsPanel, type SettingsTab } from './Settings';
 import { CountdownsPage, NavRail, UpcomingPage } from './Pages';
 import { playSound } from './sound';
 import { startSync } from './sync';
 import { useBloom } from './store';
 import { UpdateBanner } from './Updates';
 import { WalletPage } from './Wallet';
+import { HealthPage } from './Health';
 import { SeasonBackdrop } from './season';
 import { WeekView } from './WeekView';
 import { YearView } from './YearView';
@@ -31,7 +32,7 @@ type ModalState =
   | { kind: 'event'; ev: CalendarEvent; isNew: boolean }
   | { kind: 'reminder'; r: Reminder; isNew: boolean }
   | { kind: 'countdown'; c: Countdown; isNew: boolean }
-  | { kind: 'settings' }
+  | { kind: 'settings'; tab?: SettingsTab }
   | { kind: 'search' }
   | null;
 
@@ -60,7 +61,7 @@ export function App() {
   const { snap, settings, t, save } = useBloom();
   const [tab, setTab] = useState<Tab>(() => {
     const v = load<string>('bloom-tab', 'calendar');
-    return (['calendar', 'upcoming', 'countdowns', 'wallet'].includes(v) ? v : 'calendar') as Tab;
+    return (['calendar', 'upcoming', 'countdowns', 'wallet', 'health'].includes(v) ? v : 'calendar') as Tab;
   });
   const [view, setView] = useState<CalView>(() => load('bloom-view', 'month'));
   const [drawer, setDrawer] = useState<{ tab?: DrawerTab; autoAdd?: 'todo' | 'note'; n: number }>({ n: 0 });
@@ -239,7 +240,9 @@ export function App() {
                 </Button>
               </div>
             )}
-            {tab === 'wallet' ? (
+            {tab === 'health' ? (
+              <HealthPage onOpenSettings={() => setModal({ kind: 'settings', tab: 'health' })} />
+            ) : tab === 'wallet' ? (
               <WalletPage />
             ) : tab === 'upcoming' ? (
               <UpcomingPage onOpenDay={showDay} onOpenEvent={openEvent} onOpenReminder={openReminder} />
@@ -319,7 +322,7 @@ export function App() {
       )}
       <StickerDefs />
       {notePop && <NotePopover key={`${notePop.date}-${notePop.n}`} state={notePop} onClose={() => setNotePop(null)} />}
-      {modal?.kind === 'settings' && <SettingsPanel onClose={() => setModal(null)} />}
+      {modal?.kind === 'settings' && <SettingsPanel initialTab={modal.tab} onClose={() => setModal(null)} />}
       {modal?.kind === 'search' && (
         <Search
           onClose={() => setModal(null)}

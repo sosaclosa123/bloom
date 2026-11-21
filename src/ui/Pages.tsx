@@ -11,15 +11,17 @@ import { useAlive, useBloom } from './store';
 
 // ------------------------------------------------------------------ nav rail
 
-const TABS: { id: Tab; icon: IconName; label: 'calendar' | 'upcoming' | 'wallet' | 'railCountdowns' }[] = [
+const TABS: { id: Tab; icon: IconName; label: 'calendar' | 'upcoming' | 'wallet' | 'railCountdowns' | 'health' }[] = [
   { id: 'calendar', icon: 'calendar', label: 'calendar' },
   { id: 'upcoming', icon: 'clock', label: 'upcoming' },
   { id: 'countdowns', icon: 'heart', label: 'railCountdowns' },
   { id: 'wallet', icon: 'wallet', label: 'wallet' },
+  // Always visible; dimmed while Health is off on this computer.
+  { id: 'health', icon: 'heartPulse', label: 'health' },
 ];
 
 export function NavRail({ tab, onTab, onSettings, badge }: { tab: Tab; onTab: (t: Tab) => void; onSettings: () => void; badge: number }) {
-  const { t } = useBloom();
+  const { t, settings } = useBloom();
   return (
     <nav className="rail" aria-label="Bloom">
       <div className="rail-brand" aria-hidden="true">
@@ -34,7 +36,7 @@ export function NavRail({ tab, onTab, onSettings, badge }: { tab: Tab; onTab: (t
       </div>
       <div className="rail-tabs" role="tablist">
         {TABS.map((x) => (
-          <button type="button" role="tab" aria-selected={tab === x.id} key={x.id} className={`rail-tab ${tab === x.id ? 'active' : ''}`} onClick={() => onTab(x.id)}>
+          <button type="button" role="tab" aria-selected={tab === x.id} key={x.id} className={`rail-tab ${tab === x.id ? 'active' : ''} ${x.id === 'health' && !settings.healthEnabled ? 'off' : ''}`} onClick={() => onTab(x.id)}>
             <span className="rail-icon">
               <Icon name={x.icon} size={20} />
               {x.id === 'upcoming' && badge > 0 && <span className="rail-badge">{badge}</span>}
