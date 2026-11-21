@@ -13,6 +13,7 @@ import {
   chargeDates,
   splitFromNow,
   yearlyStartFor,
+  cancelledIn,
   paymentHistory,
   latestPart,
   isActive,
@@ -194,6 +195,28 @@ describe('wallet: switching monthly <-> yearly', () => {
     const r = rec({ amount: 50, startDate: '2026-01-20' }); // monthly on the 20th
     const [ended, next] = splitFromNow(r, { ...r, amount: 60 }, '2026-11-20', meta);
     expect(monthSpending([ended, next], 'private', '2026-11').total).toBe(60);
+  });
+});
+
+describe('wallet: cancelled payments history', () => {
+  const netflix = rec({ amount: 55, startDate: '2026-03-05', endDate: '2026-11-19' }); // cancelled after the 5 Nov charge
+
+  it('shows once, on the charge that no longer happens, and is not counted', () => {
+    expect(cancelledIn([netflix], 'private', '2026-11')).toEqual([]);
+    expect(cancelledIn([netflix], 'private', '2026-12').map((c) => c.date)).toEqual(['2026-12-05']);
+    expect(cancelledIn([netflix], 'private', '2027-01')).toEqual([]);
+    expect(monthSpending([netflix], 'private', '2026-12').total).toBe(0);
+  });
+  it('cancelled before this month\'s charge: shows in this month', () => {
+    expect(cancelledIn([{ ...netflix, endDate: '2026-11-03' }], 'private', '2026-11').map((c) => c.date)).toEqual(['2026-11-05']);
+  });
+  it('yearly: shows on the renewal that won\'t happen', () => {
+    const y = rec({ cycle: 'yearly', amount: 240, startDate: '2025-12-10', endDate: '2026-02-01' });
+    expect(cancelledIn([y], 'private', '2026-12').map((c) => c.date)).toEqual(['2026-12-10']);
+  });
+  it('price changes are not shown as cancelled; private/shared stay apart', () => {
+    expect(cancelledIn([{ ...netflix, replacedBy: 'x' }], 'private', '2026-12')).toEqual([]);
+    expect(cancelledIn([netflix], 'shared', '2026-12')).toEqual([]);
   });
 });
 

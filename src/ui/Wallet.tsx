@@ -22,6 +22,7 @@ import {
   paymentChain,
   paymentHistory,
   splitFromNow,
+  cancelledIn,
   yearlyStartFor,
   recurringOf,
   savedByPerson,
@@ -296,14 +297,25 @@ function SpendingList({ all, side, month, onEdit }: { all: MoneyItem[]; side: Vi
   const { fmt, day } = useMoney();
   const m = monthSpending(all, side, month);
   const rows = [
-    ...m.spends.map((s) => ({ key: s.id, date: s.date, title: s.title, amount: s.amount, tag: null as string | null, open: () => onEdit({ kind: 'spend', item: s, isNew: false }) })),
+    ...m.spends.map((s) => ({ key: s.id, date: s.date, title: s.title, amount: s.amount, tag: null as string | null, cancelled: false, open: () => onEdit({ kind: 'spend', item: s, isNew: false }) })),
     ...m.charges.map((c) => ({
       key: `${c.rec.id}@${c.date}`,
       date: c.date,
       title: c.rec.title,
       amount: c.rec.amount,
       tag: c.rec.subscription ? t('wlSubscription') : c.rec.cycle === 'yearly' ? t('wlYearlyTag') : t('wlPaymentTag'),
+      cancelled: false,
       open: () => onEdit({ kind: 'recurring', item: latestPart(all, c.rec), isNew: false }),
+    })),
+    // History only: payments cancelled before this charge (dimmed, not counted, not clickable).
+    ...cancelledIn(all, side, month).map((c) => ({
+      key: `x-${c.rec.id}@${c.date}`,
+      date: c.date,
+      title: c.rec.title,
+      amount: c.rec.amount,
+      tag: null as string | null,
+      cancelled: true,
+      open: () => {},
     })),
   ].sort((a, b) => b.date.localeCompare(a.date));
   return (
@@ -314,20 +326,36 @@ function SpendingList({ all, side, month, onEdit }: { all: MoneyItem[]; side: Vi
         <ul className="wl-rows">
           {rows.map((r) => (
             <li key={r.key}>
-              <button type="button" className="wl-row" onClick={r.open}>
-                <span className="wl-row-date">{day(r.date)}</span>
-                <span className="wl-row-title" dir="auto">
-                  {r.title || '—'}
-                </span>
-                {r.tag && (
-                  <span className="wl-tag">
-                    <Icon name="repeat" size={11} /> {r.tag}
+              {r.cancelled ? (
+                <div className="wl-row cancelled" aria-disabled="true" title={t('wlCancelledNote')}>
+                  <span className="wl-row-date">{day(r.date)}</span>
+                  <span className="wl-x" aria-hidden="true">
+                    <Icon name="close" size={12} />
                   </span>
-                )}
-                <span className="wl-row-amount" dir="ltr">
-                  {fmt(r.amount)}
-                </span>
-              </button>
+                  <span className="wl-row-title" dir="auto">
+                    {r.title || '—'}
+                  </span>
+                  <span className="wl-tag cancelled">{t('wlCancelledTag')}</span>
+                  <span className="wl-row-amount" dir="ltr">
+                    {fmt(r.amount)}
+                  </span>
+                </div>
+              ) : (
+                <button type="button" className="wl-row" onClick={r.open}>
+                  <span className="wl-row-date">{day(r.date)}</span>
+                  <span className="wl-row-title" dir="auto">
+                    {r.title || '—'}
+                  </span>
+                  {r.tag && (
+                    <span className="wl-tag">
+                      <Icon name="repeat" size={11} /> {r.tag}
+                    </span>
+                  )}
+                  <span className="wl-row-amount" dir="ltr">
+                    {fmt(r.amount)}
+                  </span>
+                </button>
+              )}
             </li>
           ))}
         </ul>

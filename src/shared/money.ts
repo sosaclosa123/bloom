@@ -52,6 +52,24 @@ export function chargesIn(items: MoneyItem[], vis: Visibility, month: string): C
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/**
+ * Payments that were cancelled, shown once (dimmed, not counted) on the date
+ * of the first charge that no longer happens - for history in that month.
+ * Price/schedule changes ("replaced" parts) are not cancellations.
+ */
+export function cancelledIn(items: MoneyItem[], vis: Visibility, month: string): Charge[] {
+  const out: Charge[] = [];
+  for (const rec of recurringOf(items, vis)) {
+    if (!rec.endDate || rec.replacedBy) continue;
+    const [y, m, d] = rec.endDate.split('-').map(Number);
+    const after = new Date(y, m - 1, d + 1);
+    const from = `${after.getFullYear()}-${pad(after.getMonth() + 1)}-${pad(after.getDate())}`;
+    const skipped = nextCharge({ ...rec, endDate: null }, from < rec.startDate ? rec.startDate : from);
+    if (skipped && monthKey(skipped) === month) out.push({ rec, date: skipped });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 export interface MonthSpending {
   spends: MoneySpend[];
   charges: Charge[];

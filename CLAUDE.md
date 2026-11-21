@@ -61,7 +61,9 @@ installed apps auto-update. Commit messages: clear "what + why".
   Monthly limit vs. purchases + repeating payments. **Yearly payments count
   only in their charge month.** Cancel keeps already-paid charges. Price or
   monthly<->yearly changes apply "from now on" (old part ends after today,
-  history kept). Shared goals: each deposit is its own record (sync-safe).
+  history kept). A cancelled payment shows once, dimmed with a red X and a
+  "Cancelled" pill (not counted, not clickable), on the charge that no longer
+  happens. Shared goals: each deposit is its own record (sync-safe).
   Goal cards fill with banknote green, animate only when money is added.
   Layout: two columns that scroll separately (this month | year, goals,
   payments); one column on narrow windows. Money numbers use the Outfit font.

@@ -4924,3 +4924,34 @@ input[type='time'] {
 .glance-num {
   font-family: 'Outfit', var(--font-sans);
 }
+/* Cancelled payments: history only, dimmed, not clickable, not counted */
+.wl-row.cancelled {
+  cursor: default;
+  color: var(--text-muted);
+}
+.wl-row.cancelled .wl-row-date,
+.wl-row.cancelled .wl-row-title,
+.wl-row.cancelled .wl-row-amount {
+  opacity: 0.55;
+}
+.wl-row.cancelled:hover {
+  background: none;
+}
+.wl-row.cancelled .wl-row-amount {
+  text-decoration: line-through;
+  font-weight: 600;
+}
+.wl-x {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #e06a5a;
+  color: #fff;
+}
+.wl-tag.cancelled {
+  background: #fbe0dc;
+  color: #b4473a;
+}
