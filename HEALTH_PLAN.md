@@ -78,7 +78,7 @@ Detailed, one question per screen, skippable, editable later in the tab.
       enforcement in save + sync, rules check, unit tests.
 - [x] 2. Settings: `healthEnabled`, `healthIbd`; rail heart tab (dimmed when
       off + "Turn on in Settings"); strings EN+HE.
-- [ ] 3. Profile questionnaire + `src/shared/health.ts` formulas (water goal,
+- [x] 3. Profile questionnaire + `src/shared/health.ts` formulas (water goal,
       BMI, HBI) with tests.
 - [ ] 4. Daily check-in card (water goal progress, mood, sleep, energy, stress).
 - [ ] 5. Medications (+ private reminders) and Body/Tests/Doctor cards.

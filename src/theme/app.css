@@ -5136,3 +5136,222 @@ input[type='time'] {
   color: var(--hl-pink);
   flex: none;
 }
+.hl-top .hl-day span {
+  min-width: calc(150px * var(--fs-scale, 1));
+}
+.hl-top .icon-btn:disabled,
+.hl-top button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.hl-private {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-hover);
+  white-space: nowrap;
+}
+.hl-two {
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+}
+.hl-num-font,
+.hl-goal-ml,
+.hl-num input {
+  font-family: 'Outfit', var(--font-sans);
+}
+/* number box with a unit */
+.hl-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.hl-num input:not([type='checkbox']):not([type='radio']):not([type='range']) {
+  width: calc(110px * var(--fs-scale, 1));
+  flex: none;
+  font-size: var(--fs-lg);
+  text-align: center;
+}
+.hl-num-unit {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+/* choice pills */
+.hl-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hl-pills button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  min-width: 38px;
+  line-height: 1.2;
+  transition: background var(--dur), border-color var(--dur);
+}
+.hl-pills button:hover {
+  background: var(--surface-hover);
+}
+.hl-pills button.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+/* questionnaire */
+.hl-wizard .modal-foot .spacer {
+  flex: 1;
+}
+.hl-q {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 250px;
+}
+.hl-q-progress {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface-hover);
+  overflow: hidden;
+}
+.hl-q-progress span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--hl-pink);
+  transition: width var(--dur) ease;
+}
+.hl-q-step {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.hl-q-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 650;
+  line-height: 1.25;
+}
+.hl-q-hint {
+  margin: -6px 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.hl-q-text {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.hl-q-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--space-2);
+}
+.hl-q-warn {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+/* results: water goal + BMI */
+.hl-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.hl-goal {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--hl-water-soft);
+}
+.hl-goal-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--hl-water);
+  background: var(--surface);
+}
+.hl-goal.compact .hl-goal-icon {
+  width: 34px;
+  height: 34px;
+}
+.hl-goal-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.hl-goal-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.hl-goal-ml {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}
+.hl-goal.compact .hl-goal-ml {
+  font-size: var(--fs-lg);
+}
+.hl-goal-why {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.hl-bmi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--space-3);
+}
+.hl-bmi strong {
+  font-size: var(--fs-lg);
+}
+/* first visit card */
+.hl-setup {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  background: linear-gradient(135deg, var(--hl-pink-soft), var(--surface) 70%);
+}
+.hl-setup-icon {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--hl-pink);
+  background: var(--surface);
+}
+.hl-setup-text {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.hl-setup-text h3 {
+  margin: 0;
+  font-size: var(--fs-md);
+}
+.hl-setup-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
