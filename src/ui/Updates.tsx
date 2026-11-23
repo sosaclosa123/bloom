@@ -13,22 +13,34 @@ export function useUpdateState() {
   return state;
 }
 
+// Phone: "Update available" downloads the new APK, then Android asks "Install?".
+const phoneApp = () => platform.kind === 'android';
+
 export function UpdateBanner() {
   const { t } = useBloom();
   const state = useUpdateState();
   const [hidden, setHidden] = useState<string | null>(null);
+  if (phoneApp() && state.status === 'downloading' && hidden !== state.version)
+    return (
+      <div className="update-banner" role="status">
+        <span className="update-emoji" aria-hidden="true">
+          ✨
+        </span>
+        <span>{t('updateDownloading', { v: state.version, p: state.percent })}</span>
+      </div>
+    );
   if (state.status !== 'ready' || hidden === state.version) return null;
   return (
     <div className="update-banner" role="status">
       <span className="update-emoji" aria-hidden="true">
         ✨
       </span>
-      <span>{t('updateReady', { v: state.version })}</span>
+      <span>{t(phoneApp() ? 'updateAvailable' : 'updateReady', { v: state.version })}</span>
       <Button size="sm" variant="ghost" onClick={() => setHidden(state.version)}>
         {t('later')}
       </Button>
       <Button size="sm" variant="primary" onClick={() => platform.installUpdate()}>
-        {t('restartUpdate')}
+        {t(phoneApp() ? 'updateNow' : 'restartUpdate')}
       </Button>
     </div>
   );
@@ -51,7 +63,7 @@ export function UpdateSettings() {
         : state.status === 'downloading'
           ? t('updateDownloading', { v: state.version, p: state.percent })
           : state.status === 'ready'
-            ? t('updateReady', { v: state.version })
+            ? t(phoneApp() ? 'updateAvailable' : 'updateReady', { v: state.version })
             : state.status === 'error'
               ? t('updateError')
               : state.status === 'unsupported'
@@ -68,7 +80,7 @@ export function UpdateSettings() {
         </span>
         {state.status === 'ready' ? (
           <Button size="sm" variant="primary" onClick={() => platform.installUpdate()}>
-            {t('restartUpdate')}
+            {t(phoneApp() ? 'updateNow' : 'restartUpdate')}
           </Button>
         ) : (
           <Button size="sm" onClick={() => platform.checkForUpdates()} disabled={state.status === 'checking' || state.status === 'downloading' || state.status === 'unsupported'}>

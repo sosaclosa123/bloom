@@ -1,7 +1,9 @@
 // PlatformAPI: everything the UI needs from the device it runs on.
 //  - desktop (Windows): Electron bridge, JSON file, tray, game-aware popups
-//  - web (dev / future PWA): localStorage + in-page reminders
-//  - phone (future): implement this same interface with Capacitor/React Native
+//  - web (dev / QA in a browser): localStorage + in-page reminders
+//  - android (Capacitor): the web version on phone storage + native
+//    notifications, share sheet, APK updates (see android.ts)
+import { Capacitor } from '@capacitor/core';
 import { alertsDueBetween } from '../shared/alerts';
 import { COLLECTIONS, emptySnapshot, merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert } from '../shared/db';
 import type { CollectionName, Collections, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../shared/types';
@@ -10,7 +12,7 @@ import type { DesktopBridge, UpdateState } from './bridge';
 export type { UpdateState };
 
 export interface PlatformAPI {
-  kind: 'desktop' | 'web';
+  kind: 'desktop' | 'web' | 'android';
   os: string;
   load(): Promise<Snapshot>;
   upsert<C extends CollectionName>(coll: C, item: RecordOf<C>): Promise<void>;
@@ -46,6 +48,12 @@ export interface PlatformAPI {
   onHidden(cb: (hidden: boolean) => void): () => void;
   /** Web only: in-page alerts (desktop shows its own popup window). */
   onInPageAlert(cb: (alerts: FiredAlert[]) => void): () => void;
+  /** Phone: "Taken" / "+ glass" pressed on a notification. */
+  onAlertTaken(cb: (alert: FiredAlert) => void): () => void;
+  /** Phone: the Android back button (desktop/web: never). */
+  onBackButton(cb: () => void): () => void;
+  /** Phone: leave the app (back on the main screen). */
+  exitApp(): void;
   testPopup(): Promise<void>;
   gameStatus(): Promise<{ available: boolean; gamingNow: boolean; error: string | null }>;
   setTitleBarTheme(dark: boolean): void;
@@ -87,6 +95,9 @@ function desktop(b: DesktopBridge): PlatformAPI {
     onOpenDate: (cb) => b.onOpenDate(cb),
     onHidden: (cb) => b.onHidden(cb),
     onInPageAlert: () => () => {},
+    onAlertTaken: () => () => {},
+    onBackButton: () => () => {},
+    exitApp: () => {},
     testPopup: () => b.testPopup(),
     gameStatus: () => b.gameStatus(),
     setTitleBarTheme: (d) => b.setTitleBarTheme(d),
@@ -102,6 +113,53 @@ const LS_KEY = 'bloom-data-v1'; // offline data; an account's copy is `${LS_KEY}
 const LS_PROFILE = 'bloom-profile-v1';
 const LS_SOUNDS = 'bloom-sounds-v1';
 const LS_PHOTOS = 'bloom-photos-v1';
+
+/** Key/value text storage: localStorage in a browser, files on the phone. */
+export interface KV {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
+/** Photos and documents, kept as data URLs. */
+export interface PhotoStore {
+  get(fileName: string): Promise<string | null>;
+  has(fileName: string): Promise<boolean>;
+  /** Saves several files at once; false = no room. */
+  put(entries: Record<string, string>): Promise<boolean>;
+}
+
+export interface WebOptions {
+  kv?: KV;
+  photos?: PhotoStore;
+  /** Check reminders inside the page (browser). The phone uses system notifications instead. */
+  inPageAlerts?: boolean;
+  /** Largest PDF a doctor visit can hold. */
+  maxPdfBytes?: number;
+}
+
+/** All photos in one localStorage entry (browser). */
+function kvPhotos(kv: KV): PhotoStore {
+  const all = (): Record<string, string> => {
+    try {
+      return JSON.parse(kv.getItem(LS_PHOTOS) || '{}');
+    } catch {
+      return {};
+    }
+  };
+  return {
+    get: async (f) => all()[f] ?? null,
+    has: async (f) => f in all(),
+    put: async (e) => {
+      try {
+        kv.setItem(LS_PHOTOS, JSON.stringify({ ...all(), ...e }));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  };
+}
 
 /** Browser build only: shrink photos so they fit in localStorage. */
 function shrinkImage(file: File, max = 1400): Promise<string> {
@@ -121,11 +179,14 @@ function shrinkImage(file: File, max = 1400): Promise<string> {
   });
 }
 
-function web(): PlatformAPI {
+export function web(opts: WebOptions = {}): PlatformAPI {
+  const kv: KV = opts.kv ?? localStorage;
+  const photos = opts.photos ?? kvPhotos(kv);
+  const maxPdf = opts.maxPdfBytes ?? 2 * 1024 * 1024; // browser storage is small
   let active: string | null = null;
   let profileKnown = false;
   try {
-    const p = JSON.parse(localStorage.getItem(LS_PROFILE) || 'null');
+    const p = JSON.parse(kv.getItem(LS_PROFILE) || 'null');
     profileKnown = p !== null;
     active = p?.active ?? null;
   } catch {
@@ -134,14 +195,14 @@ function web(): PlatformAPI {
   const keyOf = (uid: string | null) => (uid ? `${LS_KEY}:${uid}` : LS_KEY);
   const readKey = (k: string) => {
     try {
-      return normalizeSnapshot(JSON.parse(localStorage.getItem(k) || 'null'));
+      return normalizeSnapshot(JSON.parse(kv.getItem(k) || 'null'));
     } catch {
       return emptySnapshot();
     }
   };
   let snap: Snapshot = readKey(keyOf(active));
   try {
-    localStorage.setItem(keyOf(active), JSON.stringify(snap)); // save upgrades right away
+    kv.setItem(keyOf(active), JSON.stringify(snap)); // save upgrades right away
   } catch {
     /* ignore */
   }
@@ -151,7 +212,7 @@ function web(): PlatformAPI {
   const set = (next: Snapshot) => {
     snap = next;
     try {
-      localStorage.setItem(keyOf(active), JSON.stringify(next));
+      kv.setItem(keyOf(active), JSON.stringify(next));
     } catch {
       /* storage full or blocked */
     }
@@ -159,7 +220,7 @@ function web(): PlatformAPI {
   };
   const sounds = (): Record<string, string> => {
     try {
-      return JSON.parse(localStorage.getItem(LS_SOUNDS) || '{}');
+      return JSON.parse(kv.getItem(LS_SOUNDS) || '{}');
     } catch {
       return {};
     }
@@ -167,7 +228,7 @@ function web(): PlatformAPI {
 
   // In-page scheduler (the desktop app does this in the background process).
   let last = Date.now();
-  setInterval(() => {
+  if (opts.inPageAlerts !== false) setInterval(() => {
     const now = Date.now();
     const due = alertsDueBetween(snap, last, now);
     last = now;
@@ -207,7 +268,7 @@ function web(): PlatformAPI {
       });
       const meta: SoundMeta = { ...newMeta(), name: f.name.replace(/\.[^.]+$/, ''), fileName: f.name };
       try {
-        localStorage.setItem(LS_SOUNDS, JSON.stringify({ ...sounds(), [meta.id]: url }));
+        kv.setItem(LS_SOUNDS, JSON.stringify({ ...sounds(), [meta.id]: url }));
       } catch {
         return null;
       }
@@ -225,12 +286,7 @@ function web(): PlatformAPI {
         input.click();
       });
       const out: PhotoRef[] = [];
-      let store: Record<string, string> = {};
-      try {
-        store = JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}');
-      } catch {
-        /* ignore */
-      }
+      const store: Record<string, string> = {};
       for (const f of files) {
         try {
           const id = uuid();
@@ -240,35 +296,12 @@ function web(): PlatformAPI {
           /* not an image */
         }
       }
-      try {
-        localStorage.setItem(LS_PHOTOS, JSON.stringify(store));
-      } catch {
-        return [];
-      }
-      return out;
+      return (await photos.put(store)) ? out : [];
     },
-    readPhoto: async (f) => {
-      try {
-        return JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}')[f] ?? null;
-      } catch {
-        return null;
-      }
-    },
-    hasPhoto: async (f) => {
-      try {
-        return f in JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}');
-      } catch {
-        return false;
-      }
-    },
+    readPhoto: (f) => photos.get(f),
+    hasPhoto: (f) => photos.has(f),
     writePhoto: async (f, d) => {
-      try {
-        const all = JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}');
-        all[f] = d;
-        localStorage.setItem(LS_PHOTOS, JSON.stringify(all));
-      } catch {
-        /* storage full */
-      }
+      await photos.put({ [f]: d });
     },
     addDocs: async () => {
       const files = await new Promise<File[]>((resolve) => {
@@ -280,16 +313,11 @@ function web(): PlatformAPI {
         input.click();
       });
       const out: PhotoRef[] = [];
-      let store: Record<string, string> = {};
-      try {
-        store = JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}');
-      } catch {
-        /* ignore */
-      }
+      const store: Record<string, string> = {};
       for (const f of files) {
         const id = uuid();
         const pdf = f.type === 'application/pdf';
-        if (pdf && f.size > 2 * 1024 * 1024) continue; // browser storage is small
+        if (pdf && f.size > maxPdf) continue;
         const data = pdf
           ? await new Promise<string>((r) => {
               const fr = new FileReader();
@@ -302,20 +330,11 @@ function web(): PlatformAPI {
         store[fileName] = data;
         out.push({ id, fileName, name: f.name });
       }
-      try {
-        localStorage.setItem(LS_PHOTOS, JSON.stringify(store));
-      } catch {
-        return [];
-      }
-      return out;
+      return (await photos.put(store)) ? out : [];
     },
     openDoc: async (p) => {
-      try {
-        const url = JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}')[p.fileName];
-        if (url) window.open(url, '_blank');
-      } catch {
-        /* ignore */
-      }
+      const url = await photos.get(p.fileName);
+      if (url) window.open(url, '_blank');
     },
     offlineData: async () => {
       if (active === null) return {};
@@ -327,7 +346,7 @@ function web(): PlatformAPI {
       profileKnown = true;
       const saveProfile = () => {
         try {
-          localStorage.setItem(LS_PROFILE, JSON.stringify({ active }));
+          kv.setItem(LS_PROFILE, JSON.stringify({ active }));
         } catch {
           /* ignore */
         }
@@ -335,10 +354,10 @@ function web(): PlatformAPI {
       if (uid === active && !forget) return saveProfile();
       const settings = snap.settings;
       // First sign-in with this version: the single old data set was this account's.
-      if (uid && first && active === null && localStorage.getItem(keyOf(uid)) === null) {
+      if (uid && first && active === null && kv.getItem(keyOf(uid)) === null) {
         try {
-          localStorage.setItem(keyOf(uid), JSON.stringify(snap));
-          localStorage.setItem(LS_KEY, JSON.stringify({ ...emptySnapshot(), settings }));
+          kv.setItem(keyOf(uid), JSON.stringify(snap));
+          kv.setItem(LS_KEY, JSON.stringify({ ...emptySnapshot(), settings }));
         } catch {
           /* ignore */
         }
@@ -346,20 +365,14 @@ function web(): PlatformAPI {
       active = uid;
       saveProfile();
       set({ ...readKey(keyOf(uid)), settings });
-      if (forget && forget !== uid) localStorage.removeItem(keyOf(forget));
+      if (forget && forget !== uid) kv.removeItem(keyOf(forget));
     },
     applyRemote: async (c) => {
       const incoming = normalizeSnapshot({ ...snap, ...c });
       for (const k of COLLECTIONS) if (!c[k]) incoming[k] = [];
       set({ ...merge(snap, incoming), settings: snap.settings });
     },
-    photoUrl: async (p) => {
-      try {
-        return JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}')[p.fileName] ?? '';
-      } catch {
-        return '';
-      }
-    },
+    photoUrl: async (p) => (await photos.get(p.fileName)) ?? '',
     exportBackup: async () => {
       const blob = new Blob([JSON.stringify(snap, null, 1)], { type: 'application/json' });
       const a = document.createElement('a');
@@ -394,6 +407,9 @@ function web(): PlatformAPI {
       alertListeners.add(cb);
       return () => alertListeners.delete(cb);
     },
+    onAlertTaken: () => () => {},
+    onBackButton: () => () => {},
+    exitApp: () => {},
     testPopup: async () => {
       const now = new Date();
       const pad = (n: number) => String(n).padStart(2, '0');
@@ -412,4 +428,19 @@ function web(): PlatformAPI {
   };
 }
 
-export const platform: PlatformAPI = window.bloomDesktop ? desktop(window.bloomDesktop) : web();
+const isAndroid = Capacitor.getPlatform() === 'android';
+
+/**
+ * The device Bloom runs on. Desktop and browser are ready at once; the phone
+ * first reads its files, so main.tsx waits for `platformReady` before the UI.
+ */
+export let platform: PlatformAPI = window.bloomDesktop ? desktop(window.bloomDesktop) : isAndroid ? (null as unknown as PlatformAPI) : web();
+
+export const platformReady: Promise<void> = isAndroid
+  ? import('./android').then(async (m) => {
+      platform = await m.createAndroid(web);
+    })
+  : Promise.resolve();
+
+/** Phone layout: the Android app, or `?phone` in a browser (for testing). */
+export const isPhone = isAndroid || new URLSearchParams(location.search).has('phone');

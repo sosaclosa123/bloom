@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { platform } from '../platform/api';
+import { isPhone, platform } from '../platform/api';
 import { addDays, addMonths, parseISODate, toISODate } from '../shared/dates';
 import { newMeta, personalDays } from '../shared/db';
 import { expandEvents, type EventOccurrence } from '../shared/recurrence';
@@ -27,6 +27,7 @@ import { SeasonBackdrop } from './season';
 import { WeekView } from './WeekView';
 import { YearView } from './YearView';
 import { useWindowControls } from './windowControls';
+import { PHONE_ANIM_MS, PhoneDaySheet, useSwipe } from './phone';
 
 type ModalState =
   | { kind: 'event'; ev: CalendarEvent; isNew: boolean }
@@ -66,7 +67,23 @@ export function App() {
   const [view, setView] = useState<CalView>(() => load('bloom-view', 'month'));
   const [drawer, setDrawer] = useState<{ tab?: DrawerTab; autoAdd?: 'todo' | 'note'; n: number }>({ n: 0 });
   const [anchor, setAnchor] = useState(() => new Date());
-  const [openDay, setOpenDay] = useState<ISODate | null>(null);
+  const [openDay, setOpenDayRaw] = useState<ISODate | null>(null);
+  // Phone: the day panel slides away (and the month grows back) before it's removed.
+  const [sheetClosing, setSheetClosing] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const setOpenDay = useCallback((d: ISODate | null) => {
+    clearTimeout(closeTimer.current);
+    if (d === null && isPhone) {
+      setSheetClosing(true);
+      closeTimer.current = setTimeout(() => {
+        setOpenDayRaw(null);
+        setSheetClosing(false);
+      }, PHONE_ANIM_MS + 30);
+      return;
+    }
+    setSheetClosing(false);
+    setOpenDayRaw(d);
+  }, []);
   const [modal, setModal] = useState<ModalState>(null);
   const [notePop, setNotePop] = useState<NotePopState | null>(null);
   const [stickerPick, setStickerPick] = useState<{ date: ISODate; anchor: HTMLElement } | null>(null);
@@ -101,6 +118,8 @@ export function App() {
   const [pageAlerts, setPageAlerts] = useState<FiredAlert[]>([]);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  const snapRef = useRef(snap);
+  snapRef.current = snap;
 
   useEffect(() => {
     try {
@@ -155,13 +174,23 @@ export function App() {
   const showDay = useCallback((date: ISODate) => {
     setAnchor(parseISODate(date));
     setOpenDay(date);
-  }, []);
+    // Phone: the day panel lives under the month.
+    if (isPhone) {
+      setTab('calendar');
+      setView('month');
+    }
+  }, [setOpenDay]);
+  const openDayRef = useRef(openDay);
+  openDayRef.current = sheetClosing ? null : openDay;
   /** Open a day in the panel, optionally on a tab and adding something. */
   const openDayAt = useCallback((date: ISODate, dtab?: DrawerTab, autoAdd?: 'todo' | 'note') => {
+    // Phone: tapping the open day again closes it.
+    if (isPhone && !dtab && !autoAdd && openDayRef.current === date) return setOpenDay(null);
     setAnchor(parseISODate(date));
     setOpenDay(date);
-    setDrawer((d) => ({ tab: dtab, autoAdd, n: d.n + 1 }));
-  }, []);
+    if (isPhone) setView('month');
+    setDrawer((d) => ({ tab: dtab, autoAdd, n: isPhone && openDayRef.current && !dtab && !autoAdd ? d.n : d.n + 1 }));
+  }, [setOpenDay]);
   const editCountdown = useCallback(
     (c: Countdown | null) =>
       setModal(c ? { kind: 'countdown', c, isNew: false } : { kind: 'countdown', c: newCountdown(toISODate(addDays(new Date(), 30))), isNew: true }),
@@ -211,12 +240,58 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [modal, go, createEvent, openDay]);
 
+  /** "Taken" on a medicine reminder / "+ glass" on a water nudge. */
+  const markTaken = (a: FiredAlert) => {
+    const cur = snapRef.current;
+    if (a.kind === 'water') {
+      const date = a.when.slice(0, 10);
+      const all = cur.health.filter((h) => !h.deletedAt);
+      const glass = (all.find((h) => h.kind === 'profile') as { glassMl?: number } | undefined)?.glassMl || 250;
+      const day = all.filter((h): h is HealthCheckin => h.kind === 'checkin' && h.date === date).sort((x, y) => y.updatedAt - x.updatedAt)[0];
+      save('health', day ? { ...day, waterMl: day.waterMl + glass } : { ...newMeta(), kind: 'checkin', date, waterMl: glass, mood: null, sleepH: null, energy: null, stress: null });
+    }
+    if (a.kind === 'med') save('health', { ...newMeta(), kind: 'taken', medId: a.sourceId, date: a.when.slice(0, 10), time: a.when.slice(11, 16) });
+  };
+  const markTakenRef = useRef(markTaken);
+  markTakenRef.current = markTaken;
+
+  // Android back button: close the top-most thing, then go back to the calendar, then leave.
+  const backRef = useRef<() => void>(() => {});
+  backRef.current = () => {
+    if (notePop) return setNotePop(null);
+    if (stickerPick) return setStickerPick(null);
+    if (document.querySelector('.scrim, [role="dialog"]')) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      return;
+    }
+    if (openDay) return setOpenDay(null);
+    if (tab !== 'calendar') return setTab('calendar');
+    if (view !== 'month') return setView('month');
+    platform.exitApp();
+  };
+  useEffect(() => {
+    const offs = [platform.onBackButton(() => backRef.current()), platform.onAlertTaken((a) => markTakenRef.current(a))];
+    return () => offs.forEach((off) => off());
+  }, []);
+
+  // Phone: swipe the calendar sideways to change month / week / year.
+  const contentRef = useRef<HTMLDivElement>(null);
+  useSwipe(contentRef, isPhone && tab === 'calendar', settings.language === 'he', (dir) => go(dir));
+
   const findEvent = (id: string) => snap.events.find((e) => e.id === id);
   const findReminder = (id: string) => snap.reminders.find((r) => r.id === id);
 
   return (
-    <div className={`app ${openDay ? 'drawer-open' : ''} ${platform.kind}`}>
-      <NavRail tab={tab} onTab={setTab} onSettings={() => setModal({ kind: 'settings' })} badge={missed.length} />
+    <div className={`app ${openDay ? 'drawer-open' : ''} ${platform.kind} ${isPhone ? 'phone' : ''} ${isPhone && openDay && !sheetClosing ? 'day-open' : ''}`}>
+      <NavRail
+        tab={tab}
+        onTab={(x) => {
+          if (isPhone && openDay) setOpenDay(null);
+          setTab(x);
+        }}
+        onSettings={() => setModal({ kind: 'settings' })}
+        badge={missed.length}
+      />
       <div className="shell">
         <Header
           tab={tab}
@@ -228,9 +303,11 @@ export function App() {
           onToday={() => setAnchor(new Date())}
           onSearch={() => setModal({ kind: 'search' })}
           isDesktop={platform.kind === 'desktop'}
+          phone={isPhone}
+          onSettings={() => setModal({ kind: 'settings' })}
         />
         <div className="main">
-          <div className="content">
+          <div className="content" ref={contentRef}>
             {/* Calendar: the season of the month on screen. Other pages: today's season. */}
             <SeasonBackdrop month={tab === 'calendar' ? anchor.getMonth() : new Date().getMonth()} />
             {missed.length > 0 && (
@@ -276,6 +353,8 @@ export function App() {
                 onOpenStickers={(date, el) => setStickerPick({ date, anchor: el })}
                 selectedSticker={selectedSticker}
                 onSelectSticker={setSelectedSticker}
+                phone={isPhone}
+                frozen={isPhone && !!openDay}
               />
             ) : (
               <WeekView
@@ -289,7 +368,22 @@ export function App() {
               />
             )}
           </div>
-          {openDay && (
+          {openDay && isPhone && (
+            <PhoneDaySheet closing={sheetClosing} onClose={() => setOpenDay(null)} onSticker={(el) => setStickerPick({ date: openDay, anchor: el })}>
+              <DayDrawer
+                key={`${openDay}-${drawer.n}`}
+                date={openDay}
+                initialTab={drawer.tab}
+                autoAdd={drawer.autoAdd}
+                onClose={() => setOpenDay(null)}
+                onOpenEvent={openEvent}
+                onNewEvent={(d) => createEvent(d)}
+                onOpenReminder={openReminder}
+                onNewReminder={createReminder}
+              />
+            </PhoneDaySheet>
+          )}
+          {openDay && !isPhone && (
             <DayDrawer
               key={`${openDay}-${drawer.n}`}
               date={openDay}
@@ -366,14 +460,7 @@ export function App() {
             onDismissAll={() => setPageAlerts([])}
             onTaken={(key) => {
               const a = pageAlerts.find((x) => x.key === key);
-              if (a?.kind === 'water') {
-                const date = a.when.slice(0, 10);
-                const all = snap.health.filter((h) => !h.deletedAt);
-                const glass = (all.find((h) => h.kind === 'profile') as { glassMl?: number } | undefined)?.glassMl || 250;
-                const cur = all.filter((h): h is HealthCheckin => h.kind === 'checkin' && h.date === date).sort((x, y) => y.updatedAt - x.updatedAt)[0];
-                save('health', cur ? { ...cur, waterMl: cur.waterMl + glass } : { ...newMeta(), kind: 'checkin', date, waterMl: glass, mood: null, sleepH: null, energy: null, stress: null });
-              }
-              if (a?.kind === 'med') save('health', { ...newMeta(), kind: 'taken', medId: a.sourceId, date: a.when.slice(0, 10), time: a.when.slice(11, 16) });
+              if (a) markTaken(a);
               setPageAlerts((p) => p.filter((x) => x.key !== key));
             }}
             onOpen={(d) => {
@@ -382,6 +469,11 @@ export function App() {
             }}
           />
         </div>
+      )}
+      {isPhone && tab === 'calendar' && !openDay && (
+        <button type="button" className="phone-fab" aria-label={t('newEvent')} title={t('newEvent')} onClick={() => createEvent(toISODate(anchor.getMonth() === new Date().getMonth() && anchor.getFullYear() === new Date().getFullYear() ? new Date() : anchor))}>
+          <Icon name="plus" size={24} />
+        </button>
       )}
       <UpdateBanner />
       <Toasts />

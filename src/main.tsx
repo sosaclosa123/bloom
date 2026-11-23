@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { platform } from './platform/api';
+import { platform, platformReady } from './platform/api';
 import { App } from './ui/App';
 import { BloomProvider } from './ui/store';
 import '@fontsource/fraunces/500.css';
@@ -12,8 +12,9 @@ import '@fontsource/outfit/600.css';
 import './theme/tokens.css';
 import './theme/app.css';
 import './theme/motion.css';
+import './theme/phone.css';
 
-platform.load().then((snap) => {
+platformReady.then(() => platform.load()).then((snap) => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <BloomProvider initial={snap}>

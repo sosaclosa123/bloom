@@ -17,16 +17,16 @@ Owner's choices (2026-11-23):
 
 ## Steps
 - [x] 1. Capacitor deps + `android/` project (cap add), app id `app.bloom.calendar`
-- [ ] 2. Platform layer `src/platform/android.ts`: file storage (Filesystem),
+- [x] 2. Platform layer `src/platform/android.ts`: file storage (Filesystem),
       photos/docs as files, open PDF / share backup (native plugin),
       notifications (LocalNotifications, rescheduled on every change),
       update check (GitHub releases), back button
-- [ ] 3. Phone layout (`.phone` class): bottom tabs, header, combo month,
+- [~] 3. Phone layout (calendar combo, tabs, header, sheets done; next: QA all screens EN/HE light/dark 360/412) (`.phone` class): bottom tabs, header, combo month,
       day panel with swipe, full-screen modals, all pages. QA with
       `?phone=1` in browser (EN/HE, light/dark, 360/412/480 widths)
 - [~] 4. Native bits (plugin, manifest, icons done; check in CI): Java plugin (open file / install APK / share), manifest
       permissions (notifications, exact alarm, install packages), icons
-- [ ] 5. CI: Android job (APK signed with keystore from GitHub secrets),
+- [~] 5. CI: Android job (written; test with workflow_dispatch on the branch) (APK signed with keystore from GitHub secrets),
       attach `Bloom-X.Y.Z.apk` to the release
 - [ ] 6. Owner: add the 2 GitHub secrets (simple steps), first install
 - [ ] 7. Update CLAUDE.md + docs/HISTORY.md

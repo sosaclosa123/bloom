@@ -1,0 +1,464 @@
+/*
+ * Phone layout (Android app; `?phone` in a browser for testing).
+ * Same colors, icons and stickers as the PC app, arranged for a phone:
+ * tabs at the bottom, gear + search at the top, and the "combo" calendar:
+ * a full month with event names; tapping a day shrinks the month to small
+ * squares with color dots and shows the day underneath (swipe down = close).
+ * Everything here is scoped to `.phone`, so the PC app is never affected.
+ */
+:root {
+  --sa-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sa-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --tabbar-h: 58px;
+  --phone-anim: 320ms; /* keep in sync with PHONE_ANIM_MS (phone.tsx) */
+  --phone-ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --cell-compact: 42px;
+}
+
+.app.phone {
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.phone .shell {
+  order: 1;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ------------------------------------------------------------ bottom tabs */
+.phone .rail {
+  order: 2;
+  width: auto;
+  flex-direction: row;
+  align-items: stretch;
+  height: calc(var(--tabbar-h) + var(--sa-bottom));
+  padding: 0 4px var(--sa-bottom);
+  gap: 0;
+  border-inline-end: none;
+  border-top: 1px solid var(--border);
+}
+.phone .rail-brand,
+.phone .rail-settings {
+  display: none;
+}
+.phone .rail-tabs {
+  flex-direction: row;
+  flex: 1;
+  gap: 0;
+}
+.phone .rail-tab {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  justify-content: center;
+  padding: 4px 0;
+  gap: 2px;
+}
+.phone .rail-tab:hover .rail-icon {
+  background: none;
+  color: inherit;
+}
+.phone .rail-tab.active .rail-icon {
+  background: var(--accent-soft);
+}
+.phone .rail-icon {
+  width: 52px;
+  height: 28px;
+}
+
+/* ------------------------------------------------------------ top bar */
+.phone .header.phone-header {
+  height: auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: calc(var(--sa-top) + 6px) 8px 6px;
+}
+.phone .ph-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 38px;
+}
+.phone .ph-row2 {
+  min-height: 34px;
+  gap: 6px;
+}
+.phone-header .period-title {
+  font-size: calc(20px * var(--fs-scale, 1));
+  padding-inline: 4px;
+  flex: 0 1 auto;
+}
+.phone-header .ph-row2 .segmented {
+  margin: 0;
+}
+.phone-header .ph-row2 .segmented button {
+  padding: 4px 12px;
+}
+.phone-header .hebdate-toggle {
+  margin: 0;
+  padding: 0 10px;
+}
+.phone-header .today-btn {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------ page area */
+.phone .main {
+  flex-direction: column;
+  min-height: 0;
+}
+.phone .content {
+  min-height: 0;
+  padding: 0 6px 6px;
+  /* The month: full height, or small (just the squares) while a day is open. */
+  flex: 1 1 calc(24px + 6 * var(--cell-compact) + 6px);
+  transition: flex-grow var(--phone-anim) var(--phone-ease);
+}
+.phone .content:has(.month[style*='--rows: 5']) {
+  flex-basis: calc(24px + 5 * var(--cell-compact) + 6px);
+}
+.phone.day-open .content {
+  flex-grow: 0;
+}
+
+/* ------------------------------------------------------------ month (full) */
+.phone .month {
+  border-radius: 14px;
+}
+.phone .month-weekdays div {
+  padding: 5px 0;
+  text-align: center;
+  font-size: calc(10px * var(--fs-scale, 1));
+  letter-spacing: 0.02em;
+}
+.phone .cell {
+  padding: 3px 2px 2px;
+  gap: 1px;
+  transition: background var(--dur-fast), box-shadow var(--dur-fast);
+}
+.phone .cell-top {
+  gap: 2px;
+  flex-wrap: nowrap;
+}
+.phone .daynum {
+  font-size: calc(12px * var(--fs-scale, 1));
+  min-width: 21px;
+  height: 21px;
+}
+/* The Hebrew date shows in the day panel; the squares are too narrow for it. */
+.phone .cell .hebdate {
+  display: none;
+}
+/* Busy dot: shown, but set in the day panel (a tap anywhere opens the day). */
+.phone .cell .status-dot.none {
+  opacity: 0;
+}
+.phone .cell-top .status-dot {
+  pointer-events: none;
+  margin-inline-end: 2px;
+}
+.phone .cell .day-chips,
+.phone .cell .day-chips * {
+  pointer-events: none;
+}
+.phone .cell-add {
+  display: none;
+}
+.phone .cell .holiday-label,
+.phone .cell .countdown-label,
+.phone .cell .headline {
+  font-size: calc(9px * var(--fs-scale, 1));
+  line-height: 1.25;
+  padding-inline: 1px;
+}
+.phone .cell .countdown-label .cd-sticker {
+  width: 12px;
+  height: 12px;
+}
+.phone .cell .pill {
+  font-size: calc(9.5px * var(--fs-scale, 1));
+  line-height: 1.55;
+  padding: 0 3px;
+  gap: 2px;
+  border-radius: 4px;
+  background: var(--ev-bg);
+  color: var(--text);
+}
+.phone .cell .pill::before,
+.phone .cell .pill-time,
+.phone .cell .pill-shared {
+  display: none;
+}
+.phone .cell .more {
+  font-size: calc(9px * var(--fs-scale, 1));
+  padding-inline: 2px;
+}
+
+/* ------------------------------------------------------------ month (small) */
+.phone .cell > :not(.cell-top):not(.cell-dots),
+.phone .cell-top > :not(.daynum),
+.phone .cell-dots {
+  transition: opacity 180ms ease;
+}
+.phone.day-open .cell > :not(.cell-top):not(.cell-dots),
+.phone.day-open .cell-top > :not(.daynum) {
+  opacity: 0;
+  pointer-events: none;
+}
+.cell-dots {
+  display: none;
+}
+.phone .cell > .cell-dots {
+  position: absolute;
+  z-index: 1;
+  inset-inline: 4px;
+  bottom: 6px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  pointer-events: none;
+}
+.phone.day-open .cell-dots {
+  opacity: 1;
+}
+.cell-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ev);
+}
+.phone .cell.selected {
+  box-shadow: inset 0 0 0 2px var(--month-ink, var(--accent));
+}
+
+/* ------------------------------------------------------------ day panel */
+.phone .phone-sheet {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -6px 20px rgba(40, 30, 40, 0.1);
+  border-top: 1px solid var(--border);
+  transition:
+    flex-grow var(--phone-anim) var(--phone-ease),
+    transform var(--phone-anim) var(--phone-ease),
+    opacity var(--phone-anim) ease;
+  animation: phone-sheet-in var(--phone-anim) var(--phone-ease) backwards;
+  overflow: hidden;
+}
+@keyframes phone-sheet-in {
+  from {
+    flex-grow: 0;
+    transform: translateY(36px);
+    opacity: 0;
+  }
+}
+.phone .phone-sheet.closing {
+  flex-grow: 0;
+  transform: translateY(48px);
+  opacity: 0;
+  pointer-events: none;
+}
+.phone-grab {
+  flex: none;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+}
+.phone-grab span {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+.phone .phone-sheet .drawer {
+  width: auto;
+  flex: 1;
+  min-height: 0;
+  border-inline-start: none;
+  margin: 0;
+  animation: none;
+  background: transparent;
+}
+.phone .phone-sheet .drawer-head {
+  padding: 0 var(--space-2) 0 var(--space-4);
+  padding-inline: var(--space-4) 52px;
+  touch-action: none;
+}
+.phone .phone-sheet .drawer-head h2 {
+  font-size: var(--fs-lg);
+}
+.phone .phone-sheet-sticker {
+  position: absolute;
+  top: 12px;
+  inset-inline-end: 44px;
+  z-index: 2;
+}
+.phone .phone-sheet .drawer-head .icon-btn {
+  position: absolute;
+  top: 12px;
+  inset-inline-end: 8px;
+}
+.phone .phone-sheet .drawer-meta {
+  padding: var(--space-2) var(--space-4) 0;
+}
+.phone .phone-sheet .drawer-body {
+  padding-bottom: var(--space-4);
+}
+
+/* ------------------------------------------------------------ add button */
+.phone-fab {
+  position: fixed;
+  inset-inline-end: 16px;
+  bottom: calc(var(--tabbar-h) + var(--sa-bottom) + 16px);
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  border: none;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-lg);
+  display: grid;
+  place-items: center;
+  z-index: 30;
+  animation: phone-fab-in var(--phone-anim) var(--phone-ease) backwards;
+}
+.phone-fab:active {
+  transform: scale(0.94);
+}
+@keyframes phone-fab-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+/* ------------------------------------------------------------ windows → sheets */
+.phone .scrim {
+  padding: calc(var(--sa-top) + 12px) 0 0;
+  place-items: end stretch;
+}
+.phone .modal {
+  width: 100% !important;
+  max-height: 100%;
+  border-radius: 20px 20px 0 0;
+  padding-bottom: var(--sa-bottom);
+  animation: phone-up var(--phone-anim) var(--phone-ease);
+}
+@keyframes phone-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+.phone .modal-head {
+  padding-inline: var(--space-4) var(--space-2);
+}
+.phone .modal-body {
+  padding: var(--space-3) var(--space-4);
+}
+.phone .modal-foot {
+  padding: var(--space-3) var(--space-4);
+  flex-wrap: wrap;
+}
+.phone .scrim.top {
+  padding: calc(var(--sa-top) + 8px) 8px 0;
+  place-items: start stretch;
+}
+
+/* ------------------------------------------------------------ banners above the tabs */
+.phone .toasts {
+  bottom: calc(var(--tabbar-h) + var(--sa-bottom) + 14px);
+  max-width: calc(100% - 24px);
+}
+.phone .update-banner {
+  bottom: calc(var(--tabbar-h) + var(--sa-bottom) + 12px);
+  inset-inline: 10px;
+}
+.phone .update-banner > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------ Scheduled */
+.phone .up-cols {
+  padding: var(--space-3) var(--space-2) 0;
+}
+.phone .up-row {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.phone .up-row .up-title {
+  flex: 1 1 calc(100% - 110px);
+}
+.phone .up-row .shared-ico {
+  order: 2;
+}
+.phone .up-row .up-next,
+.phone .up-row .up-repeat {
+  order: 5;
+}
+
+/* ------------------------------------------------------------ Week */
+.phone .week {
+  --gutter: 36px;
+}
+.phone .week-head {
+  padding-inline-end: 0;
+}
+.phone .week-day-head {
+  min-width: 0;
+  padding: 4px 1px;
+  overflow: hidden;
+}
+.phone .week-day-head .wd-row {
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.phone .week-day-head .wd-name {
+  font-size: calc(9px * var(--fs-scale, 1));
+}
+.phone .week-day-head .hebdate {
+  display: none;
+}
+.phone .week-day-head .holiday-label,
+.phone .week-day-head .countdown-label,
+.phone .week-day-head .headline {
+  font-size: calc(8.5px * var(--fs-scale, 1));
+  line-height: 1.2;
+}
+.phone .week-allday .gutter,
+.phone .hour-label {
+  font-size: calc(9px * var(--fs-scale, 1));
+}
+.phone .week-scroll {
+  scrollbar-width: none;
+}
+.phone .week-event {
+  font-size: calc(9px * var(--fs-scale, 1));
+  padding: 1px 2px;
+}
+.phone .week-event .we-time {
+  display: none;
+}
+
+/* ------------------------------------------------------------ Year */
+.phone .year-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.phone .year-card {
+  padding: 8px 8px 10px;
+}
+.phone .ym-day {
+  font-size: calc(10px * var(--fs-scale, 1));
+}

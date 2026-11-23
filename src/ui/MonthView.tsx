@@ -20,9 +20,13 @@ interface Props {
   onOpenStickers: (date: ISODate, anchor: HTMLElement) => void;
   selectedSticker: string | null;
   onSelectSticker: (id: string | null) => void;
+  /** Phone: small cells with color dots while a day is open below. */
+  phone?: boolean;
+  /** Phone: don't re-fit while the month is small or animating (keeps the full-size fit). */
+  frozen?: boolean;
 }
 
-export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNotes, onOpenStickers, selectedSticker, onSelectSticker }: Props) {
+export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNotes, onOpenStickers, selectedSticker, onSelectSticker, phone, frozen }: Props) {
   const { settings, locale, t, save } = useBloom();
   const m = anchor.getMonth();
   const grid = useMemo(
@@ -41,13 +45,16 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
   const gridRef = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState<{ key: unknown[]; cut: Record<string, number> }>({ key: [], cut: {} });
   const [size, setSize] = useState(0);
-  const fitKey = [data.eventsByDay, data.remindersByDay, data.days, data.holidays, anchor, rows, size, settings.fontSize, settings.showHebrewDate, settings.language, selected];
+  // (Phone: the selected day doesn't change the cells, so it isn't part of the key.)
+  const fitKey = [data.eventsByDay, data.remindersByDay, data.days, data.holidays, anchor, rows, size, settings.fontSize, settings.showHebrewDate, settings.language, phone ? null : selected];
   const sameKey = fit.key.length === fitKey.length && fit.key.every((k, i) => Object.is(k, fitKey[i]));
-  const cut = sameKey ? fit.cut : {};
+  const lastCut = useRef<Record<string, number>>({});
+  const cut = frozen ? lastCut.current : sameKey ? fit.cut : {};
+  if (!frozen && sameKey) lastCut.current = fit.cut;
   const passes = useRef(0);
   useLayoutEffect(() => {
     const el = gridRef.current;
-    if (!el) return;
+    if (!el || frozen) return;
     if (!sameKey) passes.current = 0;
     if (passes.current > 12) return; // safety: never loop forever
     const next = { ...cut };
@@ -84,12 +91,17 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
     if (!el) return;
     let w = 0;
     let h = 0;
+    let wait: ReturnType<typeof setTimeout> | undefined;
     const ro = new ResizeObserver(([e]) => {
       const { width, height } = e.contentRect;
       if (Math.abs(width - w) > 0.5 || Math.abs(height - h) > 0.5) {
         w = width;
         h = height;
-        setSize((n) => n + 1);
+        // Phone: the month grows/shrinks with an animation; measure once it has settled.
+        if (phone) {
+          clearTimeout(wait);
+          wait = setTimeout(() => setSize((n) => n + 1), 120);
+        } else setSize((n) => n + 1);
       }
     });
     ro.observe(el);
@@ -102,10 +114,12 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
     fonts?.ready.then(refit).catch(() => {});
     window.addEventListener('focus', refit);
     return () => {
+      clearTimeout(wait);
       ro.disconnect();
       fonts?.removeEventListener?.('loadingdone', refit);
       window.removeEventListener('focus', refit);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -199,7 +213,9 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
                     className={`pill ev-${o.event.color} ${o.event.allDay ? 'allday' : ''} ${o.event.visibility === 'shared' ? 'is-shared' : 'is-private'}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onOpenEvent(o);
+                      // Phone: names are tiny, a tap opens the whole day.
+                      if (phone) onOpenDay(iso);
+                      else onOpenEvent(o);
                     }}
                     title={o.event.title}
                   >
@@ -210,6 +226,13 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
                 ))}
                 {!hasChips && moreEl}
               </div>
+              {phone && occs.length > 0 && (
+                <div className="cell-dots" aria-hidden="true">
+                  {occs.slice(0, 4).map((o) => (
+                    <span key={o.key} className={`cell-dot ev-${o.event.color}`} />
+                  ))}
+                </div>
+              )}
               <DayChips
                 entry={entry}
                 reminders={rems}

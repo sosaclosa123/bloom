@@ -4110,7 +4110,7 @@ button.chip-note:hover {
 
 /* ------------------------------------------------------------ responsive */
 @media (max-width: 1100px) {
-  .app.drawer-open .content {
+  .app.drawer-open:not(.phone) .content {
     display: none;
   }
   .app.drawer-open .drawer {

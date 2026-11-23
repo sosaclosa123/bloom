@@ -24,6 +24,7 @@ android {
             def ks = System.getenv('BLOOM_KEYSTORE_FILE')
             if (ks) {
                 storeFile file(ks)
+                storeType 'pkcs12'
                 storePassword System.getenv('BLOOM_KEYSTORE_PASSWORD')
                 keyAlias System.getenv('BLOOM_KEY_ALIAS') ?: 'bloom'
                 keyPassword System.getenv('BLOOM_KEYSTORE_PASSWORD')

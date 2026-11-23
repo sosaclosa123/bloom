@@ -18,6 +18,9 @@ interface Props {
   onToday: () => void;
   onSearch: () => void;
   isDesktop: boolean;
+  /** Phone layout: gear here (no side rail), view switch on a second row. */
+  phone?: boolean;
+  onSettings?: () => void;
 }
 
 export function Header(p: Props) {
@@ -35,6 +38,53 @@ export function Header(p: Props) {
     const b = e.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
     return `${a} – ${b}`;
   }, [p.tab, p.view, p.anchor, locale, settings.weekStart, t]);
+
+  if (p.phone) {
+    const cal = p.tab === 'calendar';
+    return (
+      <header className="header phone-header">
+        <SeasonLayer month={cal ? p.anchor.getMonth() : new Date().getMonth()} />
+        <div className="ph-row">
+          {cal && <IconButton icon={rtl ? 'chevronRight' : 'chevronLeft'} label={t('prev')} onClick={p.onPrev} />}
+          <h1 className={`period-title ${cal ? 'is-month' : ''}`} style={cal ? { color: monthInk(p.anchor.getMonth(), dark) } : undefined}>
+            {title}
+          </h1>
+          {cal && <IconButton icon={rtl ? 'chevronLeft' : 'chevronRight'} label={t('next')} onClick={p.onNext} />}
+          <span className="spacer" />
+          <IconButton icon="search" label={t('search')} onClick={p.onSearch} />
+          <IconButton icon="settings" label={t('settings')} onClick={p.onSettings ?? (() => {})} className="phone-gear" />
+        </div>
+        {cal && (
+          <div className="ph-row ph-row2">
+            <Segmented
+              value={p.view}
+              onChange={p.onView}
+              label={t('month')}
+              options={[
+                { value: 'month', label: t('month') },
+                { value: 'week', label: t('week') },
+                { value: 'year', label: t('year') },
+              ]}
+            />
+            <span className="spacer" />
+            <button
+              type="button"
+              className={`hebdate-toggle ${settings.showHebrewDate ? 'on' : ''}`}
+              aria-pressed={settings.showHebrewDate}
+              title={t('showHebrewDate')}
+              aria-label={t('showHebrewDate')}
+              onClick={() => setSettings({ showHebrewDate: !settings.showHebrewDate })}
+            >
+              <span aria-hidden="true">א׳</span>
+            </button>
+            <button type="button" className="today-btn" onClick={p.onToday}>
+              {t('today')}
+            </button>
+          </div>
+        )}
+      </header>
+    );
+  }
 
   return (
     <header className={`header ${p.isDesktop ? 'desktop' : ''}`}>
