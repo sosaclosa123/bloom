@@ -10,7 +10,7 @@ import { BodyCard, MedsCard, TestsCard, VisitsCard } from './HealthCards';
 import { CheckinCard } from './HealthCheckin';
 import { IbdCard } from './HealthIbd';
 import { FlareTimelineCard, FoodCard, InsightsCard, TrendsCard } from './HealthTrends';
-import { ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
+import { profileComplete, ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
 import { useBloom } from './store';
 
 // ---------------------------------------------------------------- settings (per device)
@@ -101,7 +101,8 @@ function HealthOn() {
       </div>
       <div className="wallet-body wl-two hl-two">
         <div className="wl-main">
-          {!profile?.done && <SetupCard onStart={() => setWizard(true)} />}
+          {/* Stays until the questionnaire is filled in to the end. */}
+          {!profileComplete(profile, ibd) && <SetupCard onStart={() => setWizard(true)} />}
           <CheckinCard date={date} isToday={isToday} goal={goal} />
           {/* IBD parts exist only while IBD is on for this computer. */}
           {ibd && <IbdCard date={date} isToday={isToday} />}

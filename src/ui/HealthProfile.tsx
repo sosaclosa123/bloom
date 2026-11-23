@@ -133,13 +133,22 @@ export function ProfileWizard({ onClose }: { onClose: () => void }) {
     return rest as Draft;
   });
   const questions = useQuestions().filter((q) => !q.when || q.when(draft, ibd));
-  const [i, setI] = useState(0);
+  // Not finished yet: carry on from the first question without an answer.
+  const [i, setI] = useState(() => {
+    if (profileComplete(profile, ibd)) return 0;
+    // General part already done (IBD was turned on later): go to the IBD questions.
+    const IBD_IDS = ['ibdType', 'ibdLocation', 'ibdMeds', 'ostomy', 'stools', 'triggers'];
+    const k = profile?.completed ? questions.findIndex((q) => IBD_IDS.includes(q.id)) : questions.findIndex((q) => !answered(draft, q.id));
+    return k < 0 ? 0 : k;
+  });
   const atEnd = i >= questions.length;
   const set = (p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p }));
-  const commit = (d: Draft, done = d.done) => saveProfile({ ...d, done });
+  // Only going through to the last question counts as filled in; closing early keeps the setup card.
+  const commit = (d: Draft, last: boolean) =>
+    saveProfile({ ...d, ...(last ? { completed: true, completedIbd: ibd || !!d.completedIbd, done: true } : {}) });
 
   const next = () => {
-    commit(draft, i + 1 >= questions.length ? true : draft.done);
+    commit(draft, i + 1 >= questions.length);
     setI(i + 1);
   };
   const skip = () => {
@@ -148,11 +157,11 @@ export function ProfileWizard({ onClose }: { onClose: () => void }) {
     const d = { ...draft };
     for (const f of FIELDS[questions[i].id] ?? []) (d as Record<string, unknown>)[f] = before[f];
     setDraft(d);
-    commit(d, i + 1 >= questions.length ? true : d.done);
+    commit(d, i + 1 >= questions.length);
     setI(i + 1);
   };
   const close = () => {
-    commit(draft, true);
+    if (!atEnd) commit(draft, false);
     onClose();
   };
 
@@ -274,10 +283,25 @@ export function BmiBlock({ heightCm, weightKg, age }: { heightCm: number | null;
 
 // ---------------------------------------------------------------- cards on the page
 
-/** First visit: offer the questionnaire. */
+/** A question has an answer in the profile. */
+function answered(d: Partial<Draft> | undefined, id: string): boolean {
+  return (FIELDS[id] ?? []).some((f) => {
+    const v = d?.[f];
+    return f === 'glassMl' ? !!d?.completed : v != null && v !== '';
+  });
+}
+
+/** Questionnaire gone through to the end (and the IBD part, when IBD is on). */
+export function profileComplete(p: Partial<HealthProfile> | undefined, ibd: boolean): boolean {
+  return !!p?.completed && (!ibd || !!p.completedIbd);
+}
+
+/** Shown until the questionnaire is gone through to the end. */
 export function SetupCard({ onStart }: { onStart: () => void }) {
   const { t } = useBloom();
-  const { saveProfile } = useHealth();
+  const { profile, ibd } = useHealth();
+  const qs = useQuestions().filter((q) => !q.when || q.when({ ...emptyProfile(), ...(profile ?? {}) } as Draft, ibd));
+  const n = qs.filter((q) => answered(profile, q.id)).length;
   return (
     <section className="w-card hl-setup">
       <div className="hl-setup-icon" aria-hidden="true">
@@ -286,13 +310,11 @@ export function SetupCard({ onStart }: { onStart: () => void }) {
       <div className="hl-setup-text">
         <h3>{t('hlSetupTitle')}</h3>
         <p className="w-card-sub">{t('hlSetupBody')}</p>
+        {n > 0 && <p className="hl-setup-progress">{t('hlAnswered', { n, m: qs.length })}</p>}
       </div>
       <div className="hl-setup-actions">
-        <Button variant="ghost" onClick={() => saveProfile({ done: true })}>
-          {t('hlNotNow')}
-        </Button>
         <Button variant="primary" onClick={onStart}>
-          {t('hlStart')}
+          {n > 0 ? t('hlContinue') : t('hlStart')}
         </Button>
       </div>
     </section>

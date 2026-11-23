@@ -100,6 +100,10 @@ installed apps auto-update. Commit messages: clear "what + why".
   IBD cards use the soft pink tint + "IBD" tag.
 - Medication reminders use the normal scheduler, only where Health is on; text
   is just "Medication" unless "Show medicine names" is on; popup has "Taken".
+- Health profile questions: the "Your health profile" card stays on the Health
+  page until the questions are gone through to the end (`completed`); closing
+  early keeps it ("2 of 10 answered" + Continue, resumes at the first
+  unanswered). Turning IBD on later brings it back for the IBD questions.
 - Startup window: shows today's remaining medication doses only when Health is
   on; never any IBD item.
 - **Automatic backups** (Settings > Backup, desktop only): per-computer

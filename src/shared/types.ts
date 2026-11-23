@@ -203,8 +203,12 @@ export interface HealthProfile extends SyncMeta {
   ostomy: IbdOstomy | null;
   typicalStools: number | null;
   triggerFoods: string;
-  /** Questionnaire finished or skipped (so it isn't offered again). */
+  /** Old flag (set by closing or "Not now"); no longer used to hide the questionnaire. */
   done: boolean;
+  /** Went through the questionnaire to the end (the setup card stays until then). */
+  completed?: boolean;
+  /** Also went through the IBD questions (asked again if IBD is turned on later). */
+  completedIbd?: boolean;
 }
 
 /** Daily check-in, one per date. null = not answered. */

@@ -455,7 +455,6 @@ const en = {
   hlBack: "Back",
   hlSkip: "Skip",
   hlDone: "Done",
-  hlNotNow: "Not now",
   hlSetupTitle: "Your health profile",
   hlSetupBody: "A few quick questions, all optional, to work out your water goal and more.",
   hlStart: "Start",
@@ -676,6 +675,8 @@ const en = {
   abErrWrite: "The last backup couldn't be saved.",
   abSaved: "Backup saved",
   abManual: "Save or restore a file yourself",
+  hlContinue: "Continue",
+  hlAnswered: "{n} of {m} answered",
 };
 
 export type StringKey = keyof typeof en;
@@ -1133,7 +1134,6 @@ const he: Record<StringKey, string> = {
   hlBack: "חזרה",
   hlSkip: "דילוג",
   hlDone: "סיום",
-  hlNotNow: "לא עכשיו",
   hlSetupTitle: "הפרופיל הבריאותי",
   hlSetupBody: "כמה שאלות קצרות, הכול רשות, כדי לחשב יעד מים ועוד.",
   hlStart: "התחלה",
@@ -1354,6 +1354,8 @@ const he: Record<StringKey, string> = {
   abErrWrite: "לא הצלחנו לשמור את הגיבוי האחרון.",
   abSaved: "הגיבוי נשמר",
   abManual: "שמירה או שחזור של קובץ ידנית",
+  hlContinue: "המשך",
+  hlAnswered: "{n} מתוך {m} נענו",
 };
 
 const dict: Record<Language, Record<StringKey, string>> = { en, he };
