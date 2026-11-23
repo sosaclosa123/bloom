@@ -31,6 +31,9 @@ export interface PlatformAPI {
   /** Signed in: that account's data; null: this computer's offline data. `forget` removes an account's local copy. */
   switchProfile(uid: string | null, forget?: string | null): Promise<void>;
   offlineData(): Promise<Partial<Collections>>;
+  /** Doctor-visit documents (photos / PDFs). */
+  addDocs(): Promise<PhotoRef[]>;
+  openDoc(p: PhotoRef): Promise<void>;
   exportBackup(): Promise<boolean>;
   importBackup(): Promise<'merged' | 'cancelled' | 'invalid'>;
   /** Automatic weekly backups (desktop only; null = not available here). */
@@ -71,6 +74,8 @@ function desktop(b: DesktopBridge): PlatformAPI {
     applyRemote: (c) => b.applyRemote(c),
     switchProfile: (uid, forget) => b.switchProfile(uid, forget),
     offlineData: () => b.offlineData(),
+    addDocs: () => b.addDocs(),
+    openDoc: (p) => b.openDoc(p.fileName),
     photoUrl: async (p) => `bloom-photo://p/${encodeURIComponent(p.fileName)}`,
     exportBackup: () => b.exportBackup(),
     importBackup: () => b.importBackup(),
@@ -263,6 +268,53 @@ function web(): PlatformAPI {
         localStorage.setItem(LS_PHOTOS, JSON.stringify(all));
       } catch {
         /* storage full */
+      }
+    },
+    addDocs: async () => {
+      const files = await new Promise<File[]>((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*,application/pdf';
+        input.multiple = true;
+        input.onchange = () => resolve([...(input.files ?? [])]);
+        input.click();
+      });
+      const out: PhotoRef[] = [];
+      let store: Record<string, string> = {};
+      try {
+        store = JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}');
+      } catch {
+        /* ignore */
+      }
+      for (const f of files) {
+        const id = uuid();
+        const pdf = f.type === 'application/pdf';
+        if (pdf && f.size > 2 * 1024 * 1024) continue; // browser storage is small
+        const data = pdf
+          ? await new Promise<string>((r) => {
+              const fr = new FileReader();
+              fr.onload = () => r(String(fr.result));
+              fr.readAsDataURL(f);
+            })
+          : await shrinkImage(f).catch(() => '');
+        if (!data) continue;
+        const fileName = id + (pdf ? '.pdf' : '.jpg');
+        store[fileName] = data;
+        out.push({ id, fileName, name: f.name });
+      }
+      try {
+        localStorage.setItem(LS_PHOTOS, JSON.stringify(store));
+      } catch {
+        return [];
+      }
+      return out;
+    },
+    openDoc: async (p) => {
+      try {
+        const url = JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}')[p.fileName];
+        if (url) window.open(url, '_blank');
+      } catch {
+        /* ignore */
       }
     },
     offlineData: async () => {

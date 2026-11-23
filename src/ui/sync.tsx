@@ -42,7 +42,10 @@ export function startSync(): Promise<SyncEngine | null> {
       applyRemote: (c) => platform.applyRemote(c),
       readPhoto: async (f) => {
         const raw = await platform.readPhoto(f);
-        return raw ? compress(raw).catch(() => null) : null;
+        if (!raw) return null;
+        // PDFs go as they are (only small ones fit online; bigger ones stay on this computer and in backups).
+        if (raw.startsWith('data:application/pdf')) return raw;
+        return compress(raw).catch(() => null);
       },
       hasPhoto: (f) => platform.hasPhoto(f),
       writePhoto: (f, d) => platform.writePhoto(f, d),

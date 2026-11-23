@@ -234,7 +234,8 @@ export function hbi(d: Partial<Pick<HealthIbdDay, 'wellbeing' | 'pain' | 'mass' 
   const pain = d.pain ?? 0;
   const mass = d.mass ?? 0;
   const stools = d.liquidStools ?? 0;
-  const comp = (d.complications ?? []).length;
+  // Only the index's own complications count (typed-in "other" problems are for the report).
+  const comp = (d.complications ?? []).filter((c) => (HBI_COMPLICATIONS as readonly string[]).includes(c)).length;
   const score = wb + pain + stools + mass + comp;
   const level: ActivityLevel = score < 5 ? 'remission' : score <= 7 ? 'mild' : score <= 16 ? 'moderate' : 'severe';
   return { score, level, complete: d.wellbeing != null && d.pain != null && d.liquidStools != null };

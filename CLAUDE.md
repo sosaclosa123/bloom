@@ -159,6 +159,22 @@ installed apps auto-update. Commit messages: clear "what + why".
   lookup (webcam / typed number / photo, @zxing/browser); only the search
   word or barcode is sent; free, no AI. OFF search is rate-limited (~10/min):
   the app shows "busy, try again" instead of failing.
+- **Food v5**: Meals / Snacks / **Drinks** (no water; water stays on Today, a
+  small water card sits under the calories). Search shows real products first
+  ("coke" -> Coca-Cola), general foods below (`ALIASES` in `src/shared/food.ts`).
+  Tags (fried, sugary…) are auto-picked and editable in a foldable list; every
+  logged item opens an editor (amount re-calculates calories).
+- IBD "Other problems today" has a "Something else…" box for any custom
+  problem (shown in the report; not counted in HBI).
+- Medicines tab: "Taken / not taken" graph at the bottom for a chosen medicine
+  (30 / 90 days / year / from the start).
+- **Doctor visits = full history**, never filtered by the chosen day, scrolls
+  when long; each visit can hold documents (PDF/images): sticker icon + count
+  when attached, plus icon when not. Big PDFs (> ~700 KB) stay on this PC +
+  backups, they don't sync online.
+- Trends: hover a dot = its date; click = day summary pop-up (blurred
+  background): check-in, water, medicines, food, body, tests, IBD only when
+  on, visit documents only if any (`src/ui/HealthDay.tsx`).
 - **Less text in Health**: explanations are hover tips (`Tip`, shows after
   1.3 s), not lines on screen; safety notes (red flag, stoma/ORS) stay visible.
   IBD "Other problems today" is folded (button shows how many are picked).

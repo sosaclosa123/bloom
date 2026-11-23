@@ -26,6 +26,8 @@ const bridge: DesktopBridge = {
   applyRemote: (c) => ipcRenderer.invoke('data:merge', c),
   switchProfile: (uid, forget) => ipcRenderer.invoke('data:profile', uid, forget ?? null),
   offlineData: () => ipcRenderer.invoke('data:offline'),
+  addDocs: () => ipcRenderer.invoke('doc:add'),
+  openDoc: (name) => ipcRenderer.invoke('doc:open', name),
 
   exportBackup: () => ipcRenderer.invoke('backup:export'),
   importBackup: () => ipcRenderer.invoke('backup:import'),

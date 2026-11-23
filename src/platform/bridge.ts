@@ -29,6 +29,9 @@ export interface DesktopBridge {
   applyRemote(c: Partial<Collections>): Promise<void>;
   /** Show an account's data (uid) or this computer's offline data (null); `forget` deletes that account's local copy. */
   switchProfile(uid: string | null, forget?: string | null): Promise<void>;
+  /** Pick documents (photos / PDFs) for a doctor visit; open one with the system viewer. */
+  addDocs(): Promise<PhotoRef[]>;
+  openDoc(fileName: string): Promise<void>;
   /** This computer's offline data (shown when signed out). */
   offlineData(): Promise<Partial<Collections>>;
 

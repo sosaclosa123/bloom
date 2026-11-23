@@ -8,7 +8,7 @@ import { Button, Icon, IconButton, Toggle } from './common';
 import { onHealthRedo, requestHealthRedo, takeHealthRedo, useHealth } from './healthUi';
 import { FoodSummaryCard, FoodTab } from './HealthFood';
 import { StickerArt } from './Stickers';
-import { BodyCard, MedsCard, TestsCard, VisitsCard } from './HealthCards';
+import { BodyCard, MedHistoryCard, MedsCard, TestsCard, VisitsCard } from './HealthCards';
 import { CheckinCard } from './HealthCheckin';
 import { IbdCard } from './HealthIbd';
 import { ChallengesCard, DoctorReport, GoalsCard, MonthSummaryCard, StickerBookButton } from './HealthExtras';
@@ -172,7 +172,7 @@ function HealthOn() {
         ))}
       </div>
       {sub === 'food' ? (
-        <FoodTab date={date} isToday={isToday} />
+        <FoodTab date={date} isToday={isToday} goalMl={goal.ml} />
       ) : (
         <div className="wallet-body wl-two hl-two">
           {sub === 'today' && (
@@ -196,6 +196,8 @@ function HealthOn() {
             <>
               <div className="wl-main">
                 <MedsCard date={date} />
+                {/* Always at the bottom: when a chosen medicine was taken or not. */}
+                <MedHistoryCard date={date} />
               </div>
               <div className="wl-side">
                 <VisitsCard />

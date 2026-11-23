@@ -7419,3 +7419,393 @@ button.hl-tile.open {
     background: #fff !important;
   }
 }
+/* medication taken / not taken graph */
+.hl-medhist-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.hl-medhist-top select {
+  width: auto;
+  max-width: 100%;
+}
+.hl-adh .hl-bar {
+  height: 100% !important;
+  border-radius: 3px;
+  opacity: 1;
+}
+.hl-bar.adh-all,
+.hl-legend i.adh-all {
+  background: var(--hl-green);
+}
+.hl-bar.adh-some,
+.hl-legend i.adh-some {
+  background: color-mix(in srgb, var(--hl-green) 45%, var(--surface));
+}
+.hl-bar.adh-missed,
+.hl-legend i.adh-missed {
+  background: var(--hl-pink);
+}
+.hl-bar.adh-none {
+  height: 3px !important;
+  background: var(--border-strong);
+  opacity: 0.6;
+}
+.hl-adh {
+  height: 70px;
+}
+/* v5: drinks, water mini card, edit chips, tag picker */
+.hl-drinks {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ev-sky-bg, #dcecf7) 60%, var(--surface)), var(--surface) 70%);
+}
+.hl-drinks .hl-snack {
+  background: var(--ev-sky-bg, #dcecf7);
+}
+.hl-kcal-bar .drinks,
+.hl-kcal-split i.drinks {
+  background: #7fb2d6;
+}
+.hl-kcal-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.hl-kcal-split span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'Outfit', var(--font-sans);
+}
+.hl-kcal-split i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+.hl-kcal-split i.meals {
+  background: #e0a36a;
+}
+.hl-kcal-split i.snacks {
+  background: var(--ev-peach);
+}
+.hl-water-mini {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 10px;
+}
+.hl-water-mini .hl-water-bar {
+  grid-column: 1 / -1;
+}
+.hl-water-mini-amount {
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
+  font-size: var(--fs-md);
+  white-space: nowrap;
+}
+.hl-water-mini-amount small {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+.hl-snack-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+.hl-snack-edit:hover span:first-child {
+  text-decoration: underline dotted;
+}
+button.hl-food-text {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  margin: 0 -4px;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+button.hl-food-text:hover {
+  background: var(--surface-hover);
+}
+.hl-tagpick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hl-tagpick-now {
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-inline-start: 6px;
+  overflow-wrap: anywhere;
+}
+/* IBD: "something else" */
+.hl-custom-pill {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.hl-custom-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.hl-custom-add input {
+  width: calc(150px * var(--fs-scale, 1));
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-size: var(--fs-sm);
+}
+.hl-pills .hl-custom-add button {
+  min-width: 30px;
+  padding: 5px 9px;
+}
+/* doctor visits: full history + documents */
+.hl-visit-list {
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.hl-visit-date {
+  white-space: nowrap;
+}
+.hl-doc-btn {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.hl-doc-btn.has {
+  border: none;
+  background: transparent;
+}
+.hl-doc-btn:hover {
+  background: var(--surface-hover);
+}
+.hl-doc-count {
+  position: absolute;
+  bottom: -2px;
+  inset-inline-end: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+  font: 600 10px/16px 'Outfit', var(--font-sans);
+}
+.hl-docs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hl-doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hl-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+.hl-doc:hover {
+  background: var(--surface-hover);
+}
+.hl-doc-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+}
+/* trends: clickable dots with a date on hover */
+button.hl-line-dot {
+  padding: 0;
+  cursor: default;
+}
+button.hl-line-dot.pick {
+  cursor: pointer;
+}
+button.hl-line-dot.pick::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+}
+button.hl-line-dot.pick:hover,
+button.hl-line-dot.pick:focus-visible {
+  transform: scale(1.5);
+  background: var(--accent);
+  z-index: 3;
+}
+.hl-dot-label {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.667);
+  transform-origin: bottom center;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--surface);
+  font: 600 var(--fs-xs) 'Outfit', var(--font-sans);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+button.hl-line-dot:not(:hover):not(:focus-visible) .hl-dot-label {
+  transform: translateX(-50%);
+}
+button.hl-line-dot:hover .hl-dot-label,
+button.hl-line-dot:focus-visible .hl-dot-label {
+  opacity: 1;
+}
+/* day summary pop-up */
+.scrim:has(.hl-day-modal) {
+  backdrop-filter: blur(6px);
+  background: rgba(30, 26, 38, 0.38);
+}
+.hl-day-modal {
+  max-width: 100%;
+}
+.hl-daysum {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.hl-daysum section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.hl-daysum section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.hl-daysum h4 {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-md);
+}
+.hl-daysum p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.hl-daysum-ibd {
+  background: color-mix(in srgb, var(--hl-pink) 10%, transparent);
+  border-radius: var(--radius-md, 12px);
+  padding: 10px 12px !important;
+  border-bottom: none !important;
+}
+.hl-daysum-mood {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.hl-daysum-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hl-daysum-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  font-size: var(--fs-sm);
+}
+.hl-daysum-list li > span:not(.muted):not([dir='ltr']) {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.hl-daysum-list li .muted {
+  flex: none;
+  min-width: calc(64px * var(--fs-scale, 1));
+}
+.hl-daysum-list li b {
+  font-family: 'Outfit', var(--font-sans);
+  white-space: nowrap;
+}
+.hl-daysum-list li.ok b {
+  color: var(--hl-green-text, var(--hl-green));
+}
+.hl-daysum-list li.miss b {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.hl-snack button.hl-snack-edit {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  line-height: inherit;
+}
+.hl-visit-list > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline-end: 4px;
+}
+.hl-visit-list > li > .hl-item {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  margin-inline: 0;
+}
+button.hl-line-dot.at-r .hl-dot-label {
+  left: auto;
+  right: -6px;
+  transform: scale(0.667);
+  transform-origin: bottom right;
+}
+button.hl-line-dot.at-l .hl-dot-label {
+  left: -6px;
+  transform: scale(0.667);
+  transform-origin: bottom left;
+}
+button.hl-line-dot.at-r:not(:hover):not(:focus-visible) .hl-dot-label,
+button.hl-line-dot.at-l:not(:hover):not(:focus-visible) .hl-dot-label {
+  transform: none;
+}

@@ -8,6 +8,7 @@ import { ibdOn, sleepHours } from '../shared/healthExtras';
 import type { ISODate } from '../shared/types';
 import { Icon, Segmented } from './common';
 import { CardHead, LineChart, Pills, useHealth, useWaterFmt } from './healthUi';
+import { DaySummary } from './HealthDay';
 import { useBloom } from './store';
 
 const datesBack = (end: ISODate, n: number) => Array.from({ length: n }, (_, i) => toISODate(addDays(parseISODate(end), i - n + 1)));
@@ -22,6 +23,7 @@ export function TrendsCard({ date, goal }: { date: ISODate; goal: WaterGoal }) {
   const fmtWater = useWaterFmt();
   const [range, setRange] = useState<'week' | 'month' | 'year' | 'all'>('month');
   const [metric, setMetric] = useState<Metric>('water');
+  const [day, setDay] = useState<ISODate | null>(null);
   const m: Metric = !ibd && metric === 'symptoms' ? 'water' : metric;
 
   // One value per day that has one (newest record wins), indexed once.
@@ -95,6 +97,8 @@ export function TrendsCard({ date, goal }: { date: ISODate; goal: WaterGoal }) {
       ) : (
         <div className="hl-chart-box">
           <LineChart
+            onPick={setDay}
+            dateLabel={(d) => parseISODate(d).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
             label={`${t('hlTrends')}: ${metrics.find((x) => x.value === m)?.label}`}
             points={points}
             fmt={fmt}
@@ -107,6 +111,7 @@ export function TrendsCard({ date, goal }: { date: ISODate; goal: WaterGoal }) {
           </p>
         </div>
       )}
+      {day && <DaySummary date={day} onClose={() => setDay(null)} />}
     </section>
   );
 }

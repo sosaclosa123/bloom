@@ -482,7 +482,29 @@ function registerIpc() {
     return out;
   });
 
-  const IMAGE_MIME: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp' };
+  const IMAGE_MIME: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.pdf': 'application/pdf' };
+  // Documents for doctor visits (photos or PDFs): copied into Bloom's own folder.
+  ipcMain.handle('doc:add', async () => {
+    const res = await dialog.showOpenDialog(mainWin!, {
+      title: 'Add documents',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Documents', extensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] }],
+    });
+    if (res.canceled) return [];
+    const out: PhotoRef[] = [];
+    for (const src of res.filePaths) {
+      if (statSync(src).size > 30 * 1024 * 1024) continue;
+      const id = uuid();
+      const fileName = id + extname(src).toLowerCase();
+      copyFileSync(src, join(store.photosDir, fileName));
+      out.push({ id, fileName, name: basename(src) });
+    }
+    return out;
+  });
+  ipcMain.handle('doc:open', (_e, name: string) => {
+    const file = join(store.photosDir, name);
+    if (SAFE_NAME.test(name) && existsSync(file)) void shell.openPath(file);
+  });
   ipcMain.handle('photo:read', (_e, name: string) => {
     const file = join(store.photosDir, name);
     if (!SAFE_NAME.test(name) || !existsSync(file)) return null;
@@ -517,7 +539,8 @@ function registerIpc() {
       if (!s.deletedAt && existsSync(f)) soundFiles[s.fileName] = readFileSync(f).toString('base64');
     }
     const photoFiles: Record<string, string> = {};
-    for (const j of snap.journal) {
+    const visitDocs = snap.health.flatMap((h) => (h.kind === 'visit' && !h.deletedAt ? (h.docs ?? []) : []));
+    for (const j of [...snap.journal, { deletedAt: null, photos: visitDocs }]) {
       if (j.deletedAt) continue;
       for (const p of j.photos) {
         const f = join(store.photosDir, p.fileName);

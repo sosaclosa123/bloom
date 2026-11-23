@@ -537,34 +537,23 @@ function TestEditor({ init, isNew, onClose }: { init: HealthTest; isNew: boolean
 
 // ---------------------------------------------------------------- doctor visits
 
+/**
+ * Doctor visits: the complete history, never tied to the day shown above.
+ * Newest first (upcoming on top); the list scrolls once it is long. Each
+ * visit shows a document sticker when files are attached, or a plus to add.
+ */
 export function VisitsCard() {
-  const { t, locale } = useBloom();
+  const { t, locale, save } = useBloom();
   const { all } = useHealth();
   const [editing, setEditing] = useState<{ visit: HealthVisit; isNew: boolean } | null>(null);
+  const [docsOf, setDocsOf] = useState<HealthVisit | null>(null);
   const today = toISODate(new Date());
-  const visits = healthOf(all, 'visit');
-  const upcoming = visits.filter((v) => v.date >= today).sort((a, b) => a.date.localeCompare(b.date));
-  const past = visits.filter((v) => v.date < today).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
+  const visits = healthOf(all, 'visit').sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
   const add = () => setEditing({ visit: { ...newMeta(), kind: 'visit', date: today, doctor: '', notes: '', eventId: null }, isNew: true });
-  const row = (v: HealthVisit) => (
-    <li key={v.id}>
-      <button type="button" className="hl-item" onClick={() => setEditing({ visit: v, isNew: false })}>
-        <span className="hl-item-title" dir="auto">
-          {v.doctor || t('hlDoctor')}
-        </span>
-        {v.eventId && <Icon name="calendar" size={13} className="muted" />}
-        {(v.questions?.length ?? 0) > 0 && (
-          <span className="hl-tag">{t('hlQuestionsCount', { a: v.questions!.filter((q) => q.done).length, b: v.questions!.length })}</span>
-        )}
-        <span className="hl-item-date">{fmtDay(v.date, locale, true)}</span>
-        {v.notes && (
-          <span className="hl-item-note" dir="auto">
-            {v.notes}
-          </span>
-        )}
-      </button>
-    </li>
-  );
+  const addDocs = async (v: HealthVisit) => {
+    const docs = await platform.addDocs();
+    if (docs.length) save('health', { ...v, docs: [...(v.docs ?? []), ...docs] });
+  };
   return (
     <section className="w-card hl-visits">
       <CardHead sticker="doctor" title={t('hlVisits')}>
@@ -575,18 +564,90 @@ export function VisitsCard() {
       {visits.length === 0 ? (
         <p className="empty-note">{t('hlNoVisits')}</p>
       ) : (
-        <>
-          {upcoming.length > 0 && (
-            <>
-              <span className="hl-sub">{t('hlUpcoming')}</span>
-              <ul className="hl-list">{upcoming.map(row)}</ul>
-            </>
-          )}
-          {past.length > 0 && <ul className="hl-list">{past.map(row)}</ul>}
-        </>
+        <ul className="hl-list hl-visit-list">
+          {visits.map((v) => {
+            const n = v.docs?.length ?? 0;
+            return (
+              <li key={v.id} className={v.date >= today ? 'upcoming' : ''}>
+                <button type="button" className="hl-item" onClick={() => setEditing({ visit: v, isNew: false })}>
+                  <span className="hl-item-date hl-visit-date">{fmtDay(v.date, locale, true)}</span>
+                  <span className="hl-item-title" dir="auto">
+                    {v.doctor || t('hlDoctor')}
+                  </span>
+                  {v.date >= today && <span className="hl-tag">{t('hlUpcoming')}</span>}
+                  {v.eventId && <Icon name="calendar" size={13} className="muted" />}
+                  {(v.questions?.length ?? 0) > 0 && (
+                    <span className="hl-tag">{t('hlQuestionsCount', { a: v.questions!.filter((q) => q.done).length, b: v.questions!.length })}</span>
+                  )}
+                  {v.notes && (
+                    <span className="hl-item-note" dir="auto">
+                      {v.notes}
+                    </span>
+                  )}
+                </button>
+                {n > 0 ? (
+                  <button type="button" className="hl-doc-btn has" title={t('hlDocsN', { n })} aria-label={t('hlDocsN', { n })} onClick={() => setDocsOf(v)}>
+                    <StickerArt kind="homework" size={28} />
+                    <span className="hl-doc-count">{n}</span>
+                  </button>
+                ) : (
+                  <button type="button" className="hl-doc-btn" title={t('hlAddDocs')} aria-label={t('hlAddDocs')} onClick={() => void addDocs(v)}>
+                    <Icon name="plus" size={16} />
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
       {editing && <VisitEditor init={editing.visit} isNew={editing.isNew} onClose={() => setEditing(null)} />}
+      {docsOf && <DocsModal visit={visits.find((v) => v.id === docsOf.id) ?? docsOf} onClose={() => setDocsOf(null)} />}
     </section>
+  );
+}
+
+/** A visit's documents: open (system viewer), add more, remove. */
+export function DocsList({ visit, editable }: { visit: HealthVisit; editable?: boolean }) {
+  const { t, save } = useBloom();
+  const docs = visit.docs ?? [];
+  return (
+    <div className="hl-docs">
+      {docs.length > 0 && (
+        <ul className="hl-doc-list">
+          {docs.map((d) => (
+            <li key={d.id}>
+              <button type="button" className="hl-doc" onClick={() => void platform.openDoc(d)} title={t('hlOpenDoc')}>
+                <Icon name={/\.pdf$/i.test(d.fileName) ? 'note' : 'image'} size={15} />
+                <span dir="auto">{d.name}</span>
+              </button>
+              {editable && <IconButton icon="close" label={t('delete')} onClick={() => save('health', { ...visit, docs: docs.filter((x) => x.id !== d.id) })} />}
+            </li>
+          ))}
+        </ul>
+      )}
+      {editable && (
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="plus"
+          onClick={async () => {
+            const more = await platform.addDocs();
+            if (more.length) save('health', { ...visit, docs: [...docs, ...more] });
+          }}
+        >
+          {t('hlAddDocs')}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function DocsModal({ visit, onClose }: { visit: HealthVisit; onClose: () => void }) {
+  const { t, locale } = useBloom();
+  return (
+    <Modal title={`${visit.doctor || t('hlDoctor')} · ${fmtDay(visit.date, locale, true)}`} onClose={onClose} width={460}>
+      <DocsList visit={visit} editable />
+    </Modal>
   );
 }
 
@@ -695,8 +756,119 @@ function VisitEditor({ init, isNew, onClose }: { init: HealthVisit; isNew: boole
           </Button>
         </div>
         <Toggle checked={toCal} label={linked ? t('hlInCalendar') : t('hlAddToCalendar')} onChange={setToCal} />
+        <div className="field">
+          <span className="field-label">{t('hlDocs')}</span>
+          <div className="hl-docs">
+            {(v.docs ?? []).length > 0 && (
+              <ul className="hl-doc-list">
+                {(v.docs ?? []).map((d) => (
+                  <li key={d.id}>
+                    <button type="button" className="hl-doc" onClick={() => void platform.openDoc(d)} title={t('hlOpenDoc')}>
+                      <Icon name={/\.pdf$/i.test(d.fileName) ? 'note' : 'image'} size={15} />
+                      <span dir="auto">{d.name}</span>
+                    </button>
+                    <IconButton icon="close" label={t('delete')} onClick={() => setV({ ...v, docs: (v.docs ?? []).filter((x) => x.id !== d.id) })} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Button size="sm" variant="ghost" icon="plus" onClick={async () => setV({ ...v, docs: [...(v.docs ?? []), ...(await platform.addDocs())] })}>
+              {t('hlAddDocs')}
+            </Button>
+          </div>
+        </div>
         <button type="submit" hidden />
       </form>
     </Modal>
+  );
+}
+
+// ---------------------------------------------------------------- medication history graph
+
+/** Pick a medicine: one bar per day — taken (green), partly (light), missed (pink), not due (grey). */
+export function MedHistoryCard({ date }: { date: ISODate }) {
+  const { t, locale } = useBloom();
+  const { all } = useHealth();
+  const meds = healthOf(all, 'med').sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name));
+  const [id, setId] = useState<string | null>(null);
+  const [range, setRange] = useState<30 | 90 | 365 | 0>(30);
+  const med = meds.find((m) => m.id === id) ?? meds[0];
+  const taken = healthOf(all, 'taken');
+  const days = useMemo(() => {
+    if (!med) return [];
+    const first = med.startDate && med.startDate < toISODate(new Date(med.createdAt)) ? med.startDate : toISODate(new Date(med.createdAt));
+    const n = range || Math.max(30, Math.round((parseISODate(date).getTime() - parseISODate(first).getTime()) / 86400000) + 1);
+    const today = toISODate(new Date());
+    return Array.from({ length: n }, (_, i) => {
+      const d = toISODate(addDays(parseISODate(date), i - n + 1));
+      // A paused medicine counts until it was paused (its last change).
+      const until = med.active === false ? toISODate(new Date(med.updatedAt)) : '9999-12-31';
+      const due = d >= first && d <= until && medDueOn(med, d) ? Math.max(1, med.times.length) : 0;
+      const got = taken.filter((x) => x.medId === med.id && x.date === d).length;
+      const state = due === 0 ? (got ? 'all' : 'none') : got >= due ? 'all' : got > 0 ? 'some' : d < today ? 'missed' : 'none';
+      return { d, due, got, state };
+    });
+  }, [med, range, date, taken]);
+  if (!meds.length) return null;
+  const dueDays = days.filter((x) => x.due > 0 && x.d <= toISODate(new Date()));
+  const okDays = dueDays.filter((x) => x.state === 'all').length;
+  const label = (d: ISODate, i: number) => {
+    const day = parseISODate(d);
+    if (days.length <= 31) return i % 5 === 4 || i === 0 ? String(day.getDate()) : '';
+    if (days.length <= 120) return day.getDate() === 1 ? day.toLocaleDateString(locale, { day: 'numeric', month: 'short' }) : '';
+    return day.getDate() === 1 && (days.length <= 400 ? day.getMonth() % 2 === 0 : day.getMonth() === 0) ? day.toLocaleDateString(locale, days.length <= 400 ? { month: 'short' } : { year: 'numeric' }) : '';
+  };
+  return (
+    <section className="w-card hl-medhist">
+      <CardHead sticker={med?.sticker || 'pill'} title={t('hlMedHistory')}>
+        {dueDays.length > 0 && <span className="hl-score lvl-remission">{t('hlTakenDays', { a: okDays, b: dueDays.length })}</span>}
+      </CardHead>
+      <div className="hl-medhist-top">
+        <select value={med?.id} aria-label={t('hlMeds')} onChange={(e) => setId(e.target.value)}>
+          {meds.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+              {m.dose ? ` · ${m.dose}` : ''}
+              {!m.active ? ` (${t('hlMedPaused')})` : ''}
+            </option>
+          ))}
+        </select>
+        <Segmented
+          value={range}
+          onChange={setRange}
+          label={t('hlMedHistory')}
+          options={[
+            { value: 30, label: t('hlNDays', { n: 30 }) },
+            { value: 90, label: t('hlNDays', { n: 90 }) },
+            { value: 365, label: t('hlYear') },
+            { value: 0, label: t('hlFromStart') },
+          ]}
+        />
+      </div>
+      <div className={`hl-chart r-month timeline hl-adh ${days.length > 120 ? 'dense' : ''}`} role="img" aria-label={t('hlMedHistory')}>
+        {days.map((x, i) => (
+          <span key={x.d} className="hl-col" title={`${parseISODate(x.d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })} · ${x.due ? `${x.got}/${x.due}` : t('hlNotDue')}`}>
+            <span className="hl-bar-wrap">
+              <span className={`hl-bar adh-${x.state}`} />
+            </span>
+            <span className="hl-col-label">{label(x.d, i)}</span>
+          </span>
+        ))}
+      </div>
+      <div className="hl-legend">
+        <span>
+          <i className="adh-all" /> {t('hlTaken')}
+        </span>
+        <span>
+          <i className="adh-some" /> {t('hlPartly')}
+        </span>
+        <span>
+          <i className="adh-missed" /> {t('hlNotTaken')}
+        </span>
+        <span>
+          <i className="none" /> {t('hlNotDue')}
+        </span>
+      </div>
+    </section>
   );
 }

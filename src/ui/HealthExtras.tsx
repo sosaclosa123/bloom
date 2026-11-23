@@ -6,7 +6,7 @@ import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
-import { healthOf } from '../shared/health';
+import { HBI_COMPLICATIONS, healthOf } from '../shared/health';
 import { badges, CHALLENGES, challengeDays, goalProgress, monthSummary, reportData, type Badge } from '../shared/healthExtras';
 import type { HealthChallenge, HealthGoal, ISODate } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented } from './common';
@@ -596,7 +596,7 @@ export function DoctorReport({ onClose }: { onClose: () => void }) {
                 <tbody>
                   {r.symptoms.map((s) => (
                     <tr key={s.id}>
-                      <th>{t(`hlComp_${s.id}` as StringKey)}</th>
+                      <th dir="auto">{(HBI_COMPLICATIONS as readonly string[]).includes(s.id) ? t(`hlComp_${s.id}` as StringKey) : s.id}</th>
                       <td>{d(s.first, true)}</td>
                       <td>{s.days}</td>
                     </tr>

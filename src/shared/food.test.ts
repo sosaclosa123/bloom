@@ -39,3 +39,24 @@ describe('Open Food Facts products', () => {
     expect(validBarcode('abc')).toBe(false);
   });
 });
+
+describe('real products first, drinks, automatic tags', async () => {
+  const { autoTags } = await import('./food');
+  it('everyday names find the real product (coke -> Coca-Cola, not diet)', () => {
+    expect(searchIL(DB, 'coke', 'en', 3, { drinks: true })[0].name).toMatch(/Coca Cola/);
+    expect(searchIL(DB, 'coke zero', 'en', 3, { drinks: true })[0].name).toMatch(/sugar-free/);
+    expect(searchIL(DB, 'קוקה קולה', 'he', 3, { drinks: true })[0].name).toContain('קוקה קולה');
+    expect(searchIL(DB, 'latte', 'en', 3, { drinks: true })[0].name).toMatch(/Cappuccino/);
+    expect(searchIL(DB, 'snickers', 'en')[0].name).toMatch(/SNICKERS/);
+  });
+  it('drinks leave plain water out', () => {
+    expect(searchIL(DB, 'מים', 'he', 12, { drinks: true }).some((p) => p.name.startsWith('מים, מי ברז') || p.name.startsWith('מים מוגזים, לא'))).toBe(false);
+  });
+  it('tags from names and nutrients (UK FSA / EU thresholds)', () => {
+    const sn = searchIL(DB, 'snickers', 'en')[0];
+    expect(autoTags(sn)).toEqual(expect.arrayContaining(['fatty', 'sugar']));
+    expect(autoTags(searchIL(DB, 'שניצל חזה עוף', 'he')[0])).toEqual(expect.arrayContaining(['fried', 'gluten']));
+    expect(autoTags(searchIL(DB, 'coke', 'en', 1, { drinks: true })[0], true)).toEqual(expect.arrayContaining(['caffeine', 'sugar']));
+    expect(autoTags({ name: 'Cappuccino, decaffeinated', nameAlt: '', fat: 1, sugars: 3, fiber: 0 }, true)).not.toContain('caffeine');
+  });
+});

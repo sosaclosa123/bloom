@@ -1,6 +1,6 @@
 // Builds src/data/foods-il.json from the Israeli Ministry of Health national
 // nutrition database (data.gov.il, "מאגר התזונה הלאומי הישראלי", open data):
-// food names (Hebrew + English), kcal / protein / fat / carbs per 100 g, and
+// food names (Hebrew + English), kcal / protein / fat / carbs / sugars / fiber per 100 g, and
 // typical portion weights. Run: node scripts/fetch-foods-il.mjs
 import { writeFileSync } from 'node:fs';
 
@@ -49,7 +49,7 @@ const n = (x) => (x == null || x === '' ? 0 : Math.round(Number(x) * 10) / 10);
 const rows = [];
 for (const f of foods) {
   if (f.food_energy == null || f.food_energy === '') continue;
-  rows.push([f.smlmitzrach, String(f.shmmitzrach).trim(), String(f.english_name ?? '').trim(), n(f.food_energy), n(f.protein), n(f.total_fat), n(f.carbohydrates), byFood.get(String(f.Code)) ?? []]);
+  rows.push([f.smlmitzrach, String(f.shmmitzrach).trim(), String(f.english_name ?? '').trim(), n(f.food_energy), n(f.protein), n(f.total_fat), n(f.carbohydrates), byFood.get(String(f.Code)) ?? [], n(f.total_sugars), n(f.total_dietary_fiber)]);
 }
 const out = { source: 'Israel Ministry of Health, national nutrition database (data.gov.il)', fetched: new Date().toISOString().slice(0, 10), units: unitMap, foods: rows };
 writeFileSync(new URL('../src/data/foods-il.json', import.meta.url), JSON.stringify(out));

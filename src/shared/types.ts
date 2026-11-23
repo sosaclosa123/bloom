@@ -284,7 +284,7 @@ export interface HealthFood extends SyncMeta {
   kind: 'food';
   date: ISODate;
   time: string;
-  meal: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  meal: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'drink';
   text: string;
   tags: string[];
   /** Small snacks are logged in their own area. */
@@ -295,6 +295,8 @@ export interface HealthFood extends SyncMeta {
   protein?: number | null;
   fat?: number | null;
   carbs?: number | null;
+  /** Per 100 g / 100 ml (so the amount can be changed later). */
+  per100?: { kcal: number; protein: number; fat: number; carbs: number } | null;
   /** Where the numbers came from: Israeli MoH database, Open Food Facts, or typed in. */
   source?: 'il' | 'off' | 'manual';
   productId?: string;
@@ -329,6 +331,8 @@ export interface HealthVisit extends SyncMeta {
   eventId: string | null;
   /** Questions to ask at the visit (tick when asked). */
   questions?: { id: string; text: string; done: boolean }[];
+  /** Attached documents (photos / PDFs), stored like journal photos. */
+  docs?: PhotoRef[];
 }
 
 /** A personal mini-goal: `target` times every `every` day/week/month (resets each period). */

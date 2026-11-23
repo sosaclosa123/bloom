@@ -187,6 +187,8 @@ export function LineChart({
   label,
   goal,
   fixed,
+  onPick,
+  dateLabel,
 }: {
   points: { date: string; value: number }[];
   fmt: (v: number) => string;
@@ -196,6 +198,10 @@ export function LineChart({
   goal?: { value: number; label: string };
   /** Fixed value range (e.g. mood 1-5). */
   fixed?: [number, number];
+  /** Click on a dot (e.g. open that day). */
+  onPick?: (date: string) => void;
+  /** Date label shown when hovering a dot. */
+  dateLabel?: (date: string) => string;
 }) {
   if (points.length === 0) return null;
   const W = 600;
@@ -242,7 +248,19 @@ export function LineChart({
         </span>
       )}
       {points.map((p) => (
-        <span key={p.date} className={`hl-line-dot ${small ? 'small' : ''}`} style={{ left: `${(x(p.date) / W) * 100}%`, top: `${(y(p.value) / H) * 100}%` }} title={`${p.date} · ${fmt(p.value)}`} />
+        <button
+          type="button"
+          key={p.date}
+          className={`hl-line-dot ${small ? 'small' : ''} ${onPick ? 'pick' : ''} ${x(p.date) / W > 0.75 ? 'at-r' : x(p.date) / W < 0.25 ? 'at-l' : ''}`}
+          style={{ left: `${(x(p.date) / W) * 100}%`, top: `${(y(p.value) / H) * 100}%` }}
+          aria-label={`${dateLabel ? dateLabel(p.date) : p.date} · ${fmt(p.value)}`}
+          onClick={onPick ? () => onPick(p.date) : undefined}
+          tabIndex={onPick ? 0 : -1}
+        >
+          <span className="hl-dot-label">
+            {dateLabel ? dateLabel(p.date) : p.date} · {fmt(p.value)}
+          </span>
+        </button>
       ))}
       <span className="hl-line-max">{fmt(Math.max(...vals))}</span>
       <span className="hl-line-min">{fmt(Math.min(...vals))}</span>

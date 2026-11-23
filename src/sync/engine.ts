@@ -9,7 +9,7 @@
 //  - Journal photos are uploaded/downloaded alongside their entry.
 // Platform-independent: the desktop app and a future phone app both use it.
 import { COLLECTIONS, normalizeSnapshot } from '../shared/db';
-import type { CollectionName, Collections, JournalEntry, Snapshot, SyncMeta } from '../shared/types';
+import type { CollectionName, Collections, HealthItem, JournalEntry, PhotoRef, Snapshot, SyncMeta } from '../shared/types';
 import type { AuthUser, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } from './backend';
 
 /** Sounds are audio files on this PC, so they don't sync. */
@@ -275,8 +275,9 @@ export class SyncEngine {
     this.saveKnown();
     if (Object.keys(incoming).length) await this.port.applyRemote(incoming as Partial<Collections>);
     this.loaded.add(sk);
-    // Fetch photos of journal entries we just received.
-    for (const e of (incoming.journal ?? []) as JournalEntry[]) {
+    // Fetch photos of journal entries and documents of doctor visits we just received.
+    const withFiles = [...((incoming.journal ?? []) as JournalEntry[]), ...((incoming.health ?? []) as SyncMeta[]).map((h) => ({ deletedAt: h.deletedAt, photos: filesOf('health', h) }))];
+    for (const e of withFiles) {
       if (e.deletedAt) continue;
       for (const p of e.photos ?? []) {
         try {
@@ -348,8 +349,8 @@ export class SyncEngine {
           }
           if (k && k.t > t) continue; // a newer version is online already
           add(scope, { coll, id: rec.id, updatedAt: t, data: rec as unknown as Record<string, unknown> }, true);
-          if (coll === 'journal' && !rec.deletedAt) {
-            for (const p of (rec as unknown as JournalEntry).photos ?? []) {
+          if (!rec.deletedAt) {
+            for (const p of filesOf(coll, rec)) {
               if (!this.uploaded.has(`${sk}|${p.fileName}`)) photoJobs.push({ scope, fileName: p.fileName });
             }
           }
@@ -408,6 +409,14 @@ export class SyncEngine {
       return fallback;
     }
   }
+}
+
+/** Files that travel with a record: journal photos and doctor-visit documents. */
+export function filesOf(coll: CollectionName, rec: SyncMeta): PhotoRef[] {
+  if (coll === 'journal') return (rec as unknown as JournalEntry).photos ?? [];
+  const h = rec as unknown as HealthItem;
+  if (coll === 'health' && h.kind === 'visit') return h.docs ?? [];
+  return [];
 }
 
 /** Merge helper for ports: applies incoming records into a snapshot (newest wins). */

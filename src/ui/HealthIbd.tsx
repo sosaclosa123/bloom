@@ -42,6 +42,7 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
   };
   const [editing, setEditing] = useState<{ b: HealthBathroom; isNew: boolean } | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [custom, setCustom] = useState('');
   const log = healthOf(all, 'bathroom')
     .filter((b) => b.date === date)
     .sort((a, b) => a.time.localeCompare(b.time));
@@ -177,6 +178,26 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
                     </button>
                   );
                 })}
+                {/* Anything else that happened: typed in, kept for the report. */}
+                {cur.complications
+                  .filter((c) => !(HBI_COMPLICATIONS as readonly string[]).includes(c))
+                  .map((c) => (
+                    <button type="button" key={c} aria-pressed className="active hl-custom-pill" dir="auto" title={t('hlRemoveCustom')} onClick={() => set({ complications: cur.complications.filter((x) => x !== c) })}>
+                      {c} ×
+                    </button>
+                  ))}
+                <form
+                  className="hl-custom-add"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const v = custom.trim();
+                    if (v && !cur.complications.includes(v)) set({ complications: [...cur.complications, v] });
+                    setCustom('');
+                  }}
+                >
+                  <input dir="auto" value={custom} placeholder={t('hlOtherProblem')} aria-label={t('hlOtherProblem')} onChange={(e) => setCustom(e.target.value)} />
+                  {custom.trim() && <button type="submit">+</button>}
+                </form>
               </div>
               )}
             </div>
