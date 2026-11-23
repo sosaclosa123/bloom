@@ -1,0 +1,14 @@
+{
+  "appId": "app.bloom.calendar",
+  "appName": "Bloom",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#fbf8f6"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_bloom",
+      "iconColor": "#7c6cd6"
+    }
+  }
+}

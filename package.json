@@ -60,6 +60,7 @@
     ]
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
     "@fontsource/caveat": "^5.3.0",
     "@fontsource/frank-ruhl-libre": "^5.3.0",
     "@fontsource/fraunces": "^5.3.0",
@@ -86,6 +87,12 @@
     "wait-on": "^9.5.1"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/status-bar": "^8.0.3",
     "electron-updater": "^6.8.11",
     "koffi": "^3.3.8"
   },
