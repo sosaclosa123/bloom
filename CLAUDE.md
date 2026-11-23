@@ -259,3 +259,7 @@ installed apps auto-update. Commit messages: clear "what + why".
   Store): Capacitor wrapper reusing the web code, same Firebase sync, local
   notifications, APK built in CI and attached to releases, in-app "Update
   available". Do it in a fresh session with enough usage.
+  Owner's choices: **update = "Update available" button** (downloads the APK,
+  Android asks "Install?"; no silent updates). Same account = same data (email
+  + password sign-in already works on phones). PC-only parts stay off on the
+  phone (game mode, tray, startup window, folder backups).
