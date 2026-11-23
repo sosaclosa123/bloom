@@ -6,10 +6,13 @@ import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
 import { autoTags, forGrams, OFF_FIELDS, packWeight, parseOff, piecesToGrams, pieceWeight, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
+import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { FOOD_TAGS, forDate, healthOf } from '../shared/health';
+import { foodSeries, type FoodMetric } from '../shared/healthExtras';
 import type { HealthFood, HealthFoodPack, ISODate } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented } from './common';
-import { CardHead, NumBox, Pills, Tip, useHealth, useWaterFmt } from './healthUi';
+import { CardHead, LineChart, NumBox, Pills, Tip, useHealth, useWaterFmt } from './healthUi';
+import { DaySummary } from './HealthDay';
 import { useBloom } from './store';
 
 const MEALS: HealthFood['meal'][] = ['breakfast', 'lunch', 'dinner'];
@@ -87,9 +90,67 @@ export function FoodTab({ date, isToday, goalMl }: { date: ISODate; isToday: boo
       <div className="wl-side">
         <TotalsCard meals={meals} snacks={snacks} drinks={drinks} />
         <WaterTodayCard date={date} goalMl={goalMl} />
+        <FoodHistoryCard date={date} />
       </div>
       {editing && <FoodEditor init={editing} onClose={() => setEditing(null)} />}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------- history line (same LineChart as Trends)
+
+function FoodHistoryCard({ date }: { date: ISODate }) {
+  const { t, locale } = useBloom();
+  const { all } = useHealth();
+  const [range, setRange] = useState<7 | 30 | 90 | 365 | 0>(30);
+  const [metric, setMetric] = useState<FoodMetric>('kcal');
+  const [day, setDay] = useState<ISODate | null>(null);
+  const from = range === 0 ? '0000-01-01' : toISODate(addDays(parseISODate(date), -(range - 1)));
+  const points = useMemo(() => foodSeries(all, metric, from, date), [all, metric, from, date]);
+  const fmt = (v: number) => (metric === 'kcal' ? t('hlKcal', { n: Math.round(v).toLocaleString(locale) }) : t('hlGrams', { n: (Math.round(v * 10) / 10).toLocaleString(locale) }));
+  const metrics: { value: FoodMetric; label: string }[] = [
+    { value: 'kcal', label: t('hlLblCalories') },
+    { value: 'carbs', label: t('hlLblCarbs') },
+    { value: 'fat', label: t('hlLblFat') },
+    { value: 'protein', label: t('hlLblProtein') },
+  ];
+  const name = metrics.find((x) => x.value === metric)?.label ?? '';
+  const avg = points.length ? points.reduce((a, p) => a + p.value, 0) / points.length : null;
+  return (
+    <section className="w-card hl-food-hist">
+      <CardHead sticker="idea" title={t('hlFoodHistory')} />
+      <Segmented
+        value={range}
+        onChange={setRange}
+        label={t('hlFoodHistory')}
+        options={[
+          { value: 7, label: t('hlWeek') },
+          { value: 30, label: t('hlNDays', { n: 30 }) },
+          { value: 90, label: t('hlNDays', { n: 90 }) },
+          { value: 365, label: t('hlYear') },
+          { value: 0, label: t('hlFromStart') },
+        ]}
+      />
+      <Pills className="hl-metric-pills" label={t('hlFoodHistory')} value={metric} onChange={(v) => v && setMetric(v)} options={metrics} />
+      {points.length === 0 ? (
+        <p className="empty-note hl-chart-empty">{t('hlNoData')}</p>
+      ) : (
+        <div className="hl-chart-box">
+          <LineChart
+            onPick={setDay}
+            dateLabel={(d) => parseISODate(d).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+            label={`${t('hlFoodHistory')}: ${name}`}
+            points={points}
+            fmt={fmt}
+          />
+          <p className="hl-legend-line">
+            <i className="dot" /> {name} · {t('hlFoodPerDay')} {points.length >= 3 && <><i className="dash" /> {t('hlTrendLine')}</>}
+            {avg != null && <span className="hl-legend-avg">{t('hlAvg', { v: fmt(avg) })}</span>}
+          </p>
+        </div>
+      )}
+      {day && <DaySummary date={day} onClose={() => setDay(null)} />}
+    </section>
   );
 }
 
@@ -233,7 +294,7 @@ export function FoodSummaryCard({ date, onOpen }: { date: ISODate; onOpen: () =>
 
 // ---------------------------------------------------------------- edit a logged item
 
-function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () => void }) {
+export function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () => void }) {
   const { t, save, del, locale } = useBloom();
   const [f, setF] = useState(init);
   const kind = kindOf(init);
@@ -567,7 +628,7 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
           {mode !== 'grams' && (
             <Tip text={t('hlMyBoxHint')}>
               <button type="button" className={`hl-mybox-btn ${boxOpen ? 'active' : ''}`} aria-expanded={boxOpen} onClick={() => setBoxOpen(!boxOpen)}>
-                <Icon name="edit" size={13} /> {t('hlMyBox')}
+                <Icon name="pen" size={13} /> {t('hlMyBox')}
               </button>
             </Tip>
           )}

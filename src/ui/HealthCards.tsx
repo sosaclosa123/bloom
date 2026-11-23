@@ -586,7 +586,7 @@ export function VisitsCard() {
                   )}
                 </button>
                 {n > 0 ? (
-                  <button type="button" className="hl-doc-btn has" title={t('hlDocsN', { n })} aria-label={t('hlDocsN', { n })} onClick={() => setDocsOf(v)}>
+                  <button type="button" className="hl-doc-btn has" title={(n === 1 ? t('hlDocOne') : t('hlDocsN', { n }))} aria-label={(n === 1 ? t('hlDocOne') : t('hlDocsN', { n }))} onClick={() => setDocsOf(v)}>
                     <StickerArt kind="homework" size={28} />
                     <span className="hl-doc-count">{n}</span>
                   </button>

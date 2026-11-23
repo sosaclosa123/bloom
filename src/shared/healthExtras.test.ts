@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newMeta } from './db';
 import { emptyProfile, medDueOn, nextMedDate, sleepFromTimes } from './health';
-import { badges, behindPace, challengeDays, dayFacts, flareLine, goalPeriod, goalProgress, ibdSeries, monthSummary, nudgePlan, streak } from './healthExtras';
+import { badges, behindPace, challengeDays, dayFacts, flareLine, foodSeries, goalPeriod, goalProgress, ibdSeries, monthSummary, nudgePlan, streak } from './healthExtras';
 import type { HealthChallenge, HealthGoal, HealthItem } from './types';
 
 const profile = { ...newMeta(), ...emptyProfile(), sex: 'female' as const, completed: true };
@@ -164,5 +164,16 @@ describe('IBD history lines', () => {
   it('flare line: HBI 8, SCCAI 5', () => {
     expect(flareLine('hbi')).toBe(8);
     expect(flareLine('uc')).toBe(5);
+  });
+});
+
+describe('food history line', () => {
+  const f = (date: string, kcal: number | null, fat: number | null, deletedAt: number | null = null) =>
+    ({ ...newMeta(), deletedAt, kind: 'food' as const, date, time: '', meal: 'lunch' as const, text: 'x', tags: [], kcal, fat, carbs: null, protein: null });
+  const all: HealthItem[] = [f(day(1), 300, 10), f(day(1), 200.5, null), f(day(2), null, 5), f(day(3), 999, 1, 7), f(day(9), 100, 2)];
+  it('adds up each day; skips days without that number and deleted items', () => {
+    expect(foodSeries(all, 'kcal', day(1), day(5))).toEqual([{ date: day(1), value: 500.5 }]);
+    expect(foodSeries(all, 'fat', day(1), day(31)).map((p) => p.value)).toEqual([10, 5, 2]);
+    expect(foodSeries(all, 'carbs', day(1), day(31))).toEqual([]);
   });
 });

@@ -8058,3 +8058,89 @@ button.hl-line-dot.at-l:not(:hover):not(:focus-visible) .hl-dot-label {
 .hl-quick-body .hl-pills button {
   font-size: var(--fs-xs);
 }
+/* Food: history line */
+.hl-food-hist {
+  gap: 10px;
+}
+.hl-food-hist > .segmented button {
+  font-size: var(--fs-xs);
+}
+/* Today's log */
+.hl-log-tot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(84px * var(--fs-scale, 1)), 1fr));
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.hl-log-tot span {
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 7px 6px;
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.hl-log-tot b {
+  display: block;
+  font-family: 'Outfit', var(--font-sans);
+  font-size: calc(17px * var(--fs-scale, 1));
+  color: var(--text);
+}
+.hl-log-h {
+  margin: 10px 0 2px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.hl-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.hl-log-list button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-align: start;
+  cursor: pointer;
+}
+.hl-log-list button:hover {
+  background: var(--surface-2);
+}
+.hl-log-kind {
+  flex: none;
+  min-width: calc(64px * var(--fs-scale, 1));
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+.hl-log-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.hl-log-text small {
+  color: var(--text-muted);
+}
+.hl-log-list b {
+  flex: none;
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.hl-log-edit {
+  flex: none;
+  color: var(--accent-text);
+  opacity: 0.75;
+}
+.hl-log-list button:hover .hl-log-edit {
+  opacity: 1;
+}

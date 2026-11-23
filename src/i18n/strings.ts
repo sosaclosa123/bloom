@@ -1000,6 +1000,16 @@ const en = {
   hlQA_bath: "Bathroom",
   hlQA_saved: "Saved",
   hlQA_now: "Today so far: {v}",
+  hlFoodHistory: "History",
+  hlFoodPerDay: "per day",
+  hlTodayLog: "Today's log",
+  hlDayLog: "Day log",
+  hlLogTip: "Everything added on this day. Click a line to edit it.",
+  hlFoodDrinks: "Food & drinks",
+  hlTestsVisits: "Tests & visits",
+  hlLogEmpty: "Nothing added yet. Use Quick add above.",
+  hlEditBody: "Body today",
+  hlDocOne: "1 document",
 };
 
 export type StringKey = keyof typeof en;
@@ -2002,6 +2012,16 @@ const he: Record<StringKey, string> = {
   hlQA_bath: "שירותים",
   hlQA_saved: "נשמר",
   hlQA_now: "עד עכשיו היום: {v}",
+  hlFoodHistory: "היסטוריה",
+  hlFoodPerDay: "ליום",
+  hlTodayLog: "היומן של היום",
+  hlDayLog: "יומן היום",
+  hlLogTip: "כל מה שנוסף ביום הזה. לחיצה על שורה פותחת עריכה.",
+  hlFoodDrinks: "אוכל ומשקאות",
+  hlTestsVisits: "בדיקות וביקורים",
+  hlLogEmpty: "עדיין לא נוסף כלום. אפשר להוסיף ב\"הוספה מהירה\" למעלה.",
+  hlEditBody: "הגוף היום",
+  hlDocOne: "מסמך אחד",
 };
 
 const dict: Record<Language, Record<StringKey, string>> = { en, he };

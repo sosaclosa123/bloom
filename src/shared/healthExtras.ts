@@ -550,3 +550,19 @@ export function ibdSeries(all: HealthItem[], metric: IbdMetric, from: ISODate, t
 
 /** Where a flare starts on the score line: HBI 8 (moderate), SCCAI 5 (active). */
 export const flareLine = (kind: 'hbi' | 'uc') => (kind === 'uc' ? 5 : 8);
+
+// ---------------------------------------------------------------- food history line
+
+export type FoodMetric = 'kcal' | 'carbs' | 'fat' | 'protein';
+
+/** Daily totals (meals + snacks + drinks) for days that have that number logged. */
+export function foodSeries(all: HealthItem[], metric: FoodMetric, from: ISODate, to: ISODate): { date: ISODate; value: number }[] {
+  const by = new Map<ISODate, number>();
+  for (const x of all) {
+    if (x.kind !== 'food' || x.deletedAt || x.date < from || x.date > to) continue;
+    const v = x[metric];
+    if (v == null) continue;
+    by.set(x.date, (by.get(x.date) ?? 0) + v);
+  }
+  return [...by.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([date, v]) => ({ date, value: Math.round(v * 10) / 10 }));
+}

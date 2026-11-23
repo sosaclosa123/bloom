@@ -187,6 +187,14 @@ installed apps auto-update. Commit messages: clear "what + why".
   the same editor as its tab (no leaving Today) and saves the same records
   (`src/ui/HealthQuick.tsx`). Steps/exercise add to the day; no steps goal
   (owner's choice).
+  Under the medicines: **"Today's log"** (owner chose A, grouped): totals
+  (kcal, water, steps, medicines taken/due), then Food & drinks, Body, Tests &
+  visits for that day; click any line = its editor (same records).
+- Food tab side: **History** line chart (same `LineChart`): Calories /
+  Carbohydrates / Fat / Protein per day; Week / 30 / 90 days / Year / From the
+  start; click a dot = day pop-up (`foodSeries` in healthExtras.ts).
+- Icons: only names in `paths` (common.tsx) exist (pencil = "pen"); a missing
+  name type-checks but draws nothing.
 - **Doctor visits = full history**, never filtered by the chosen day, scrolls
   when long; each visit can hold documents (PDF/images): sticker icon + count
   when attached, plus icon when not. Big PDFs (> ~700 KB) stay on this PC +

@@ -5,13 +5,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { newMeta } from '../shared/db';
-import { forDate, latestWeight } from '../shared/health';
-import type { HealthBody, ISODate } from '../shared/types';
-import { Button, Modal } from './common';
+import { dosesOn, forDate, healthOf, latestWeight } from '../shared/health';
+import type { HealthBody, HealthFood, HealthTest, HealthVisit, ISODate } from '../shared/types';
+import { Button, Field, Icon, Modal } from './common';
 import { MedEditor, TestEditor, VisitEditor } from './HealthCards';
-import { FoodAdd } from './HealthFood';
+import { FoodAdd, FoodEditor } from './HealthFood';
 import { BathroomEditor } from './HealthIbd';
-import { CardHead, NumBox, useHealth } from './healthUi';
+import { CardHead, NumBox, useHealth, useWaterFmt } from './healthUi';
 import { StickerArt } from './Stickers';
 import { useBloom } from './store';
 
@@ -154,6 +154,173 @@ function BodyQuick({ field, date, onClose }: { field: 'steps' | 'exercise' | 'we
         {field !== 'weight' && now != null && result != null && <p className="hl-portion-kcal">
             <bdi>= {fmt(result)}</bdi>
           </p>}
+      </div>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------- Today's log: the whole day at a glance, click to edit
+
+export function TodayLogCard({ date, isToday }: { date: ISODate; isToday: boolean }) {
+  const { t, locale } = useBloom();
+  const { all } = useHealth();
+  const fmtWater = useWaterFmt();
+  const [food, setFood] = useState<HealthFood | null>(null);
+  const [test, setTest] = useState<HealthTest | null>(null);
+  const [visit, setVisit] = useState<HealthVisit | null>(null);
+  const [body, setBody] = useState(false);
+  const meal = (m: HealthFood) => (m.meal === 'drink' ? t('hlQA_drink') : m.snack || m.meal === 'snack' ? t('hlQA_snack') : t(`hlMeal_${m.meal}` as StringKey));
+  const order = ['breakfast', 'lunch', 'dinner', 'snack', 'drink'];
+  const foods = healthOf(all, 'food')
+    .filter((f) => f.date === date)
+    .sort((a, b) => order.indexOf(a.snack ? 'snack' : a.meal) - order.indexOf(b.snack ? 'snack' : b.meal) || a.time.localeCompare(b.time));
+  const b = forDate(all, 'body', date);
+  const tests = healthOf(all, 'test').filter((x) => x.date === date);
+  const visits = healthOf(all, 'visit').filter((x) => x.date === date);
+  const water = forDate(all, 'checkin', date)?.waterMl ?? 0;
+  const doses = dosesOn(healthOf(all, 'med'), healthOf(all, 'taken'), date);
+  const kcal = foods.reduce((a, f) => a + (f.kcal ?? 0), 0);
+  const bodyBits = [
+    b?.steps ? `${t('hlSteps')} ${b.steps.toLocaleString(locale)}` : null,
+    b?.exerciseMin ? `${t('hlExercise')} ${b.exerciseMin} ${t('hlUnitMin')}` : null,
+    b?.weightKg ? `${t('hlWeight')} ${b.weightKg.toLocaleString(locale)} ${t('hlUnitKg')}` : null,
+  ].filter(Boolean);
+  const amount = (f: HealthFood) => (f.grams ? (f.meal === 'drink' ? t('hlMl', { n: f.grams }) : t('hlGrams', { n: Math.round(f.grams) })) : '');
+  const empty = !foods.length && !bodyBits.length && !tests.length && !visits.length;
+  const edit = <Icon name="pen" size={13} className="hl-log-edit" />;
+  return (
+    <section className="w-card hl-log">
+      <CardHead sticker="important" title={isToday ? t('hlTodayLog') : t('hlDayLog')} tip={t('hlLogTip')} />
+      <div className="hl-log-tot">
+        <span>
+          <b>{Math.round(kcal).toLocaleString(locale)}</b>
+          {t('hlKcalUnit')}
+        </span>
+        <span>
+          <b>{fmtWater(water)}</b>
+          {t('hlWater')}
+        </span>
+        <span>
+          <b>{(b?.steps ?? 0).toLocaleString(locale)}</b>
+          {t('hlSteps')}
+        </span>
+        <span>
+          <b dir="ltr">{doses.length ? `${doses.filter((d) => d.taken).length}/${doses.length}` : '–'}</b>
+          {t('hlTabMeds')}
+        </span>
+      </div>
+      {empty && <p className="empty-note">{t('hlLogEmpty')}</p>}
+      {foods.length > 0 && (
+        <>
+          <h4 className="hl-log-h">{t('hlFoodDrinks')}</h4>
+          <ul className="hl-log-list">
+            {foods.map((f) => (
+              <li key={f.id}>
+                <button type="button" onClick={() => setFood(f)}>
+                  <span className="hl-log-kind">{meal(f)}</span>
+                  <span className="hl-log-text">
+                    <bdi>{f.text}</bdi>
+                    {f.grams ? <small> {amount(f)}</small> : null}
+                  </span>
+                  {f.kcal != null && <b>{t('hlKcal', { n: Math.round(f.kcal).toLocaleString(locale) })}</b>}
+                  {edit}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <h4 className="hl-log-h">{t('hlBody')}</h4>
+      <ul className="hl-log-list">
+        <li>
+          <button type="button" onClick={() => setBody(true)}>
+            <span className={`hl-log-text ${bodyBits.length ? '' : 'muted'}`}>{bodyBits.length ? bodyBits.join(' · ') : `${t('hlSteps')} · ${t('hlExercise')} · ${t('hlWeight')}`}</span>
+            {edit}
+          </button>
+        </li>
+      </ul>
+      {(tests.length > 0 || visits.length > 0) && (
+        <>
+          <h4 className="hl-log-h">{t('hlTestsVisits')}</h4>
+          <ul className="hl-log-list">
+            {tests.map((x) => (
+              <li key={x.id}>
+                <button type="button" onClick={() => setTest(x)}>
+                  <StickerArt kind="hospital" size={18} />
+                  <span className="hl-log-text" dir="auto">
+                    {x.name}
+                  </span>
+                  {x.value != null && (
+                    <b dir="ltr">
+                      {x.value} {x.unit}
+                    </b>
+                  )}
+                  {edit}
+                </button>
+              </li>
+            ))}
+            {visits.map((v) => (
+              <li key={v.id}>
+                <button type="button" onClick={() => setVisit(v)}>
+                  <StickerArt kind="doctor" size={18} />
+                  <span className="hl-log-text">
+                    <bdi>{v.doctor || t('hlQA_visit')}</bdi>
+                    {(v.docs?.length ?? 0) > 0 && <small> · {v.docs!.length === 1 ? t('hlDocOne') : t('hlDocsN', { n: v.docs!.length })}</small>}
+                  </span>
+                  {edit}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {food && <FoodEditor init={food} onClose={() => setFood(null)} />}
+      {test && <TestEditor init={test} isNew={false} onClose={() => setTest(null)} />}
+      {visit && <VisitEditor init={visit} isNew={false} onClose={() => setVisit(null)} />}
+      {body && <BodyEdit date={date} onClose={() => setBody(false)} />}
+    </section>
+  );
+}
+
+/** Steps, exercise and weight for the day in one window (same record as the Body tab). */
+function BodyEdit({ date, onClose }: { date: ISODate; onClose: () => void }) {
+  const { t, save } = useBloom();
+  const { all } = useHealth();
+  const cur: HealthBody = forDate(all, 'body', date) ?? { ...newMeta(), kind: 'body', date, weightKg: null, exerciseMin: null, steps: null };
+  const [f, setF] = useState(cur);
+  return (
+    <Modal
+      title={t('hlEditBody')}
+      onClose={onClose}
+      width={420}
+      footer={
+        <>
+          <span className="spacer" />
+          <Button variant="ghost" onClick={onClose}>
+            {t('cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              save('health', f);
+              onClose();
+            }}
+          >
+            {t('save')}
+          </Button>
+        </>
+      }
+    >
+      <div className="hl-form">
+        <Field label={t('hlSteps')}>
+          <NumBox value={f.steps} onChange={(steps) => setF({ ...f, steps })} min={0} max={100000} label={t('hlSteps')} />
+        </Field>
+        <Field label={t('hlExercise')}>
+          <NumBox value={f.exerciseMin} onChange={(exerciseMin) => setF({ ...f, exerciseMin })} min={0} max={1440} unit={t('hlUnitMin')} label={t('hlExercise')} />
+        </Field>
+        <Field label={t('hlWeight')}>
+          <NumBox value={f.weightKg} onChange={(weightKg) => setF({ ...f, weightKg })} min={20} max={400} step={0.1} unit={t('hlUnitKg')} label={t('hlWeight')} />
+        </Field>
       </div>
     </Modal>
   );

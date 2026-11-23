@@ -11,7 +11,7 @@ import { StickerArt } from './Stickers';
 import { BodyCard, MedHistoryCards, MedsCard, TestsCard, VisitsCard } from './HealthCards';
 import { CheckinCard } from './HealthCheckin';
 import { IbdCard } from './HealthIbd';
-import { QuickAddCard } from './HealthQuick';
+import { QuickAddCard, TodayLogCard } from './HealthQuick';
 import { ChallengesCard, DoctorReport, GoalsCard, MonthSummaryCard, StickerBookButton } from './HealthExtras';
 import { FlareTimelineCard, InsightsCard, TrendsCard } from './HealthTrends';
 import { profileComplete, ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
@@ -185,6 +185,8 @@ function HealthOn() {
                 <QuickAddCard date={date} isToday={isToday} />
                 <CheckinCard date={date} isToday={isToday} goal={goal} />
                 <MedsCard date={date} todayOnly />
+                {/* Everything added this day, click to edit (same records as the other tabs). */}
+                <TodayLogCard date={date} isToday={isToday} />
               </div>
               <div className="wl-side">
                 {isToday && <MonthSummaryCard />}
