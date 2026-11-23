@@ -462,3 +462,32 @@
 .phone .ym-day {
   font-size: calc(10px * var(--fs-scale, 1));
 }
+
+/* ------------------------------------------------------------ Settings */
+.phone .settings-modal .modal-body {
+  padding: 0;
+}
+.phone .settings {
+  flex-direction: column;
+  min-height: 0;
+}
+.phone .settings-tabs {
+  width: auto;
+  flex-direction: row;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-inline-end: none;
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-2) var(--space-3);
+  gap: 4px;
+}
+.phone .settings-tabs button {
+  flex: none;
+  white-space: nowrap;
+  gap: 6px;
+  padding: 8px 12px;
+}
+.phone .settings-body {
+  padding: var(--space-4);
+  gap: var(--space-4);
+}

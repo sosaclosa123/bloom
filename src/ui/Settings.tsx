@@ -129,7 +129,21 @@ export function SettingsPanel({ onClose, initialTab }: { onClose: () => void; in
             </>
           )}
 
-          {tab === 'reminders' && (
+          {tab === 'reminders' && platform.kind === 'android' && (
+            <>
+              {/* Phone: reminders are Android notifications (sound = the phone's notification sound). */}
+              <Field label={t('defaultReminder')}>
+                <RemindersPicker value={settings.defaultRemindBefore} onChange={(defaultRemindBefore) => setSettings({ defaultRemindBefore })} />
+              </Field>
+              <div className="row">
+                <Button icon="bell" variant="ghost" onClick={() => platform.testPopup()}>
+                  {t('testReminder')}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {tab === 'reminders' && platform.kind !== 'android' && (
             <>
               <Field label={t('defaultSound')}>
                 <SoundSelect value={settings.defaultSound} onChange={(defaultSound) => setSettings({ defaultSound })} />
@@ -178,7 +192,7 @@ export function SettingsPanel({ onClose, initialTab }: { onClose: () => void; in
             </>
           )}
 
-          {tab === 'reminders' && (
+          {tab === 'reminders' && platform.kind !== 'android' && (
             <>
               <h4 className="settings-h">{t('gameMode')}</h4>
               <div className="game-intro">
