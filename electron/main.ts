@@ -18,7 +18,7 @@ import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 
 import { basename, extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { COLLECTIONS, merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert, uuid } from '../src/shared/db';
-import type { CollectionName, Collections, FiredAlert, HealthMedTaken, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../src/shared/types';
+import type { CollectionName, Collections, FiredAlert, HealthCheckin, HealthMedTaken, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../src/shared/types';
 import { gameDetectionStatus, isGaming, setOwnWindowCheck } from './gameMode';
 import { AutoBackup } from './autoBackup';
 import { Scheduler, type DeliveryReason } from './scheduler';
@@ -302,7 +302,9 @@ function showToasts(alerts: FiredAlert[]) {
         : time;
     try {
       // Medication reminders stay generic ("Medication") unless names were turned on.
-      const title = a.title || (a.kind === 'med' ? (he ? 'תרופה' : 'Medication') : 'Bloom');
+      const title =
+        a.title ||
+        (a.kind === 'med' ? (he ? 'תרופה' : 'Medication') : a.kind === 'water' ? (he ? 'הגיע הזמן לכוס מים' : 'Time for a glass of water') : a.kind === 'weigh' ? (he ? 'שקילה שבועית' : 'Weekly weigh-in') : 'Bloom');
       const n = new Notification({ title, body, silent: true, icon: join(DIST, 'icon.png') });
       liveToasts.add(n);
       const done = () => liveToasts.delete(n);
@@ -638,6 +640,15 @@ function registerIpc() {
   });
   ipcMain.on('popup:taken', (_e, key: string) => {
     const a = popupAlerts.find((x) => x.key === key);
+    if (a?.kind === 'water') {
+      // "+ glass" from the water nudge: add one glass to that day's check-in.
+      const date = a.when.slice(0, 10);
+      const all = store.get().health.filter((h) => !h.deletedAt);
+      const glass = (all.find((h) => h.kind === 'profile') as { glassMl?: number } | undefined)?.glassMl || 250;
+      const cur = all.filter((h): h is HealthCheckin => h.kind === 'checkin' && h.date === date).sort((x, y) => y.updatedAt - x.updatedAt)[0];
+      const next: HealthCheckin = cur ? { ...cur, waterMl: cur.waterMl + glass } : { ...newMeta(), kind: 'checkin', date, waterMl: glass, mood: null, sleepH: null, energy: null, stress: null };
+      store.set(upsert(store.get(), 'health', next));
+    }
     if (a?.kind === 'med') {
       const taken: HealthMedTaken = { ...newMeta(), kind: 'taken', medId: a.sourceId, date: a.when.slice(0, 10), time: a.when.slice(11, 16) };
       store.set(upsert(store.get(), 'health', taken));

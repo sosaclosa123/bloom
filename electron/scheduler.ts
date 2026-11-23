@@ -85,8 +85,11 @@ export class Scheduler {
       const late = due.filter((a) => a.dueAt < now - 2 * 60000);
       const onTime = due.filter((a) => a.dueAt >= now - 2 * 60000);
       if (gaming) {
-        this.s.missed.push(...due.map((a) => ({ ...a, missedWhileGaming: true })));
-        if (onTime.length && data.settings.gameModeSoftSound) this.hooks.playSound(onTime[0].sound, true);
+        // Water nudges are only useful right now: never kept for after the game.
+        const keep = due.filter((a) => a.kind !== 'water');
+        this.s.missed.push(...keep.map((a) => ({ ...a, missedWhileGaming: true })));
+        const soft = onTime.filter((a) => a.kind !== 'water');
+        if (soft.length && data.settings.gameModeSoftSound) this.hooks.playSound(soft[0].sound, true);
         this.hooks.onMissedChange(this.s.missed);
       } else {
         if (late.length) this.hooks.show(late, 'whileClosed');

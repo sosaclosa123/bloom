@@ -8,7 +8,7 @@ import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { FOOD_TAGS, foodInsights, forDate, healthOf, ibdScores, type WaterGoal } from '../shared/health';
 import type { HealthFood, ISODate } from '../shared/types';
 import { Button, Icon, IconButton, Segmented } from './common';
-import { Pills, useHealth, useWaterFmt } from './healthUi';
+import { CardHead, Pills, useHealth, useWaterFmt } from './healthUi';
 import { useBloom } from './store';
 
 const datesBack = (end: ISODate, n: number) => Array.from({ length: n }, (_, i) => toISODate(addDays(parseISODate(end), i - n + 1)));
@@ -176,9 +176,7 @@ export function FoodCard({ date, isToday }: { date: ISODate; isToday: boolean })
   const tagName = (x: string) => ((FOOD_TAGS as readonly string[]).includes(x) ? t(`hlTag_${x}` as StringKey) : x);
   return (
     <section className="w-card hl-food">
-      <div className="w-card-head">
-        <h3>{t('hlFood')}</h3>
-      </div>
+      <CardHead sticker="cooking" title={t('hlFood')} />
       <form
         className="hl-food-add"
         onSubmit={(e) => {

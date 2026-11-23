@@ -1,0 +1,123 @@
+import { describe, expect, it } from 'vitest';
+import { newMeta } from './db';
+import { emptyProfile, medDueOn, nextMedDate, sleepFromTimes } from './health';
+import { badges, behindPace, challengeDays, dayFacts, goalPeriod, goalProgress, monthSummary, nudgePlan, streak } from './healthExtras';
+import type { HealthChallenge, HealthGoal, HealthItem } from './types';
+
+const profile = { ...newMeta(), ...emptyProfile(), sex: 'female' as const, completed: true };
+const checkin = (date: string, waterMl: number, extra = {}) => ({ ...newMeta(), kind: 'checkin' as const, date, waterMl, mood: 4, sleepH: 7, energy: 3, stress: 2, ...extra });
+const day = (n: number) => `2026-03-${String(n).padStart(2, '0')}`;
+
+describe('medication schedule', () => {
+  it('every day by default; every 2 weeks / every month from the start date', () => {
+    expect(medDueOn({}, '2026-03-05')).toBe(true);
+    const inj = { every: 2, unit: 'week' as const, startDate: '2026-03-01' };
+    expect(medDueOn(inj, '2026-03-01')).toBe(true);
+    expect(medDueOn(inj, '2026-03-08')).toBe(false);
+    expect(medDueOn(inj, '2026-03-15')).toBe(true);
+    expect(medDueOn(inj, '2026-02-15')).toBe(false);
+    expect(nextMedDate(inj, '2026-03-02')).toBe('2026-03-15');
+    const monthly = { every: 1, unit: 'month' as const, startDate: '2026-01-31' };
+    expect(medDueOn(monthly, '2026-02-28')).toBe(true);
+    expect(medDueOn(monthly, '2026-03-31')).toBe(true);
+    expect(medDueOn({ every: 3, unit: 'day', startDate: '2026-03-01' }, '2026-03-04')).toBe(true);
+  });
+});
+
+describe('sleep from bed and wake times', () => {
+  it('works over midnight', () => {
+    expect(sleepFromTimes('23:30', '07:00')).toBe(7.5);
+    expect(sleepFromTimes('01:10', '08:00')).toBe(6.75);
+    expect(sleepFromTimes('x', '08:00')).toBeNull();
+  });
+});
+
+describe('streaks and summaries', () => {
+  const all: HealthItem[] = [profile, checkin(day(1), 1600), checkin(day(2), 1700), checkin(day(3), 500), checkin(day(4), 1600), checkin(day(5), 1600)];
+  it('counts days in a row; today still open does not break it', () => {
+    expect(streak(all, day(5), false, (f) => f.waterMet)).toBe(2);
+    expect(streak([...all, checkin(day(6), 200)], day(6), false, (f) => f.waterMet)).toBe(2);
+    expect(dayFacts(all, day(1), false)).toMatchObject({ waterMet: true, checkinFull: true, sleepH: 7 });
+  });
+  it('monthly summary', () => {
+    const m = monthSummary(all, '2026-03', false);
+    expect(m).toMatchObject({ daysLogged: 5, waterGoalDays: 4, avgSleep: 7, avgMood: 4, medsPct: null });
+  });
+});
+
+describe('mini-goals', () => {
+  const g: HealthGoal = { ...newMeta(), kind: 'goal', title: 'Gym', sticker: 'gym', target: 4, every: 1, unit: 'week', startDate: '2026-03-04', active: true };
+  it('weeks follow the calendar week start, months the calendar month', () => {
+    expect(goalPeriod(g, '2026-03-04', 0)).toEqual({ start: '2026-03-01', end: '2026-03-07' });
+    expect(goalPeriod(g, '2026-03-09', 1)).toEqual({ start: '2026-03-09', end: '2026-03-15' });
+    expect(goalPeriod({ ...g, every: 2, unit: 'month', startDate: '2026-01-15' }, '2026-04-10', 0)).toEqual({ start: '2026-03-01', end: '2026-04-30' });
+    expect(goalPeriod({ ...g, every: 3, unit: 'day', startDate: '2026-03-01' }, '2026-03-05', 0)).toEqual({ start: '2026-03-04', end: '2026-03-06' });
+  });
+  it('stays done until the next period starts', () => {
+    const ticks: HealthItem[] = [1, 2, 3, 4].map((n) => ({ ...newMeta(), kind: 'tick' as const, goalId: g.id, date: day(n + 1) }));
+    expect(goalProgress([g, ...ticks], g, day(7), 0)).toMatchObject({ count: 4, done: true });
+    expect(goalProgress([g, ...ticks], g, day(8), 0)).toMatchObject({ count: 0, done: false });
+  });
+});
+
+describe('7-day challenges', () => {
+  it('checks automatic days from the logs and manual ticks', () => {
+    const c: HealthChallenge = { ...newMeta(), kind: 'challenge', challenge: 'water', startDate: day(1), manualDays: [day(3)], stopped: false };
+    const all: HealthItem[] = [profile, c, ...[1, 2, 4, 5, 6, 7].map((n) => checkin(day(n), 1600))];
+    expect(challengeDays(all, c, day(7), false)).toMatchObject({ done: true, status: 'done' });
+    expect(challengeDays(all, c, day(5), false).status).toBe('active');
+    expect(challengeDays(all.filter((x) => (x as { date?: string }).date !== day(6)), c, day(9), false).status).toBe('missed');
+  });
+});
+
+describe('sticker book', () => {
+  it('earns badges on the day the count is reached', () => {
+    const all: HealthItem[] = [profile, ...Array.from({ length: 8 }, (_, i) => checkin(day(i + 1), 1600))];
+    const b = badges(all, day(10), false, 0);
+    expect(b.find((x) => x.id === 'water-1')?.earned).toBe(day(1));
+    expect(b.find((x) => x.id === 'water-7')?.earned).toBe(day(7));
+    expect(b.find((x) => x.id === 'waterStreak-7')?.earned).toBe(day(7));
+    expect(b.find((x) => x.id === 'water-30')?.earned).toBeNull();
+    expect(b.some((x) => x.family.ibd)).toBe(false); // IBD badges only when IBD is on
+    expect(badges(all, day(10), true, 0).some((x) => x.family.ibd)).toBe(true);
+    expect(b.length).toBeGreaterThan(90);
+  });
+});
+
+describe('water nudges', () => {
+  it('about one glass per nudge, spread over the waking day, none near bedtime', () => {
+    const p = nudgePlan(1600, 250, '08:00', '23:00'); // 13.5 h window, 7 glasses
+    expect(p.intervalMin).toBe(116);
+    expect(Math.max(...p.slots)).toBeLessThanOrEqual(21 * 60 + 30);
+    expect(nudgePlan(3500, 250).intervalMin).toBe(58);
+    expect(nudgePlan(1200, 500).intervalMin).toBe(180); // never less often than every 3 h
+    // At 12:00 the even pace is ~474 ml: 0 ml -> behind, 400 ml -> fine.
+    expect(behindPace(p, 1600, 250, 0, 12 * 60)).toBe(true);
+    expect(behindPace(p, 1600, 250, 400, 12 * 60)).toBe(false);
+  });
+});
+
+describe('health reminders', async () => {
+  const { alertsDueBetween } = await import('./alerts');
+  const { DEFAULT_SETTINGS } = await import('./types');
+  const at = (d: number, h: number, m = 0) => new Date(2026, 2, d, h, m).getTime();
+  it('every-2-weeks medication only on its days', () => {
+    const med = { ...newMeta(), kind: 'med' as const, name: 'X', dose: '', times: ['08:00'], remind: true, active: true, supplement: false, every: 2, unit: 'week' as const, startDate: '2026-03-01' };
+    const s = { ...DEFAULT_SETTINGS, healthEnabled: true };
+    expect(alertsDueBetween({ events: [], reminders: [], settings: s, health: [med] }, at(1, 7), at(1, 9))).toHaveLength(1);
+    expect(alertsDueBetween({ events: [], reminders: [], settings: s, health: [med] }, at(8, 7), at(8, 9))).toHaveLength(0);
+  });
+  it('water nudges only when on and behind; weigh-in on its weekday', () => {
+    const s = { ...DEFAULT_SETTINGS, healthEnabled: true, healthWaterNudge: true };
+    const behind = alertsDueBetween({ events: [], reminders: [], settings: s, health: [profile] }, at(3, 8), at(3, 14));
+    expect(behind.length).toBeGreaterThan(1);
+    expect(behind.every((a) => a.kind === 'water')).toBe(true);
+    const ok = alertsDueBetween({ events: [], reminders: [], settings: s, health: [profile, checkin('2026-03-03', 1600)] }, at(3, 8), at(3, 14));
+    expect(ok).toHaveLength(0);
+    expect(alertsDueBetween({ events: [], reminders: [], settings: { ...s, healthWaterNudge: false }, health: [profile] }, at(3, 8), at(3, 14))).toHaveLength(0);
+    const weigh = { ...DEFAULT_SETTINGS, healthEnabled: true, healthWeighDay: 0 }; // Sunday 1 March 2026
+    expect(alertsDueBetween({ events: [], reminders: [], settings: weigh, health: [profile] }, at(1, 8), at(1, 10)).map((a) => a.kind)).toEqual(['weigh']);
+    const weighed = { ...newMeta(), kind: 'body' as const, date: '2026-02-27', weightKg: 60, exerciseMin: null, steps: null };
+    expect(alertsDueBetween({ events: [], reminders: [], settings: weigh, health: [profile, weighed] }, at(1, 8), at(1, 10))).toHaveLength(0);
+  });
+});

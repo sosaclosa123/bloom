@@ -9,6 +9,7 @@ import { useHealth } from './healthUi';
 import { BodyCard, MedsCard, TestsCard, VisitsCard } from './HealthCards';
 import { CheckinCard } from './HealthCheckin';
 import { IbdCard } from './HealthIbd';
+import { ChallengesCard, DoctorReport, GoalsCard, MonthSummaryCard, StickerBookButton } from './HealthExtras';
 import { FlareTimelineCard, FoodCard, InsightsCard, TrendsCard } from './HealthTrends';
 import { profileComplete, ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
 import { useBloom } from './store';
@@ -16,7 +17,7 @@ import { useBloom } from './store';
 // ---------------------------------------------------------------- settings (per device)
 
 export function HealthSettings() {
-  const { t, settings, setSettings } = useBloom();
+  const { t, settings, setSettings, locale } = useBloom();
   return (
     <>
       <div className="hl-set-intro">
@@ -30,6 +31,26 @@ export function HealthSettings() {
           <p className="muted small">{t('hlIbdHint')}</p>
           <Toggle checked={settings.healthMedNames} label={t('hlMedNames')} onChange={(healthMedNames) => setSettings({ healthMedNames })} />
           <p className="muted small">{t('hlMedNamesHint')}</p>
+          <Toggle checked={settings.healthWaterNudge} label={t('hlSetWater')} onChange={(healthWaterNudge) => setSettings({ healthWaterNudge })} />
+          <p className="muted small">{t('hlSetWaterHint')}</p>
+          <label className="hl-set-row">
+            <span>{t('hlSetWeigh')}</span>
+            <select
+              value={settings.healthWeighDay == null ? '' : String(settings.healthWeighDay)}
+              onChange={(e) => setSettings({ healthWeighDay: e.target.value === '' ? null : Number(e.target.value) })}
+            >
+              <option value="">{t('hlOff')}</option>
+              {[0, 1, 2, 3, 4, 5, 6].map((n) => (
+                <option key={n} value={n}>
+                  {new Date(2026, 2, 1 + n).toLocaleDateString(locale, { weekday: 'long' })}
+                </option>
+              ))}
+            </select>
+          </label>
+          <h4 className="settings-h">{t('hlSetFun')}</h4>
+          <Toggle checked={settings.healthGoals} label={t('hlSetGoals')} onChange={(healthGoals) => setSettings({ healthGoals })} />
+          <Toggle checked={settings.healthChallenges} label={t('hlSetChallenges')} onChange={(healthChallenges) => setSettings({ healthChallenges })} />
+          <Toggle checked={settings.healthStickerBook} label={t('hlSetBook')} onChange={(healthStickerBook) => setSettings({ healthStickerBook })} />
         </div>
       )}
       <p className="muted small">{t('hlDeviceOnly')}</p>
@@ -62,8 +83,9 @@ export function HealthPage({ onOpenSettings }: { onOpenSettings: () => void }) {
 
 /** The Health page itself (Health is on). Two columns that scroll separately, one on narrow windows. */
 function HealthOn() {
-  const { t, locale } = useBloom();
+  const { t, locale, settings } = useBloom();
   const { all, profile, ibd } = useHealth();
+  const [report, setReport] = useState(false);
   const today = toISODate(new Date());
   const [date, setDate] = useState(today);
   const [wizard, setWizard] = useState(false);
@@ -95,6 +117,10 @@ function HealthOn() {
           )}
         </div>
         <span className="spacer" />
+        <Button size="sm" variant="ghost" icon="note" onClick={() => setReport(true)}>
+          {t('hlReport')}
+        </Button>
+        {settings.healthStickerBook && <StickerBookButton />}
         <span className="hl-private">
           <Icon name="lock" size={12} /> {t('hlPrivate')}
         </span>
@@ -104,15 +130,18 @@ function HealthOn() {
           {/* Stays until the questionnaire is filled in to the end. */}
           {!profileComplete(profile, ibd) && <SetupCard onStart={() => setWizard(true)} />}
           <CheckinCard date={date} isToday={isToday} goal={goal} />
+          <MedsCard date={date} />
           {/* IBD parts exist only while IBD is on for this computer. */}
           {ibd && <IbdCard date={date} isToday={isToday} />}
-          <MedsCard date={date} />
+          {settings.healthGoals && <GoalsCard date={date} />}
+          {settings.healthChallenges && <ChallengesCard date={date} />}
           <FoodCard date={date} isToday={isToday} />
           <TrendsCard date={date} goal={goal} />
           {ibd && <FlareTimelineCard date={date} />}
           {ibd && <InsightsCard date={date} />}
         </div>
         <div className="wl-side">
+          {isToday && <MonthSummaryCard />}
           <ProfileCard goal={goal} date={date} onEdit={() => setWizard(true)} />
           <BodyCard date={date} />
           <TestsCard />
@@ -123,6 +152,7 @@ function HealthOn() {
         </div>
       </div>
       {wizard && <ProfileWizard onClose={() => setWizard(false)} />}
+      {report && <DoctorReport onClose={() => setReport(false)} />}
     </div>
   );
 }

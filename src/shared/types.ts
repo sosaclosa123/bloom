@@ -221,6 +221,9 @@ export interface HealthCheckin extends SyncMeta {
   sleepH: number | null;
   energy: number | null; // 1..5
   stress: number | null; // 1..5
+  /** Optional bed / wake-up times ("23:30", "07:00"); when both are set, sleepH is worked out from them. */
+  bed?: string | null;
+  wake?: string | null;
 }
 
 /** IBD day: Crohn's/UC symptoms (Harvey-Bradshaw answers), one per date. */
@@ -263,6 +266,12 @@ export interface HealthMed extends SyncMeta {
   remind: boolean;
   active: boolean;
   supplement: boolean;
+  /** Repeats every N days/weeks/months from startDate (missing = every day). */
+  every?: number;
+  unit?: 'day' | 'week' | 'month';
+  startDate?: ISODate;
+  /** Sticker art shown for it (e.g. 'pill', 'injection'). */
+  sticker?: string;
 }
 
 /** A dose taken (own record per dose, so two devices never overwrite each other). */
@@ -309,6 +318,37 @@ export interface HealthVisit extends SyncMeta {
   notes: string;
   /** A (private) calendar event this visit belongs to. */
   eventId: string | null;
+  /** Questions to ask at the visit (tick when asked). */
+  questions?: { id: string; text: string; done: boolean }[];
+}
+
+/** A personal mini-goal: `target` times every `every` day/week/month (resets each period). */
+export interface HealthGoal extends SyncMeta {
+  kind: 'goal';
+  title: string;
+  sticker: string;
+  target: number;
+  every: number;
+  unit: 'day' | 'week' | 'month';
+  startDate: ISODate;
+  active: boolean;
+}
+
+/** One tick toward a mini-goal (own record per tick, sync-safe). */
+export interface HealthGoalTick extends SyncMeta {
+  kind: 'tick';
+  goalId: string;
+  date: ISODate;
+}
+
+/** A 7-day challenge the person started. Manual days are ticked by hand. */
+export interface HealthChallenge extends SyncMeta {
+  kind: 'challenge';
+  challenge: string; // id from CHALLENGES
+  startDate: ISODate;
+  manualDays: ISODate[];
+  /** Given up before the end. */
+  stopped: boolean;
 }
 
 export type HealthItem =
@@ -321,7 +361,10 @@ export type HealthItem =
   | HealthFood
   | HealthBody
   | HealthTest
-  | HealthVisit;
+  | HealthVisit
+  | HealthGoal
+  | HealthGoalTick
+  | HealthChallenge;
 
 export type HolidaySet = 'none' | 'jewish' | 'christian' | 'both';
 export type Language = 'en' | 'he';
@@ -356,6 +399,13 @@ export interface Settings {
   healthIbd: boolean;
   /** Medication reminders show the medicine's name (off = just "Medication"). */
   healthMedNames: boolean;
+  /** Health extras (this computer only, all off by default). */
+  healthWaterNudge: boolean;
+  /** Weekly weigh-in reminder: weekday 0-6 (Sunday = 0) or null = off. */
+  healthWeighDay: number | null;
+  healthStickerBook: boolean;
+  healthGoals: boolean;
+  healthChallenges: boolean;
   /** Automatic weekly backups go to this folder (this computer only); null = off. */
   backupFolder: string | null;
 }
@@ -382,6 +432,11 @@ export const DEFAULT_SETTINGS: Settings = {
   healthEnabled: false,
   healthIbd: false,
   healthMedNames: false,
+  healthWaterNudge: false,
+  healthWeighDay: null,
+  healthStickerBook: false,
+  healthGoals: false,
+  healthChallenges: false,
   backupFolder: null,
 };
 
@@ -413,7 +468,7 @@ export interface FiredAlert {
   key: string; // `${sourceId}@${occurrence}`
   sourceId: string;
   /** 'med' = a medication reminder from Health (title may be '' = just "Medication"). */
-  kind: 'event' | 'reminder' | 'med';
+  kind: 'event' | 'reminder' | 'med' | 'water' | 'weigh';
   title: string;
   /** When the thing happens (event start / reminder time). */
   when: LocalDateTime;

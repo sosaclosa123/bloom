@@ -7,7 +7,7 @@ import { newMeta } from '../shared/db';
 import { parseISODate } from '../shared/dates';
 import { bathroomStats, bloodLevel, forDate, HBI_COMPLICATIONS, healthOf, ibdDayScore, isNightTime, SCCAI_EXTRACOLONIC } from '../shared/health';
 import type { FlareMark, HealthBathroom, HealthIbdDay, ISODate } from '../shared/types';
-import { Button, Field, Icon, Modal, Toggle } from './common';
+import { Button, Field, Icon, IconButton, Modal, Toggle } from './common';
 import { Pills, useHealth } from './healthUi';
 import { useBloom } from './store';
 
@@ -22,8 +22,24 @@ export function emptyIbdDay(date: ISODate): HealthIbdDay {
 }
 
 export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) {
-  const { t, locale, save } = useBloom();
+  const { t, locale, save, toast } = useBloom();
   const { all, profile } = useHealth();
+  // Always open when IBD is on; the side button can minimize it (remembered on this computer).
+  const [min, setMin] = useState(() => {
+    try {
+      return localStorage.getItem('bloom-ibd-min') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleMin = () => {
+    setMin(!min);
+    try {
+      localStorage.setItem('bloom-ibd-min', min ? '0' : '1');
+    } catch {
+      /* ignore */
+    }
+  };
   const [editing, setEditing] = useState<{ b: HealthBathroom; isNew: boolean } | null>(null);
   const log = healthOf(all, 'bathroom')
     .filter((b) => b.date === date)
@@ -42,12 +58,22 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
         <h3>
           {isToday ? t('hlIbdToday') : t('hlIbdDay', { d: parseISODate(date).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }) })}
         </h3>
-        {score.any && (
-          <span className={`hl-score lvl-${score.level}`} title={t('hlScoreNote')}>
-            {score.kind === 'uc' ? t('hlScoreUc', { n: score.score }) : t('hlScoreHbi', { n: score.score })} · {t(`hlLvl_${score.level}` as StringKey)}
-          </span>
-        )}
+        <div className="hl-head-actions">
+          {score.any && (
+            <span className={`hl-score lvl-${score.level}`} title={t('hlScoreNote')}>
+              {score.kind === 'uc' ? t('hlScoreUc', { n: score.score }) : t('hlScoreHbi', { n: score.score })} · {t(`hlLvl_${score.level}` as StringKey)}
+            </span>
+          )}
+          <IconButton icon={min ? 'plus' : 'minus'} label={min ? t('hlExpand') : t('hlMinimize')} className="hl-min-btn" onClick={toggleMin} aria-expanded={!min} />
+        </div>
       </div>
+      {min ? (
+        <button type="button" className="hl-ibd-mini" onClick={toggleMin}>
+          {stats.total > 0 ? t('hlBathSummaryDay', { n: stats.total, l: stats.liquid, b: stats.blood }) : t('hlNoBathroom')}
+          {cur.wellbeing != null && <> · {t(`hlWell_${cur.wellbeing}` as StringKey)}</>}
+        </button>
+      ) : (
+        <>
 
       {/* bathroom log */}
       <div className="hl-ibd-block">
@@ -58,6 +84,25 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
           <Button size="sm" icon="plus" onClick={newVisit}>
             {t('hlAddBathroom')}
           </Button>
+        </div>
+        <div className="hl-quick-bristol" role="group" aria-label={t('hlQuickLog')}>
+          <span className="muted small">{t('hlQuickLog')}</span>
+          {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+            <button
+              type="button"
+              key={n}
+              className={`hl-qb b${n}`}
+              title={t(`hlBristol_${n}` as StringKey)}
+              aria-label={`${n} · ${t(`hlBristol_${n}` as StringKey)}`}
+              onClick={() => {
+                const b: HealthBathroom = { ...newMeta(), kind: 'bathroom', date, time: isToday ? nowTime() : '12:00', bristol: n, urgency: 0, blood: false, bloodLevel: 0, pain: 0, notes: '' };
+                save('health', b);
+                toast(t('hlLogged', { n }), { label: t('hlAddDetails'), run: () => setEditing({ b, isNew: false }) });
+              }}
+            >
+              {n}
+            </button>
+          ))}
         </div>
         {log.length === 0 ? (
           <p className="empty-note">{t('hlNoBathroom')}</p>
@@ -147,6 +192,8 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
           </p>
         )}
       </div>
+        </>
+      )}
       {editing && <BathroomEditor init={editing.b} isNew={editing.isNew} onClose={() => setEditing(null)} />}
     </section>
   );

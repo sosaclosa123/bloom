@@ -25,7 +25,8 @@ Auto-update: electron-updater from GitHub Releases.
   colors/particles. `Stickers.tsx` + `stickerDesigns.ts`. `Wallet.tsx`.
   Health: `Health.tsx` (page + settings), `HealthProfile.tsx` (questionnaire),
   `HealthCheckin.tsx`, `HealthCards.tsx` (meds/body/tests/visits),
-  `HealthIbd.tsx`, `HealthTrends.tsx` (trends/flares/food), `healthUi.tsx`.
+  `HealthIbd.tsx`, `HealthTrends.tsx` (trends/flares/food), `HealthExtras.tsx`
+  (goals, challenges, sticker book, monthly summary, doctor report), `healthUi.tsx`.
 - `src/glance.tsx` startup "Coming up" window. `src/popup.tsx` reminder popup.
 - `electron/` main process: windows, tray, scheduler (fires reminders),
   game-mode detection, file store, updater.
@@ -104,6 +105,23 @@ installed apps auto-update. Commit messages: clear "what + why".
   page until the questions are gone through to the end (`completed`); closing
   early keeps it ("2 of 10 answered" + Continue, resumes at the first
   unanswered). Turning IBD on later brings it back for the IBD questions.
+- **Health design A** (approved): "Today" tiles (water wide with − / + glass;
+  mood, sleep, energy·stress open a small popover), medications as
+  Scheduled-style rows with a sticker per medicine and a tick, IBD card always
+  open with a side minimize button (remembered per computer) and one-tap
+  Bristol quick log. Cards use sticker art in their headers. Weight chart
+  (trend line) and test history chart are hidden behind show/hide buttons.
+- Health extras: medicines can repeat every N days/weeks/months (next date
+  shown, reminders only on due days); sleep = hours by default, per day can
+  switch to bed/wake times; visit questions checklist; Doctor report (30/90
+  days, print / PDF, IBD parts only when IBD on); streak chips; monthly
+  summary card (first week of a month). Settings > Health, all OFF by default:
+  water reminders (even pace over waking hours, ~one glass per nudge, none in
+  the last 1.5 h before bed, dropped while gaming), weekly weigh-in day, My goals
+  (N times every N days/weeks/months, stays done until the next period),
+  7-day challenges, sticker book (dimmed book button in the Health top bar;
+  22 families / 120+ badges from day 1 to 5+ years; IBD ones only with IBD).
+  Logic in `src/shared/healthExtras.ts` (tested).
 - Startup window: shows today's remaining medication doses only when Health is
   on; never any IBD item.
 - **Automatic backups** (Settings > Backup, desktop only): per-computer

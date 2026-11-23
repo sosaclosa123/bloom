@@ -1,5 +1,7 @@
 // Small shared pieces for the Health tab (data hook, number box, formatting).
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { StickerArt } from './Stickers';
+import { STICKERS } from './stickerDesigns';
 import { alive, newMeta } from '../shared/db';
 import { emptyProfile, profileOf } from '../shared/health';
 import type { HealthItem, HealthProfile } from '../shared/types';
@@ -108,6 +110,118 @@ export function Pills<T extends string | number>({
           {o.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- card header with sticker art
+
+export function CardHead({ sticker, title, sub, children }: { sticker?: string; title: ReactNode; sub?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="w-card-head hl-head">
+      <div className="hl-head-title">
+        {sticker && (
+          <span className="hl-head-st" aria-hidden="true">
+            <StickerArt kind={sticker} size={30} />
+          </span>
+        )}
+        <div>
+          <h3>{title}</h3>
+          {sub && <p className="w-card-sub">{sub}</p>}
+        </div>
+      </div>
+      {children && <div className="hl-head-actions">{children}</div>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- small popover under a tile
+
+export function Popover({ onClose, children, className }: { onClose: () => void; children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const down = (e: PointerEvent) => {
+      const el = e.target as HTMLElement;
+      if (ref.current && !ref.current.contains(el) && !el.closest('[data-pop-anchor]')) onClose();
+    };
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('pointerdown', down);
+    window.addEventListener('keydown', key);
+    return () => {
+      window.removeEventListener('pointerdown', down);
+      window.removeEventListener('keydown', key);
+    };
+  }, [onClose]);
+  return (
+    <div ref={ref} className={`hl-pop ${className ?? ''}`} role="dialog">
+      {children}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- sticker choice (same art as the rest of Bloom)
+
+/** Health-ish stickers first, then everything else. */
+export const HEALTH_STICKERS = ['pill', 'injection', 'doctor', 'hospital', 'dentist', 'sleep', 'gym', 'run', 'yoga', 'coffee', 'cooking', 'groceries', 'plants', 'flowers', 'important', 'idea', 'done', 'cycle', 'baby'];
+
+export function StickerChoice({ value, onChange, label }: { value: string; onChange: (k: string) => void; label: string }) {
+  const kinds = [...HEALTH_STICKERS, ...Object.keys(STICKERS).filter((k) => !HEALTH_STICKERS.includes(k))].filter((k) => STICKERS[k]);
+  return (
+    <div className="hl-st-grid" role="radiogroup" aria-label={label}>
+      {kinds.map((k) => (
+        <button type="button" key={k} role="radio" aria-checked={value === k} className={value === k ? 'active' : ''} title={k} onClick={() => onChange(k)}>
+          <StickerArt kind={k} size={30} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- line chart (weight, test results)
+
+/** Points over time with an optional straight trend line (least squares). Responsive; works in RTL (time stays left-to-right like a graph). */
+export function LineChart({ points, fmt, trend = true, label }: { points: { date: string; value: number }[]; fmt: (v: number) => string; trend?: boolean; label: string }) {
+  if (points.length === 0) return null;
+  const W = 600;
+  const H = 160;
+  const pad = { l: 8, r: 8, t: 14, b: 14 };
+  const t0 = Date.parse(points[0].date);
+  const t1 = Date.parse(points[points.length - 1].date);
+  const span = Math.max(1, t1 - t0);
+  const vals = points.map((p) => p.value);
+  let lo = Math.min(...vals);
+  let hi = Math.max(...vals);
+  if (hi - lo < 1e-9) {
+    lo -= 1;
+    hi += 1;
+  }
+  const m = (hi - lo) * 0.15;
+  lo -= m;
+  hi += m;
+  const x = (d: string) => pad.l + ((Date.parse(d) - t0) / span) * (W - pad.l - pad.r) + (points.length === 1 ? (W - pad.l - pad.r) / 2 : 0);
+  const y = (v: number) => pad.t + (1 - (v - lo) / (hi - lo)) * (H - pad.t - pad.b);
+  let tr: { y0: number; y1: number } | null = null;
+  if (trend && points.length >= 3) {
+    const xs = points.map((p) => (Date.parse(p.date) - t0) / 86400000);
+    const n = xs.length;
+    const mx = xs.reduce((a, b) => a + b, 0) / n;
+    const my = vals.reduce((a, b) => a + b, 0) / n;
+    const sxx = xs.reduce((a, v) => a + (v - mx) ** 2, 0);
+    const slope = sxx ? xs.reduce((a, v, i) => a + (v - mx) * (vals[i] - my), 0) / sxx : 0;
+    tr = { y0: my - slope * mx, y1: my + slope * (xs[n - 1] - mx) };
+  }
+  const path = points.map((p, i) => `${i ? 'L' : 'M'}${x(p.date).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  return (
+    <div className="hl-line" role="img" aria-label={label} dir="ltr">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="hl-line-svg">
+        {tr && <line x1={x(points[0].date)} x2={x(points[points.length - 1].date)} y1={y(tr.y0)} y2={y(tr.y1)} className="hl-line-trend" vectorEffect="non-scaling-stroke" />}
+        <path d={path} className="hl-line-path" vectorEffect="non-scaling-stroke" />
+      </svg>
+      {points.map((p) => (
+        <span key={p.date} className="hl-line-dot" style={{ left: `${(x(p.date) / W) * 100}%`, top: `${(y(p.value) / H) * 100}%` }} title={`${p.date} · ${fmt(p.value)}`} />
+      ))}
+      <span className="hl-line-max">{fmt(Math.max(...vals))}</span>
+      <span className="hl-line-min">{fmt(Math.min(...vals))}</span>
     </div>
   );
 }

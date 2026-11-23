@@ -2,14 +2,17 @@
 import { useMemo, useState } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
-import { newMeta } from '../shared/db';
+import { newMeta, uuid } from '../shared/db';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
-import { dosesOn, forDate, healthOf } from '../shared/health';
+import { dosesOn, forDate, healthOf, medDueOn, nextMedDate } from '../shared/health';
 import type { CalendarEvent, HealthBody, HealthMed, HealthMedTaken, HealthTest, HealthVisit, ISODate } from '../shared/types';
-import { Button, Field, Icon, IconButton, Modal, Toggle } from './common';
+import { Button, Field, Icon, IconButton, Modal, Segmented, Toggle } from './common';
 import { newEvent } from './drafts';
-import { NumBox, useHealth } from './healthUi';
+import { CardHead, LineChart, NumBox, StickerChoice, useHealth } from './healthUi';
+import { StickerArt } from './Stickers';
 import { useBloom } from './store';
+
+const weekdayName = (n: number, locale: string) => new Date(2026, 2, 1 + n).toLocaleDateString(locale, { weekday: 'long' }); // 1 Mar 2026 = Sunday
 
 const fmtDay = (d: ISODate, locale: string, year = false) =>
   parseISODate(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}) });
@@ -25,7 +28,7 @@ function CheckBtn({ on, label, onClick }: { on: boolean; label: string; onClick:
 // ---------------------------------------------------------------- medications
 
 export function MedsCard({ date }: { date: ISODate }) {
-  const { t, save } = useBloom();
+  const { t, locale, save } = useBloom();
   const { all } = useHealth();
   const [editing, setEditing] = useState<{ med: HealthMed; isNew: boolean } | null>(null);
   const meds = healthOf(all, 'med');
@@ -33,73 +36,91 @@ export function MedsCard({ date }: { date: ISODate }) {
   const doses = dosesOn(meds, taken, date);
   const asNeeded = meds.filter((m) => m.active && m.times.length === 0);
   const paused = meds.filter((m) => !m.active);
+  // Not due this day (e.g. an injection every 2 weeks): shown with its next date.
+  const later = meds
+    .filter((m) => m.active && m.times.length && !medDueOn(m, date))
+    .map((m) => ({ med: m, next: nextMedDate(m, date) }))
+    .filter((x) => x.next)
+    .sort((a, b) => a.next!.localeCompare(b.next!));
 
   const toggle = (med: HealthMed, time: string, rec: HealthMedTaken | undefined) => {
     if (rec) void platform.remove('health', rec.id);
     else save('health', { ...newMeta(), kind: 'taken', medId: med.id, date, time } satisfies HealthMedTaken);
   };
-  const add = () => setEditing({ med: { ...newMeta(), kind: 'med', name: '', dose: '', times: ['08:00'], remind: true, active: true, supplement: false }, isNew: true });
+  const add = () =>
+    setEditing({ med: { ...newMeta(), kind: 'med', name: '', dose: '', times: ['08:00'], remind: true, active: true, supplement: false, every: 1, unit: 'day', startDate: date, sticker: 'pill' }, isNew: true });
+  const name = (med: HealthMed) => (
+    <button type="button" className="hl-dose-name" onClick={() => setEditing({ med, isNew: false })}>
+      <span dir="auto">{med.name || t('hlMedication')}</span>
+      {med.dose && (
+        <span className="muted" dir="auto">
+          {med.dose}
+        </span>
+      )}
+    </button>
+  );
+  const art = (med: HealthMed) => (
+    <span className="hl-dose-st" aria-hidden="true">
+      <StickerArt kind={med.sticker || (med.supplement ? 'plants' : 'pill')} size={26} />
+    </span>
+  );
 
   return (
     <section className="w-card hl-meds">
-      <div className="w-card-head">
-        <h3>
-          <Icon name="pill" size={16} /> {t('hlMeds')}
-        </h3>
+      <CardHead sticker="pill" title={t('hlMeds')}>
         <Button size="sm" icon="plus" onClick={add}>
           {t('hlAddMed')}
         </Button>
-      </div>
+      </CardHead>
       {meds.length === 0 ? (
         <p className="empty-note">{t('hlNoMeds')}</p>
       ) : (
-        <ul className="hl-list">
+        <ul className="hl-dose-list">
           {doses.length === 0 && asNeeded.length === 0 && <li className="empty-note">{t('hlNoDoses')}</li>}
           {doses.map(({ med, time, taken: rec }) => (
             <li key={med.id + time} className={`hl-dose ${rec ? 'done' : ''}`}>
-              <CheckBtn on={!!rec} label={rec ? t('hlTaken') : t('hlMarkTaken')} onClick={() => toggle(med, time, rec)} />
+              <span className="up-bar" />
               <span className="hl-dose-time" dir="ltr">
                 {time}
               </span>
-              <button type="button" className="hl-dose-name" onClick={() => setEditing({ med, isNew: false })}>
-                <span dir="auto">{med.name || t('hlMedication')}</span>
-                {med.dose && (
-                  <span className="muted" dir="auto">
-                    {med.dose}
-                  </span>
-                )}
-              </button>
+              {art(med)}
+              {name(med)}
               {med.supplement && <span className="hl-tag">{t('hlMedSupplement')}</span>}
+              {(med.every ?? 1) > 1 || (med.unit && med.unit !== 'day') ? <span className="hl-tag">{repeatText(med, t)}</span> : null}
               {med.remind && <Icon name="bell" size={13} className="hl-dose-bell" />}
+              <CheckBtn on={!!rec} label={rec ? t('hlTaken') : t('hlMarkTaken')} onClick={() => toggle(med, time, rec)} />
             </li>
           ))}
           {asNeeded.map((med) => {
             const count = taken.filter((x) => x.medId === med.id && x.date === date && x.time === '').length;
             return (
               <li key={med.id} className="hl-dose">
+                <span className="up-bar" />
+                <span className="hl-dose-time">{count > 0 ? `×${count}` : '–'}</span>
+                {art(med)}
+                {name(med)}
+                {med.supplement && <span className="hl-tag">{t('hlMedSupplement')}</span>}
                 <button type="button" className="hl-mini-btn" aria-label={t('hlMarkTaken')} title={t('hlMarkTaken')} onClick={() => toggle(med, '', undefined)}>
                   +
                 </button>
-                <span className="hl-dose-time">{count > 0 ? `×${count}` : ''}</span>
-                <button type="button" className="hl-dose-name" onClick={() => setEditing({ med, isNew: false })}>
-                  <span dir="auto">{med.name || t('hlMedication')}</span>
-                  {med.dose && (
-                    <span className="muted" dir="auto">
-                      {med.dose}
-                    </span>
-                  )}
-                </button>
-                {med.supplement && <span className="hl-tag">{t('hlMedSupplement')}</span>}
               </li>
             );
           })}
+          {later.map(({ med, next }) => (
+            <li key={med.id} className="hl-dose later">
+              <span className="up-bar" />
+              <span className="hl-dose-time" />
+              {art(med)}
+              {name(med)}
+              <span className="hl-tag">{t('hlNextOn', { d: fmtDay(next!, locale) })}</span>
+            </li>
+          ))}
           {paused.map((med) => (
             <li key={med.id} className="hl-dose paused">
+              <span className="up-bar" />
               <span className="hl-dose-time" />
-              <span className="hl-dose-time" />
-              <button type="button" className="hl-dose-name" onClick={() => setEditing({ med, isNew: false })}>
-                <span dir="auto">{med.name || t('hlMedication')}</span>
-              </button>
+              {art(med)}
+              {name(med)}
               <span className="hl-tag">{t('hlMedPaused')}</span>
             </li>
           ))}
@@ -108,6 +129,13 @@ export function MedsCard({ date }: { date: ISODate }) {
       {editing && <MedEditor init={editing.med} isNew={editing.isNew} onClose={() => setEditing(null)} />}
     </section>
   );
+}
+
+/** "Every 2 weeks" etc. */
+function repeatText(m: Pick<HealthMed, 'every' | 'unit'>, t: ReturnType<typeof useBloom>['t']) {
+  const n = Math.max(1, m.every ?? 1);
+  const u = m.unit ?? 'day';
+  return n === 1 ? t(`hlEvery1_${u}` as StringKey) : t(`hlEveryN_${u}` as StringKey, { n });
 }
 
 function MedEditor({ init, isNew, onClose }: { init: HealthMed; isNew: boolean; onClose: () => void }) {
@@ -131,6 +159,7 @@ function MedEditor({ init, isNew, onClose }: { init: HealthMed; isNew: boolean; 
     for (let i = 13; i >= 0; i--) {
       const date = toISODate(addDays(new Date(), -i));
       if (date < first) continue;
+      if (!medDueOn(init, date)) continue;
       const done = taken.filter((x) => x.medId === init.id && x.date === date).length;
       out.push({ date, planned: init.times.length, done });
     }
@@ -193,6 +222,28 @@ function MedEditor({ init, isNew, onClose }: { init: HealthMed; isNew: boolean; 
             </Button>
           </div>
         </div>
+        <div className="field">
+          <span className="field-label">{t('hlRepeat')}</span>
+          <div className="hl-repeat">
+            <span>{t('hlEveryWord')}</span>
+            <NumBox value={m.every ?? 1} onChange={(v) => set({ every: Math.max(1, Math.round(v ?? 1)) })} min={1} max={365} label={t('hlRepeat')} />
+            <select value={m.unit ?? 'day'} aria-label={t('hlRepeat')} onChange={(e) => set({ unit: e.target.value as HealthMed['unit'], startDate: m.startDate ?? toISODate(new Date()) })}>
+              <option value="day">{t('hlUnitDays')}</option>
+              <option value="week">{t('hlUnitWeeks')}</option>
+              <option value="month">{t('hlUnitMonths')}</option>
+            </select>
+            {((m.every ?? 1) > 1 || (m.unit ?? 'day') !== 'day') && (
+              <>
+                <span>{t('hlFromDate')}</span>
+                <input type="date" value={m.startDate ?? toISODate(new Date())} onChange={(e) => e.target.value && set({ startDate: e.target.value })} />
+              </>
+            )}
+          </div>
+        </div>
+        <div className="field">
+          <span className="field-label">{t('hlSticker')}</span>
+          <StickerChoice value={m.sticker || 'pill'} onChange={(sticker) => set({ sticker })} label={t('hlSticker')} />
+        </div>
         <Toggle checked={m.remind} label={t('hlMedRemind')} onChange={(remind) => set({ remind })} />
         <Toggle checked={m.supplement} label={t('hlMedSupplement')} onChange={(supplement) => set({ supplement })} />
         <Toggle checked={m.active} label={t('hlMedActive')} onChange={(active) => set({ active })} />
@@ -221,7 +272,9 @@ function MedEditor({ init, isNew, onClose }: { init: HealthMed; isNew: boolean; 
 // ---------------------------------------------------------------- body
 
 export function BodyCard({ date }: { date: ISODate }) {
-  const { t, locale, save } = useBloom();
+  const { t, locale, save, settings } = useBloom();
+  const [chart, setChart] = useState(false);
+  const [range, setRange] = useState<90 | 365 | 0>(90);
   const { all } = useHealth();
   const rec = forDate(all, 'body', date);
   const cur: HealthBody = rec ?? { ...newMeta(), kind: 'body', date, weightKg: null, exerciseMin: null, steps: null };
@@ -237,9 +290,11 @@ export function BodyCard({ date }: { date: ISODate }) {
 
   return (
     <section className="w-card hl-body-card">
-      <div className="w-card-head">
-        <h3>{t('hlBody')}</h3>
-      </div>
+      <CardHead
+        sticker="gym"
+        title={t('hlBody')}
+        sub={settings.healthWeighDay != null ? t('hlWeighEvery', { d: weekdayName(settings.healthWeighDay, locale) }) : undefined}
+      />
       <div className="hl-body-grid">
         <label className="hl-mini-field">
           <span className="field-label">{t('hlWeight')}</span>
@@ -258,6 +313,33 @@ export function BodyCard({ date }: { date: ISODate }) {
         <p className="w-card-sub">
           {t('hlWeightSince', { d: `\u2066${diff > 0 ? '+' : ''}${diff.toLocaleString(locale)}\u2069 ${t('hlUnitKg')}`, date: fmtDay(first.date, locale) })}
         </p>
+      )}
+      {weights.length > 0 && (
+        <button type="button" className="hl-toggle-btn" aria-expanded={chart} onClick={() => setChart(!chart)}>
+          <Icon name={chart ? 'chevronLeft' : 'chevronRight'} size={14} className="hl-chev" /> {chart ? t('hlHideWeightChart') : t('hlShowWeightChart')}
+        </button>
+      )}
+      {chart && weights.length > 0 && (
+        <div className="hl-chart-box">
+          <Segmented
+            value={range}
+            onChange={setRange}
+            label={t('hlWeight')}
+            options={[
+              { value: 90, label: t('hl3Months') },
+              { value: 365, label: t('hlYear') },
+              { value: 0, label: t('hlAll') },
+            ]}
+          />
+          <LineChart
+            label={t('hlWeight')}
+            points={weights.filter((w) => !range || w.date >= toISODate(addDays(parseISODate(date), -range))).map((w) => ({ date: w.date, value: w.weightKg! }))}
+            fmt={(v) => `${(Math.round(v * 10) / 10).toLocaleString(locale)} ${t('hlUnitKg')}`}
+          />
+          <p className="hl-legend-line">
+            <i className="dot" /> {t('hlWeight')} <i className="dash" /> {t('hlTrendLine')}
+          </p>
+        </div>
       )}
     </section>
   );
@@ -286,15 +368,23 @@ export function TestsCard() {
     .filter((x) => ibd || !x.ibd)
     .sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt - a.updatedAt);
   const shown = showAll ? tests : tests.slice(0, 5);
+  const [hist, setHist] = useState(false);
+  const names = [...new Set(tests.filter((x) => x.value != null).map((x) => x.name))];
+  const [pick, setPick] = useState<string | null>(null);
+  const chosen = pick && names.includes(pick) ? pick : names[0];
+  const series = tests
+    .filter((x) => x.name === chosen && x.value != null)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((x) => ({ date: x.date, value: x.value! }));
+  const unit = tests.find((x) => x.name === chosen)?.unit ?? '';
   const add = () => setEditing({ test: { ...newMeta(), kind: 'test', date: toISODate(new Date()), name: '', value: null, unit: '', ibd: false, note: '' }, isNew: true });
   return (
     <section className="w-card hl-tests">
-      <div className="w-card-head">
-        <h3>{t('hlTests')}</h3>
+      <CardHead sticker="hospital" title={t('hlTests')}>
         <Button size="sm" icon="plus" onClick={add}>
           {t('hlAddTest')}
         </Button>
-      </div>
+      </CardHead>
       {tests.length === 0 ? (
         <p className="empty-note">{t('hlNoTests')}</p>
       ) : (
@@ -319,6 +409,33 @@ export function TestsCard() {
         <button type="button" className="link-btn" onClick={() => setShowAll(!showAll)}>
           {showAll ? t('hlShowLess') : t('hlShowAll', { n: tests.length })}
         </button>
+      )}
+      {names.length > 0 && (
+        <button type="button" className="hl-toggle-btn" aria-expanded={hist} onClick={() => setHist(!hist)}>
+          <Icon name={hist ? 'chevronLeft' : 'chevronRight'} size={14} className="hl-chev" /> {hist ? t('hlHideHistory') : t('hlShowHistory')}
+        </button>
+      )}
+      {hist && chosen && (
+        <div className="hl-chart-box">
+          <div className="hl-pills hl-metric-pills" role="radiogroup" aria-label={t('hlTests')}>
+            {names.map((n) => (
+              <button type="button" key={n} role="radio" aria-checked={n === chosen} className={n === chosen ? 'active' : ''} onClick={() => setPick(n)} dir="auto">
+                {n}
+              </button>
+            ))}
+          </div>
+          <LineChart label={chosen} points={series} trend={series.length >= 3} fmt={(v) => `${v.toLocaleString(locale)} ${unit}`} />
+          <ul className="hl-hist-list">
+            {[...series].reverse().map((p) => (
+              <li key={p.date}>
+                <span className="hl-item-date">{fmtDay(p.date, locale, true)}</span>
+                <span className="hl-item-value" dir="ltr">
+                  {p.value.toLocaleString(locale)} {unit}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {editing && <TestEditor init={editing.test} isNew={editing.isNew} onClose={() => setEditing(null)} />}
     </section>
@@ -432,6 +549,9 @@ export function VisitsCard() {
           {v.doctor || t('hlDoctor')}
         </span>
         {v.eventId && <Icon name="calendar" size={13} className="muted" />}
+        {(v.questions?.length ?? 0) > 0 && (
+          <span className="hl-tag">{t('hlQuestionsCount', { a: v.questions!.filter((q) => q.done).length, b: v.questions!.length })}</span>
+        )}
         <span className="hl-item-date">{fmtDay(v.date, locale, true)}</span>
         {v.notes && (
           <span className="hl-item-note" dir="auto">
@@ -443,12 +563,11 @@ export function VisitsCard() {
   );
   return (
     <section className="w-card hl-visits">
-      <div className="w-card-head">
-        <h3>{t('hlVisits')}</h3>
+      <CardHead sticker="doctor" title={t('hlVisits')}>
         <Button size="sm" icon="plus" onClick={add}>
           {t('hlAddVisit')}
         </Button>
-      </div>
+      </CardHead>
       {visits.length === 0 ? (
         <p className="empty-note">{t('hlNoVisits')}</p>
       ) : (
@@ -493,7 +612,7 @@ function VisitEditor({ init, isNew, onClose }: { init: HealthVisit; isNew: boole
       save('events', ev);
       eventId = ev.id;
     }
-    save('health', { ...v, doctor: v.doctor.trim(), eventId: toCal ? eventId : null });
+    save('health', { ...v, doctor: v.doctor.trim(), eventId: toCal ? eventId : null, questions: (v.questions ?? []).filter((q) => q.text.trim()) });
     onClose();
   };
   return (
@@ -546,6 +665,31 @@ function VisitEditor({ init, isNew, onClose }: { init: HealthVisit; isNew: boole
         <Field label={t('hlNote')}>
           <textarea dir="auto" rows={3} value={v.notes} onChange={(e) => setV({ ...v, notes: e.target.value })} />
         </Field>
+        <div className="field">
+          <span className="field-label">{t('hlQuestions')}</span>
+          <ul className="hl-q-list">
+            {(v.questions ?? []).map((q) => (
+              <li key={q.id}>
+                <label className="check">
+                  <input type="checkbox" checked={q.done} onChange={() => setV({ ...v, questions: v.questions!.map((x) => (x.id === q.id ? { ...x, done: !x.done } : x)) })} />
+                  <span className="check-box">
+                    <Icon name="check" size={12} />
+                  </span>
+                </label>
+                <input
+                  dir="auto"
+                  value={q.text}
+                  aria-label={t('hlQuestions')}
+                  onChange={(e) => setV({ ...v, questions: v.questions!.map((x) => (x.id === q.id ? { ...x, text: e.target.value } : x)) })}
+                />
+                <IconButton icon="close" label={t('delete')} onClick={() => setV({ ...v, questions: v.questions!.filter((x) => x.id !== q.id) })} />
+              </li>
+            ))}
+          </ul>
+          <Button size="sm" variant="ghost" icon="plus" onClick={() => setV({ ...v, questions: [...(v.questions ?? []), { id: uuid(), text: '', done: false }] })}>
+            {t('hlAddQuestion')}
+          </Button>
+        </div>
         <Toggle checked={toCal} label={linked ? t('hlInCalendar') : t('hlAddToCalendar')} onChange={setToCal} />
         <button type="submit" hidden />
       </form>

@@ -299,7 +299,7 @@ export function isFlareDay(day: HealthIbdDay | undefined, level: ActivityLevel):
 export function dosesOn(meds: HealthMed[], taken: HealthMedTaken[], date: ISODate): { med: HealthMed; time: string; taken: HealthMedTaken | undefined }[] {
   const out: { med: HealthMed; time: string; taken: HealthMedTaken | undefined }[] = [];
   for (const m of meds) {
-    if (m.deletedAt || !m.active) continue;
+    if (m.deletedAt || !m.active || !medDueOn(m, date)) continue;
     for (const time of [...m.times].sort()) {
       out.push({ med: m, time, taken: taken.find((x) => !x.deletedAt && x.medId === m.id && x.date === date && x.time === time) });
     }
@@ -387,3 +387,50 @@ export function glanceDoses(snap: Pick<Snapshot, 'settings' | 'health'>, now: Da
     .filter((d) => !d.taken && d.time >= hhmm)
     .map((d) => ({ label: snap.settings.healthMedNames ? d.med.name : null, time: d.time }));
 }
+
+// ---------------------------------------------------------------- medication schedule
+
+const dayNum = (d: ISODate) => Math.round(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86400000);
+const fromDayNum = (n: number): ISODate => new Date(n * 86400000).toISOString().slice(0, 10);
+
+/** Is this medicine due on `date`? (every N days / weeks / months from its start; default daily) */
+export function medDueOn(m: Pick<HealthMed, 'every' | 'unit' | 'startDate'>, date: ISODate): boolean {
+  const every = Math.max(1, m.every ?? 1);
+  const unit = m.unit ?? 'day';
+  if (unit === 'day' && every === 1) return true;
+  const start = m.startDate ?? date;
+  if (date < start) return false;
+  if (unit === 'month') {
+    const months = (+date.slice(0, 4) - +start.slice(0, 4)) * 12 + (+date.slice(5, 7) - +start.slice(5, 7));
+    if (months % every) return false;
+    // Same day of month (short months: last day).
+    const last = new Date(+date.slice(0, 4), +date.slice(5, 7), 0).getDate();
+    return +date.slice(8, 10) === Math.min(+start.slice(8, 10), last);
+  }
+  const step = every * (unit === 'week' ? 7 : 1);
+  return (dayNum(date) - dayNum(start)) % step === 0;
+}
+
+/** The next date (from `from`, inclusive) this medicine is due, within ~2 years. */
+export function nextMedDate(m: Pick<HealthMed, 'every' | 'unit' | 'startDate'>, from: ISODate): ISODate | null {
+  const f = dayNum(from);
+  for (let i = 0; i < 800; i++) {
+    const d = fromDayNum(f + i);
+    if (medDueOn(m, d)) return d;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------- sleep from bed / wake times
+
+/** Hours between bed and wake time (over midnight), rounded to 0.25 h. */
+export function sleepFromTimes(bed: string, wake: string): number | null {
+  const m = (x: string) => (/^\d\d:\d\d$/.test(x) ? +x.slice(0, 2) * 60 + +x.slice(3) : null);
+  const b = m(bed);
+  const w = m(wake);
+  if (b == null || w == null) return null;
+  const mins = (w - b + 1440) % 1440;
+  return mins === 0 ? null : Math.round((mins / 60) * 4) / 4;
+}
+
+export { dayNum, fromDayNum };

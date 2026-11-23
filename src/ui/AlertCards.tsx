@@ -40,21 +40,34 @@ export function AlertCards({ alerts, reason, lang, snoozeOptions, onSnooze, onDi
         return (
           <div className="alert-card" key={a.key}>
             <div className="alert-icon" aria-hidden="true">
-              {a.kind === 'event' ? '📅' : a.kind === 'med' ? '💊' : '🔔'}
+              {a.kind === 'event' ? '📅' : a.kind === 'med' ? '💊' : a.kind === 'water' ? '💧' : a.kind === 'weigh' ? '⚖️' : '🔔'}
             </div>
             <div className="alert-main">
               <div className="alert-meta">
                 <span>{whenLabel}</span>
                 {lead && <span className="alert-lead">{lead}</span>}
               </div>
-              <div className="alert-title">{a.title || (a.kind === 'med' ? t('hlMedication') : t('reminder'))}</div>
+              <div className="alert-title">
+                {a.title || (a.kind === 'med' ? t('hlMedication') : a.kind === 'water' ? t('hlNudgeWater') : a.kind === 'weigh' ? t('hlNudgeWeigh') : t('reminder'))}
+              </div>
               <div className="alert-actions">
                 {snoozeOptions.map((m) => (
                   <button type="button" key={m} onClick={() => onSnooze(a.key, m)}>
                     {t('snooze', { t: formatDuration(lang, m) })}
                   </button>
                 ))}
-                {a.kind === 'med' ? (
+                {a.kind === 'water' ? (
+                  <>
+                    <button type="button" onClick={() => onDismiss(a.key)}>
+                      {t('dismiss')}
+                    </button>
+                    {onTaken && (
+                      <button type="button" className="primary" onClick={() => onTaken(a.key)}>
+                        + {t('hlAddGlass')}
+                      </button>
+                    )}
+                  </>
+                ) : a.kind === 'med' ? (
                   <>
                     <button type="button" onClick={() => onDismiss(a.key)}>
                       {t('dismiss')}

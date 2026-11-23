@@ -2,7 +2,10 @@
 // Used by the desktop scheduler now, and by a phone/sync backend later.
 import { toLocalDateTime } from './dates';
 import { occurrencesBetween } from './recurrence';
-import type { FiredAlert, HealthMed, HealthMedTaken, Snapshot } from './types';
+import { alive } from './db';
+import { medDueOn, profileOf } from './health';
+import { behindPace, dayFacts, nudgePlan } from './healthExtras';
+import type { FiredAlert, HealthCheckin, HealthMed, HealthMedTaken, Snapshot } from './types';
 
 type AlertData = Pick<Snapshot, 'events' | 'reminders'> & Partial<Pick<Snapshot, 'health' | 'settings'>>;
 
@@ -49,7 +52,7 @@ export function alertsDueBetween(data: AlertData, from: number, to: number): Fir
       });
     }
   }
-  out.push(...medAlertsBetween(data, from, to));
+  out.push(...medAlertsBetween(data, from, to), ...healthNudgesBetween(data, from, to));
   return out.sort((a, b) => a.dueAt - b.dueAt);
 }
 
@@ -70,6 +73,7 @@ export function medAlertsBetween(data: AlertData, from: number, to: number): Fir
   for (let d = new Date(start.getFullYear(), start.getMonth(), start.getDate()); d.getTime() <= to; d.setDate(d.getDate() + 1)) {
     const date = toLocalDateTime(d).slice(0, 10);
     for (const m of meds) {
+      if (!medDueOn(m, date)) continue; // e.g. an injection every 2 weeks
       for (const time of m.times) {
         const [hh, mm] = time.split(':').map(Number);
         if (!Number.isFinite(hh) || !Number.isFinite(mm)) continue;
@@ -87,6 +91,43 @@ export function medAlertsBetween(data: AlertData, from: number, to: number): Fir
           sound: s.defaultSound,
         });
       }
+    }
+  }
+  return out;
+}
+
+/**
+ * Water nudges (if turned on) and the weekly weigh-in reminder. Health must
+ * be on. A water nudge comes at the planned times only while you're behind the
+ * even pace for the day's goal (see healthExtras.nudgePlan); the weigh-in at
+ * 09:00 on the chosen weekday unless a weight was logged in the last 6 days.
+ */
+export function healthNudgesBetween(data: AlertData, from: number, to: number): FiredAlert[] {
+  const s = data.settings;
+  if (!s?.healthEnabled || (!s.healthWaterNudge && s.healthWeighDay == null)) return [];
+  const all = alive(data.health ?? []);
+  const out: FiredAlert[] = [];
+  const start = new Date(from);
+  for (let d = new Date(start.getFullYear(), start.getMonth(), start.getDate()); d.getTime() <= to; d.setDate(d.getDate() + 1)) {
+    const date = toLocalDateTime(d).slice(0, 10);
+    const at = (min: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(min / 60), min % 60).getTime();
+    if (s.healthWaterNudge) {
+      const f = dayFacts(all, date, !!s.healthIbd);
+      const c = all.find((x): x is HealthCheckin => x.kind === 'checkin' && x.date === date);
+      const glass = profileOf(all)?.glassMl || 250;
+      const plan = nudgePlan(f.waterGoalMl, glass, c?.wake || '08:00', '23:00');
+      for (const slot of plan.slots) {
+        const due = at(slot);
+        if (due <= from || due > to || !behindPace(plan, f.waterGoalMl, glass, f.waterMl, slot)) continue;
+        const hhmm = `${String(Math.floor(slot / 60)).padStart(2, '0')}:${String(slot % 60).padStart(2, '0')}`;
+        out.push({ key: `water@${date}T${hhmm}`, sourceId: 'water', kind: 'water', title: '', when: `${date}T${hhmm}`, dueAt: due, minutesBefore: 0, sound: s.defaultSound });
+      }
+    }
+    if (s.healthWeighDay != null && d.getDay() === s.healthWeighDay) {
+      const due = at(9 * 60);
+      const weekAgo = toLocalDateTime(new Date(d.getFullYear(), d.getMonth(), d.getDate() - 6)).slice(0, 10);
+      const recent = all.some((x) => x.kind === 'body' && !!x.weightKg && x.date >= weekAgo && x.date <= date);
+      if (due > from && due <= to && !recent) out.push({ key: `weigh@${date}`, sourceId: 'weigh', kind: 'weigh', title: '', when: `${date}T09:00`, dueAt: due, minutesBefore: 0, sound: s.defaultSound });
     }
   }
   return out;

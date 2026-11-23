@@ -3,7 +3,7 @@ import { platform } from '../platform/api';
 import { addDays, addMonths, parseISODate, toISODate } from '../shared/dates';
 import { newMeta, personalDays } from '../shared/db';
 import { expandEvents, type EventOccurrence } from '../shared/recurrence';
-import type { CalendarEvent, Countdown, FiredAlert, ISODate, Reminder } from '../shared/types';
+import type { CalendarEvent, Countdown, FiredAlert, HealthCheckin, ISODate, Reminder } from '../shared/types';
 import { AlertCards } from './AlertCards';
 import type { ReminderOccurrence } from './calendarData';
 import { Button, Icon, Toasts } from './common';
@@ -227,7 +227,7 @@ export function App() {
               <div className="missed-bar" role="status">
                 <Icon name="gamepad" size={16} />
                 <strong>{missed.length === 1 ? t('missedOne') : t('missedBanner', { n: missed.length })}</strong>
-                <span className="missed-list">{missed.map((m) => m.title || (m.kind === 'med' ? t('hlMedication') : '—')).join(' · ')}</span>
+                <span className="missed-list">{missed.map((m) => m.title || (m.kind === 'med' ? t('hlMedication') : m.kind === 'weigh' ? t('hlNudgeWeigh') : '—')).join(' · ')}</span>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -356,6 +356,13 @@ export function App() {
             onDismissAll={() => setPageAlerts([])}
             onTaken={(key) => {
               const a = pageAlerts.find((x) => x.key === key);
+              if (a?.kind === 'water') {
+                const date = a.when.slice(0, 10);
+                const all = snap.health.filter((h) => !h.deletedAt);
+                const glass = (all.find((h) => h.kind === 'profile') as { glassMl?: number } | undefined)?.glassMl || 250;
+                const cur = all.filter((h): h is HealthCheckin => h.kind === 'checkin' && h.date === date).sort((x, y) => y.updatedAt - x.updatedAt)[0];
+                save('health', cur ? { ...cur, waterMl: cur.waterMl + glass } : { ...newMeta(), kind: 'checkin', date, waterMl: glass, mood: null, sleepH: null, energy: null, stress: null });
+              }
               if (a?.kind === 'med') save('health', { ...newMeta(), kind: 'taken', medId: a.sourceId, date: a.when.slice(0, 10), time: a.when.slice(11, 16) });
               setPageAlerts((p) => p.filter((x) => x.key !== key));
             }}
