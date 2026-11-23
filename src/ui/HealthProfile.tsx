@@ -7,7 +7,7 @@ import { bmi, emptyProfile, forDate, latestWeight, waterGoal, type WaterGoal } f
 import { newMeta } from '../shared/db';
 import type { HealthActivity, HealthHot, HealthProfile, HealthSex, IbdOstomy, IbdType } from '../shared/types';
 import { Button, Icon, Modal } from './common';
-import { NumBox, useHealth, useWaterFmt } from './healthUi';
+import { NumBox, Tip, useHealth, useWaterFmt } from './healthUi';
 import { useBloom } from './store';
 
 type Draft = Omit<HealthProfile, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'ownerId' | 'visibility'>;
@@ -251,12 +251,23 @@ export function WaterGoalBlock({ goal, compact }: { goal: WaterGoal; compact?: b
       </span>
       <span className="hl-goal-text">
         <span className="hl-goal-label">{t('hlWaterGoal')}</span>
-        <strong className="hl-goal-ml">{t('hlWaterPerDay', { v: fmt(goal.ml) })}</strong>
-        <span className="hl-goal-why" dir="auto">
-          {why}
-        </span>
+        {/* Why this amount + the drinks tip show on hover (1.3 s). */}
+        <Tip
+          text={
+            <>
+              <span dir="auto">{why}</span>
+              {!goal.limited && (
+                <>
+                  <br />
+                  {t('hlDrinksTip')}
+                </>
+              )}
+            </>
+          }
+        >
+          <strong className="hl-goal-ml">{t('hlWaterPerDay', { v: fmt(goal.ml) })}</strong>
+        </Tip>
         {goal.needsLimit && <span className="hl-q-warn">{t('hlNeedsLimit')}</span>}
-        {!goal.limited && <span className="hl-goal-tip">{t('hlDrinksTip')}</span>}
         {goal.notes.includes('ors') && <span className="hl-goal-tip strong">{t('hlOrsTip')}</span>}
         {goal.notes.includes('stoma') && <span className="hl-goal-tip strong">{t('hlStomaTip')}</span>}
       </span>
@@ -272,11 +283,10 @@ export function BmiBlock({ heightCm, weightKg, age }: { heightCm: number | null;
       <span className="hl-goal-label">{t('hlBmi')}</span>
       {b ? (
         <>
-          <span>
+          <Tip text={t('hlBmiNote')}>
             <strong className="hl-num-font">{b.value.toLocaleString(locale)}</strong>
             {b.cat && <span className="muted"> · {t(`hlBmi_${b.cat}` as StringKey)}</span>}
-          </span>
-          <span className="muted small">{t('hlBmiNote')}</span>
+          </Tip>
         </>
       ) : (
         <span className="muted small">{t('hlNoBmi')}</span>

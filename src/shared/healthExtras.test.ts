@@ -121,3 +121,26 @@ describe('health reminders', async () => {
     expect(alertsDueBetween({ events: [], reminders: [], settings: weigh, health: [profile, weighed] }, at(1, 8), at(1, 10))).toHaveLength(0);
   });
 });
+
+describe('doctor report data', async () => {
+  const { reportData } = await import('./healthExtras');
+  it('weekly averages, first date of each symptom, flare ranges', () => {
+    const bathroom = (date: string, bristol: number, blood = false) => ({ ...newMeta(), kind: 'bathroom' as const, date, time: '09:00', bristol, urgency: 0, blood, bloodLevel: blood ? 2 : 0, pain: 0, notes: '' });
+    const ibdday = (date: string, wellbeing: number, pain: number, fatigue: number, complications: string[] = [], flare: 'none' | 'flare' = 'none') => ({ ...newMeta(), kind: 'ibdday' as const, date, wellbeing, pain, fatigue, mass: null, complications, liquidStools: null, bleeding: null, flare });
+    const all: HealthItem[] = [
+      { ...profile, ibdType: 'crohns' as const },
+      bathroom('2026-03-01', 4), bathroom('2026-03-01', 6), bathroom('2026-03-02', 4),
+      ibdday('2026-03-01', 1, 1, 2), ibdday('2026-03-02', 3, 2, 2, ['aphthous'], 'flare'), ibdday('2026-03-03', 2, 1, 1, ['aphthous', 'arthralgia'], 'flare'),
+      ibdday('2026-03-09', 0, 0, 0, ['arthralgia']),
+    ];
+    const r = reportData(all, '2026-03-01', '2026-03-10', true, 0); // 1 March 2026 is a Sunday
+    expect(r.weeks.map((w) => w.start)).toEqual(['2026-03-01', '2026-03-08']);
+    expect(r.weeks[0]).toMatchObject({ stoolsPerDay: 1, wellbeing: 2, pain: 1.3, fatigue: 1.7, flareDays: 2 });
+    expect(r.symptoms).toEqual([
+      { id: 'aphthous', first: '2026-03-02', days: 2 },
+      { id: 'arthralgia', first: '2026-03-03', days: 2 },
+    ]);
+    expect(r.flareRanges).toEqual([{ from: '2026-03-02', to: '2026-03-03' }]);
+    expect(r.daily.find((d) => d.date === '2026-03-01')).toMatchObject({ stools: 2, loose: 1 });
+  });
+});

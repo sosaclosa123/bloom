@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
-import { FOOD_TAGS, foodInsights, ibdScores, type WaterGoal } from '../shared/health';
+import { FOOD_TAGS, foodInsights, type WaterGoal } from '../shared/health';
 import { ibdOn, sleepHours } from '../shared/healthExtras';
 import type { ISODate } from '../shared/types';
 import { Icon, Segmented } from './common';
@@ -115,32 +115,58 @@ export function TrendsCard({ date, goal }: { date: ISODate; goal: WaterGoal }) {
 
 export function FlareTimelineCard({ date }: { date: ISODate }) {
   const { t, locale } = useBloom();
-  const { all, profile } = useHealth();
-  const dates = useMemo(() => datesBack(date, 30), [date]);
-  const scores = useMemo(() => ibdScores(all, profile, dates), [all, profile, dates]);
-  const top = Math.max(8, ...[...scores.values()].map((s) => s.score));
-  const flareDays = [...scores.values()].filter((s) => s.flare).length;
+  const { all } = useHealth();
+  // 30 days by default; up to the whole history (no limit).
+  const [range, setRange] = useState<30 | 90 | 365 | 0>(30);
+  const first = useMemo(() => {
+    let f = date;
+    for (const x of all) if ((x.kind === 'ibdday' || x.kind === 'bathroom') && x.date < f) f = x.date;
+    return f;
+  }, [all, date]);
+  const days = range || Math.max(30, Math.round((parseISODate(date).getTime() - parseISODate(first).getTime()) / 86400000) + 1);
+  const dates = useMemo(() => datesBack(date, days), [date, days]);
+  const scores = useMemo(() => new Map(dates.map((d) => [d, ibdOn(all, d)] as const)), [all, dates]);
+  const known = [...scores.values()].filter((s): s is NonNullable<typeof s> => !!s);
+  const top = Math.max(8, ...known.map((s) => s.score));
+  const flareDays = known.filter((s) => s.flare).length;
+  const label = (d: ISODate, i: number) => {
+    const day = parseISODate(d);
+    if (days <= 31) return i % 5 === 4 || i === 0 ? String(day.getDate()) : '';
+    if (days <= 120) return day.getDate() === 1 || i === 0 ? day.toLocaleDateString(locale, { day: 'numeric', month: 'short' }) : '';
+    if (days <= 400) return day.getDate() === 1 && day.getMonth() % 2 === 0 ? day.toLocaleDateString(locale, { month: 'short' }) : '';
+    return day.getDate() === 1 && day.getMonth() === 0 ? String(day.getFullYear()) : '';
+  };
   return (
     <section className="w-card hl-ibd hl-timeline">
-      <div className="w-card-head">
-        <h3>{t('hlFlareTimeline')}</h3>
+      <CardHead title={t('hlIbdHistory')}>
         <span className={`hl-score ${flareDays ? 'lvl-moderate' : 'lvl-remission'}`}>
           {flareDays === 0 ? t('hlNoFlares') : flareDays === 1 ? t('hlFlareDaysOne') : t('hlFlareDays', { n: flareDays })}
         </span>
-      </div>
-      <div className="hl-chart r-month timeline" role="img" aria-label={t('hlFlareTimeline')}>
+      </CardHead>
+      <Segmented
+        value={range}
+        onChange={setRange}
+        label={t('hlIbdHistory')}
+        options={[
+          { value: 30, label: t('hlNDays', { n: 30 }) },
+          { value: 90, label: t('hlNDays', { n: 90 }) },
+          { value: 365, label: t('hlYear') },
+          { value: 0, label: t('hlFromStart') },
+        ]}
+      />
+      <div className={`hl-chart r-month timeline ${days > 120 ? 'dense' : ''}`} role="img" aria-label={t('hlIbdHistory')}>
         {dates.map((d, i) => {
           const s = scores.get(d);
           return (
             <span
               key={d}
               className="hl-col"
-              title={`${parseISODate(d).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}${s ? ` · ${s.score} · ${t(`hlLvl_${s.level}` as StringKey)}` : ''}`}
+              title={`${parseISODate(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}${s ? ` · ${s.score} · ${t(`hlLvl_${s.level}` as StringKey)}` : ''}`}
             >
               <span className="hl-bar-wrap">
                 {s ? <span className={`hl-bar ${s.flare ? 'flare-' + s.flare : 'calm'}`} style={{ height: `${Math.max(8, (s.score / top) * 100)}%` }} /> : <span className="hl-bar none" />}
               </span>
-              <span className="hl-col-label">{i % 5 === 4 || i === 0 ? parseISODate(d).getDate() : ''}</span>
+              <span className="hl-col-label">{label(d, i)}</span>
             </span>
           );
         })}
@@ -171,9 +197,7 @@ export function InsightsCard({ date }: { date: ISODate }) {
   const tagName = (x: string) => ((FOOD_TAGS as readonly string[]).includes(x) ? t(`hlTag_${x}` as StringKey) : x);
   return (
     <section className="w-card hl-ibd hl-insights">
-      <div className="w-card-head">
-        <h3>{t('hlInsights')}</h3>
-      </div>
+      <CardHead title={t('hlInsights')} tip={t('hlInsightNote')} />
       {list.length === 0 ? (
         <p className="empty-note">{t('hlInsightNone')}</p>
       ) : (
@@ -192,7 +216,6 @@ export function InsightsCard({ date }: { date: ISODate }) {
           ))}
         </ul>
       )}
-      <p className="muted small hl-score-note">{t('hlInsightNote')}</p>
     </section>
   );
 }

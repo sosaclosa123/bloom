@@ -6922,33 +6922,8 @@ button.hl-tile.open {
   color: var(--text-muted);
   margin-top: var(--space-4);
 }
-@media print {
-  body * {
-    visibility: hidden !important;
-  }
-  #hl-report,
-  #hl-report * {
-    visibility: visible !important;
-  }
-  #hl-report {
-    position: absolute;
-    inset: 0;
-    color: #000;
-    background: #fff;
-    padding: 24px;
-  }
-}
-@media print {
-  .scrim,
-  .modal,
-  .hl-report-modal .modal-body {
-    position: static !important;
-    max-height: none !important;
-    overflow: visible !important;
-    box-shadow: none !important;
-    transform: none !important;
-  }
-}
+
+
 
 /* ------------------------------------------------------------ health: tabs inside Health (layout A) */
 .hl-subtabs {
@@ -7287,4 +7262,160 @@ button.hl-tile.open {
 }
 .hl-scan-off p {
   margin: 0;
+}
+/* long IBD history: thin bars, no gaps, labels may overflow their 1-day column */
+.hl-chart.timeline.dense {
+  gap: 0;
+}
+.hl-chart.timeline.dense .hl-bar-wrap {
+  border-radius: 0;
+}
+.hl-chart.timeline.dense .hl-bar {
+  border-radius: 0;
+  opacity: 1;
+}
+.hl-chart.timeline.dense .hl-col-label {
+  overflow: visible;
+  width: 0;
+  white-space: nowrap;
+}
+/* hover explanation */
+.hl-tip {
+  position: relative;
+  display: inline;
+}
+.hl-tip-bubble {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-start: 0;
+  z-index: 40;
+  width: max-content;
+  max-width: 280px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--surface);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.18));
+  animation: hl-pop-in 140ms var(--ease, ease);
+  pointer-events: none;
+}
+/* Hebrew: the day label uses the same modern font as the rest of the app */
+[dir='rtl'] .hl-top .hl-day span {
+  font-family: var(--font-sans);
+  font-weight: 700;
+}
+/* doctor report: clean, organised, prints well */
+.hl-report-range {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hl-report-dates {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.hl-report-dates input {
+  width: auto;
+}
+.hl-rep-head {
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.hl-rep-head h2 {
+  margin: 0 0 4px;
+}
+.hl-rep-head p {
+  margin: 0;
+}
+.hl-rep-sum {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.hl-rep-sum div {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.hl-rep-sum span {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.hl-rep-sum b {
+  font-family: 'Outfit', var(--font-sans);
+  font-size: var(--fs-lg);
+}
+.hl-report .hl-rep-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.hl-report .hl-rep-table thead th {
+  background: var(--surface-2);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: normal;
+}
+.hl-report .hl-rep-table th,
+.hl-report .hl-rep-table td {
+  border: 1px solid var(--border);
+  padding: 5px 7px;
+  text-align: start;
+}
+.hl-report .hl-rep-table tbody th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.hl-report .hl-rep-table td {
+  font-family: 'Outfit', var(--font-sans);
+}
+.hl-rep-note {
+  font-size: var(--fs-xs) !important;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+.hl-rep-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 4px 10px;
+  font-size: var(--fs-sm);
+}
+.hl-rep-days .flare b {
+  color: var(--hl-pink);
+}
+.hl-rep-days i {
+  font-style: normal;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+@media print {
+  #hl-report {
+    font-size: 11pt;
+  }
+  #hl-report h3 {
+    break-after: avoid;
+  }
+  #hl-report table,
+  #hl-report .hl-rep-sum {
+    break-inside: avoid;
+  }
+  #hl-report .hl-rep-table th,
+  #hl-report .hl-rep-table td,
+  #hl-report .hl-rep-sum div {
+    border-color: #999 !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
 }

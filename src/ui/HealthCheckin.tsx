@@ -8,7 +8,7 @@ import { checkinFilled, forDate, sleepFromTimes, type WaterGoal } from '../share
 import { sleepHours, streak } from '../shared/healthExtras';
 import type { HealthCheckin, ISODate } from '../shared/types';
 import { Icon, Segmented } from './common';
-import { Pills, Popover, useHealth, useWaterFmt } from './healthUi';
+import { Pills, Popover, Tip, useHealth, useWaterFmt } from './healthUi';
 import { StickerArt } from './Stickers';
 import { useBloom } from './store';
 
@@ -55,8 +55,9 @@ export function CheckinCard({ date, isToday, goal }: { date: ISODate; isToday: b
       <div className="w-card-head hl-head">
         <div className="hl-head-title">
           <div>
-            <h3>{isToday ? t('hlCheckinToday') : t('hlCheckinDay', { d: parseISODate(date).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'short' }) })}</h3>
-            <p className="w-card-sub">{t('hlTapTile')}</p>
+            <h3>
+              <Tip text={t('hlTapTile')}>{isToday ? t('hlCheckinToday') : t('hlCheckinDay', { d: parseISODate(date).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'short' }) })}</Tip>
+            </h3>
           </div>
         </div>
         <div className="hl-head-actions">

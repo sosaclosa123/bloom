@@ -6,11 +6,11 @@ import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
-import { healthOf, ibdScores, profileOf } from '../shared/health';
-import { badges, CHALLENGES, challengeDays, goalProgress, monthSummary, type Badge } from '../shared/healthExtras';
+import { healthOf } from '../shared/health';
+import { badges, CHALLENGES, challengeDays, goalProgress, monthSummary, reportData, type Badge } from '../shared/healthExtras';
 import type { HealthChallenge, HealthGoal, ISODate } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented } from './common';
-import { CardHead, NumBox, StickerChoice, useHealth, useWaterFmt } from './healthUi';
+import { CardHead, NumBox, StickerChoice, Tip, useHealth, useWaterFmt } from './healthUi';
 import { StickerArt } from './Stickers';
 import { useBloom } from './store';
 
@@ -130,7 +130,9 @@ function GoalEditor({ init, isNew, onClose }: { init: HealthGoal; isNew: boolean
           <input autoFocus dir="auto" value={g.title} placeholder={t('hlGoalHint')} onChange={(e) => setG({ ...g, title: e.target.value })} />
         </Field>
         <div className="field">
-          <span className="field-label">{t('hlGoalHowOften')}</span>
+          <span className="field-label">
+            <Tip text={t('hlGoalResets')}>{t('hlGoalHowOften')}</Tip>
+          </span>
           <div className="hl-repeat">
             <NumBox value={g.target} onChange={(v) => setG({ ...g, target: Math.max(1, Math.round(v ?? 1)) })} min={1} max={100} label={t('hlGoalHowOften')} />
             <span>{t('hlTimesEvery')}</span>
@@ -141,7 +143,6 @@ function GoalEditor({ init, isNew, onClose }: { init: HealthGoal; isNew: boolean
               <option value="month">{t('hlUnitMonths')}</option>
             </select>
           </div>
-          <p className="muted small hl-score-note">{t('hlGoalResets')}</p>
         </div>
         <div className="field">
           <span className="field-label">{t('hlSticker')}</span>
@@ -172,7 +173,7 @@ export function ChallengesCard({ date }: { date: ISODate }) {
   void date;
   return (
     <section className="w-card hl-challenges">
-      <CardHead sticker="gift" title={t('hlChallenges')} sub={doneCount ? t('hlChallengesDone', { n: doneCount }) : t('hlChallengesSub')}>
+      <CardHead sticker="gift" title={t('hlChallenges')} tip={t('hlChallengesSub')} sub={doneCount ? t('hlChallengesDone', { n: doneCount }) : undefined}>
         <Button size="sm" icon="plus" onClick={() => setPicking(!picking)}>
           {t('hlStartChallenge')}
         </Button>
@@ -390,135 +391,301 @@ export function MonthSummaryCard({ always }: { always?: boolean }) {
 
 // ---------------------------------------------------------------- doctor report
 
+/**
+ * Prints only the report, on a clean white page: it's copied (with the app's
+ * styles) into a hidden frame and printed from there. In the print dialog,
+ * "Microsoft Print to PDF" saves it as a PDF.
+ */
+function printReport() {
+  const report = document.getElementById('hl-report');
+  if (!report) return;
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  Object.assign(frame.style, { position: 'fixed', width: '0', height: '0', border: '0', right: '0', bottom: '0' });
+  document.body.appendChild(frame);
+  const doc = frame.contentDocument!;
+  const html = document.documentElement;
+  const styles = [...document.querySelectorAll('link[rel="stylesheet"], style')].map((n) => n.outerHTML).join('');
+  doc.open();
+  doc.write(
+    `<!doctype html><html lang="${html.lang}" dir="${html.dir}" data-theme="light" data-font-size="medium"><head><meta charset="utf-8"><base href="${document.baseURI}"><title>Bloom</title>${styles}` +
+      `<style>body{background:#fff;margin:0;padding:18px 22px}#hl-report{position:static!important;visibility:visible!important}@page{margin:14mm}</style></head><body>${report.outerHTML}</body></html>`,
+  );
+  doc.close();
+  const go = () => {
+    frame.contentWindow?.focus();
+    frame.contentWindow?.print();
+    setTimeout(() => frame.remove(), 1000);
+  };
+  // Wait for the styles and fonts in the frame.
+  setTimeout(go, 400);
+}
+
+type Period = 7 | 30 | 90 | 'custom';
+
+/** An organised summary for the doctor: last 30 days by default; 1 week, 90 days or any dates. Print / save as PDF. */
 export function DoctorReport({ onClose }: { onClose: () => void }) {
-  const { t, locale } = useBloom();
+  const { t, locale, settings } = useBloom();
   const { all, ibd, profile } = useHealth();
-  const fmt = useWaterFmt();
-  const [days, setDays] = useState<30 | 90>(30);
+  const fmtWater = useWaterFmt();
   const today = toISODate(new Date());
-  const from = toISODate(addDays(new Date(), -(days - 1)));
-  const dates = Array.from({ length: days }, (_, i) => toISODate(addDays(parseISODate(from), i)));
-  const months = [...new Set(dates.map((d) => d.slice(0, 7)))];
-  const sums = months.map((mo) => monthSummary(all, mo, ibd));
-  const inRange = <T extends { date: ISODate }>(xs: T[]) => xs.filter((x) => x.date >= from && x.date <= today).sort((a, b) => a.date.localeCompare(b.date));
-  const scores = ibd ? ibdScores(all, profileOf(all), dates) : new Map();
-  const flareDays = [...scores.values()].filter((s) => s.flare).length;
-  const avgScore = scores.size ? Math.round(([...scores.values()].reduce((a, s) => a + s.score, 0) / scores.size) * 10) / 10 : null;
-  const meds = healthOf(all, 'med').filter((m) => m.active);
-  const taken = healthOf(all, 'taken').filter((x) => x.date >= from);
-  const tests = inRange(healthOf(all, 'test')).filter((x) => ibd || !x.ibd);
-  const weights = inRange(healthOf(all, 'body')).filter((b) => b.weightKg);
-  const visits = healthOf(all, 'visit').filter((v) => v.date >= today && (v.questions?.length ?? 0) > 0);
-  const bathroom = inRange(healthOf(all, 'bathroom'));
-  const d = (x: ISODate) => parseISODate(x).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+  const [period, setPeriod] = useState<Period>(30);
+  const [custom, setCustom] = useState({ from: toISODate(addDays(new Date(), -13)), to: today });
+  const from = period === 'custom' ? (custom.from <= custom.to ? custom.from : custom.to) : toISODate(addDays(new Date(), -(period - 1)));
+  const to = period === 'custom' ? (custom.from <= custom.to ? custom.to : custom.from) : today;
+  const r = useMemo(() => reportData(all, from, to, ibd, settings.weekStart), [all, from, to, ibd, settings.weekStart]);
+  const d = (x: ISODate, year = false) => parseISODate(x).toLocaleDateString(locale, { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}) });
+  const n = (x: number | null, unit = '') => (x == null ? '–' : `${x.toLocaleString(locale)}${unit}`);
+  const meds = healthOf(all, 'med');
+  const tests = healthOf(all, 'test')
+    .filter((x) => x.date >= from && x.date <= to && (ibd || !x.ibd))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const weights = healthOf(all, 'body')
+    .filter((b) => b.weightKg && b.date >= from && b.date <= to)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const questions = healthOf(all, 'visit')
+    .filter((v) => v.date >= today && (v.questions?.length ?? 0) > 0)
+    .flatMap((v) => v.questions!);
+  const facts = [
+    profile?.age != null ? t('hlAgeYears', { n: profile.age }) : null,
+    profile?.sex ? t(`hlSex_${profile.sex}` as StringKey) : null,
+    ibd && profile?.ibdType ? t(`hlIbd_${profile.ibdType}` as StringKey) : null,
+    ibd && profile?.ibdLocation ? profile.ibdLocation : null,
+    ibd && profile?.ostomy && profile.ostomy !== 'none' ? t(`hlOst_${profile.ostomy}` as StringKey) : null,
+  ].filter(Boolean);
+  const level = (v: number | null, prefix: 'hlWell' | 'hlLevel') => (v == null ? '–' : `${v.toLocaleString(locale)} · ${t(`${prefix}_${Math.round(v)}` as StringKey)}`);
+
   return (
     <Modal
       title={t('hlReport')}
       onClose={onClose}
-      width={760}
+      width={820}
       className="hl-report-modal"
       footer={
         <>
-          <Segmented
-            value={days}
-            onChange={setDays}
-            label={t('hlReport')}
-            options={[
-              { value: 30, label: t('hlLastNDays', { n: 30 }) },
-              { value: 90, label: t('hlLastNDays', { n: 90 }) },
-            ]}
-          />
+          <div className="hl-report-range">
+            <Segmented
+              value={period}
+              onChange={setPeriod}
+              label={t('hlReport')}
+              options={[
+                { value: 7, label: t('hlWeekShort') },
+                { value: 30, label: t('hlNDays', { n: 30 }) },
+                { value: 90, label: t('hlNDays', { n: 90 }) },
+                { value: 'custom', label: t('hlDates') },
+              ]}
+            />
+            {period === 'custom' && (
+              <span className="hl-report-dates">
+                <input type="date" value={custom.from} max={today} aria-label={t('hlFromDate')} onChange={(e) => e.target.value && setCustom({ ...custom, from: e.target.value })} />
+                <span>–</span>
+                <input type="date" value={custom.to} max={today} aria-label={t('hlToDate')} onChange={(e) => e.target.value && setCustom({ ...custom, to: e.target.value })} />
+              </span>
+            )}
+          </div>
           <span className="spacer" />
-          <Button variant="primary" icon="note" onClick={() => window.print()}>
+          <Button variant="primary" icon="note" onClick={printReport}>
             {t('hlPrint')}
           </Button>
         </>
       }
     >
       <article className="hl-report" id="hl-report">
-        <h2>
-          {t('hlReport')} · {d(from)} – {d(today)}
-        </h2>
-        {profile && (
+        <header className="hl-rep-head">
+          <h2>{t('hlReport')}</h2>
           <p>
-            {[profile.age != null ? t('hlAgeYears', { n: profile.age }) : null, profile.sex ? t(`hlSex_${profile.sex}` as StringKey) : null, ibd && profile.ibdType ? t(`hlIbd_${profile.ibdType}` as StringKey) : null, ibd && profile.ibdLocation ? profile.ibdLocation : null]
-              .filter(Boolean)
-              .join(' · ')}
+            <b>
+              {d(from, true)} – {d(to, true)}
+            </b>
+            {facts.length > 0 && <> · {facts.join(' · ')}</>}
           </p>
-        )}
-        <h3>{t('hlRepOverview')}</h3>
-        <table>
+        </header>
+
+        <section className="hl-rep-sum">
+          <div>
+            <span>{t('hlSumDays')}</span>
+            <b>{r.daysLogged}</b>
+          </div>
+          {ibd && (
+            <>
+              <div>
+                <span>{t('hlRepStoolsDay')}</span>
+                <b>{n(r.stoolsPerDay)}</b>
+              </div>
+              <div>
+                <span>{t('hlSumFlares')}</span>
+                <b>{r.flareDays}</b>
+              </div>
+            </>
+          )}
+          {r.meds.length > 0 && (
+            <div>
+              <span>{t('hlSumMeds')}</span>
+              <b>{Math.round((r.meds.reduce((a, m) => a + m.taken, 0) / Math.max(1, r.meds.reduce((a, m) => a + m.planned, 0))) * 100)}%</b>
+            </div>
+          )}
+        </section>
+
+        <h3>{t('hlRepWeekly')}</h3>
+        <table className="hl-rep-table">
+          <thead>
+            <tr>
+              <th>{t('hlRepWeek')}</th>
+              {ibd ? (
+                <>
+                  <th>{t('hlRepStoolsDay')}</th>
+                  <th>{t('hlRepLooseDay')}</th>
+                  <th>{t('hlRepBloodDays')}</th>
+                  <th>{t('hlRepFeeling')}</th>
+                  <th>{t('hlAbdPain')}</th>
+                  <th>{t('hlFatigue')}</th>
+                  <th>{t('hlSumFlares')}</th>
+                </>
+              ) : (
+                <>
+                  <th>{t('hlWater')}</th>
+                  <th>{t('hlSleep')}</th>
+                  <th>{t('hlMood')}</th>
+                </>
+              )}
+            </tr>
+          </thead>
           <tbody>
-            {sums.map((s) => (
-              <tr key={s.month}>
-                <th>{parseISODate(`${s.month}-01`).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}</th>
-                <td>
-                  {[
-                    s.avgWaterMl != null ? `${t('hlWater')} ${fmt(s.avgWaterMl)}` : null,
-                    s.avgSleep != null ? `${t('hlSleep')} ${t('hlHours', { n: s.avgSleep.toLocaleString(locale) })}` : null,
-                    s.avgMood != null ? `${t('hlMood')} ${s.avgMood}/5` : null,
-                    s.medsPct != null ? `${t('hlSumMeds')} ${s.medsPct}%` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </td>
+            {r.weeks.map((w) => (
+              <tr key={w.start}>
+                <th>
+                  {d(w.start < from ? from : w.start)} – {d(w.end > to ? to : w.end)}
+                </th>
+                {ibd ? (
+                  <>
+                    <td>{n(w.stoolsPerDay)}</td>
+                    <td>{n(w.loosePerDay)}</td>
+                    <td>{w.bloodDays}</td>
+                    <td>{level(w.wellbeing, 'hlWell')}</td>
+                    <td>{level(w.pain, 'hlLevel')}</td>
+                    <td>{level(w.fatigue, 'hlLevel')}</td>
+                    <td>{w.flareDays}</td>
+                  </>
+                ) : (
+                  <>
+                    <td>{w.water != null ? fmtWater(w.water) : '–'}</td>
+                    <td>{w.sleep != null ? t('hlHours', { n: w.sleep.toLocaleString(locale) }) : '–'}</td>
+                    <td>{n(w.mood, ' / 5')}</td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
+        {ibd && <p className="hl-rep-note">{t('hlRepScales')}</p>}
+
         {ibd && (
           <>
-            <h3>IBD</h3>
-            <p>
-              {t('hlRepIbd', { f: flareDays, n: scores.size })}
-              {avgScore != null && ` · ${t('hlRepAvgScore', { s: avgScore })}`}
-              {bathroom.length > 0 && ` · ${t('hlRepStools', { n: Math.round((bathroom.length / days) * 10) / 10 })}`}
-            </p>
+            <h3>{t('hlRepSymptoms')}</h3>
+            {r.symptoms.length === 0 ? (
+              <p>{t('hlRepNone')}</p>
+            ) : (
+              <table className="hl-rep-table small">
+                <thead>
+                  <tr>
+                    <th>{t('hlRepSymptom')}</th>
+                    <th>{t('hlRepFirst')}</th>
+                    <th>{t('hlRepDays')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.symptoms.map((s) => (
+                    <tr key={s.id}>
+                      <th>{t(`hlComp_${s.id}` as StringKey)}</th>
+                      <td>{d(s.first, true)}</td>
+                      <td>{s.days}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <h3>{t('hlRepFlares')}</h3>
+            <p>{r.flareRanges.length === 0 ? t('hlRepNone') : r.flareRanges.map((x) => (x.from === x.to ? d(x.from) : `${d(x.from)} – ${d(x.to)}`)).join(' · ')}</p>
+
+            {r.daily.length > 0 && r.daily.length <= 31 && (
+              <>
+                <h3>{t('hlRepDaily')}</h3>
+                <div className="hl-rep-days">
+                  {r.daily.map((x) => (
+                    <span key={x.date} className={x.flare ? 'flare' : ''}>
+                      <b>{d(x.date)}</b> {x.stools}
+                      {x.loose > 0 && <i> · {t('hlRepLooseN', { n: x.loose })}</i>}
+                      {x.blood > 0 && <i> · {t('hlBlood')}</i>}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
-        {meds.length > 0 && (
+
+        {r.meds.length > 0 && (
           <>
             <h3>{t('hlMeds')}</h3>
-            <ul>
-              {meds.map((m) => (
-                <li key={m.id}>
-                  {m.name} {m.dose} · {m.times.join(', ')} · {(m.every ?? 1) > 1 || (m.unit && m.unit !== 'day') ? t(`hlEveryN_${m.unit ?? 'day'}` as StringKey, { n: m.every ?? 1 }) : t('hlEvery1_day')} ·{' '}
-                  {t('hlRepTaken', { n: taken.filter((x) => x.medId === m.id).length })}
-                </li>
-              ))}
-            </ul>
+            <table className="hl-rep-table small">
+              <tbody>
+                {r.meds.map((x) => {
+                  const m = meds.find((y) => y.id === x.id);
+                  if (!m) return null;
+                  return (
+                    <tr key={x.id}>
+                      <th dir="auto">
+                        {m.name} {m.dose}
+                      </th>
+                      <td>{(m.every ?? 1) > 1 || (m.unit && m.unit !== 'day') ? t(`hlEveryN_${m.unit ?? 'day'}` as StringKey, { n: m.every ?? 1 }) : t('hlEvery1_day')} · {m.times.join(', ')}</td>
+                      <td>{t('hlRepTakenOf', { a: x.taken, b: x.planned })}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </>
         )}
+
         {weights.length > 0 && (
           <>
             <h3>{t('hlWeight')}</h3>
-            <p>{weights.map((w) => `${d(w.date)}: ${w.weightKg} ${t('hlUnitKg')}`).join(' · ')}</p>
+            <p>
+              {weights.map((w) => `${d(w.date)}: ${w.weightKg} ${t('hlUnitKg')}`).join(' · ')}
+            </p>
           </>
         )}
+
         {tests.length > 0 && (
           <>
             <h3>{t('hlTests')}</h3>
+            <table className="hl-rep-table small">
+              <tbody>
+                {tests.map((x) => (
+                  <tr key={x.id}>
+                    <th dir="auto">{x.name}</th>
+                    <td dir="ltr">
+                      {x.value ?? ''} {x.unit}
+                    </td>
+                    <td>{d(x.date, true)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {questions.length > 0 && (
+          <>
+            <h3>{t('hlQuestions')}</h3>
             <ul>
-              {tests.map((x) => (
-                <li key={x.id} dir="auto">
-                  {d(x.date)} · {x.name}: {x.value ?? ''} {x.unit}
+              {questions.map((q) => (
+                <li key={q.id} dir="auto">
+                  {q.text}
                 </li>
               ))}
             </ul>
-          </>
-        )}
-        {visits.length > 0 && (
-          <>
-            <h3>{t('hlQuestions')}</h3>
-            {visits.map((v) => (
-              <ul key={v.id}>
-                {v.questions!.map((q) => (
-                  <li key={q.id} dir="auto">
-                    {q.text}
-                  </li>
-                ))}
-              </ul>
-            ))}
           </>
         )}
         <p className="hl-report-note">{t('hlNotAdvice')}</p>

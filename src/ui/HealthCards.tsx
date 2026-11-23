@@ -8,7 +8,7 @@ import { dosesOn, forDate, healthOf, latestWeight, medDueOn, nextMedDate, profil
 import type { CalendarEvent, HealthBody, HealthMed, HealthMedTaken, HealthTest, HealthVisit, ISODate } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented, Toggle } from './common';
 import { newEvent } from './drafts';
-import { CardHead, LineChart, NumBox, StickerChoice, useHealth } from './healthUi';
+import { CardHead, LineChart, NumBox, StickerChoice, Tip, useHealth } from './healthUi';
 import { StickerArt } from './Stickers';
 import { useBloom } from './store';
 
@@ -301,7 +301,7 @@ export function BodyCard({ date }: { date: ISODate }) {
       />
       <div className="hl-body-grid">
         <label className="hl-mini-field">
-          <span className="field-label">{t('hlWeight')}</span>
+          <span className="field-label">{prefilled ? <Tip text={t('hlPrefilled')}>{t('hlWeight')}</Tip> : t('hlWeight')}</span>
           <NumBox value={prefillWeight} onChange={(weightKg) => set({ weightKg })} min={10} max={400} step={0.1} unit={t('hlUnitKg')} label={t('hlWeight')} />
         </label>
         <label className="hl-mini-field">
@@ -313,7 +313,6 @@ export function BodyCard({ date }: { date: ISODate }) {
           <NumBox value={cur.steps} onChange={(steps) => set({ steps })} min={0} max={200000} step={100} label={t('hlSteps')} />
         </label>
       </div>
-      {prefilled && <p className="muted small hl-score-note">{t('hlPrefilled')}</p>}
       {diff != null && first && (
         <p className="w-card-sub">
           {t('hlWeightSince', { d: `\u2066${diff > 0 ? '+' : ''}${diff.toLocaleString(locale)}\u2069 ${t('hlUnitKg')}`, date: fmtDay(first.date, locale) })}
@@ -519,11 +518,11 @@ function TestEditor({ init, isNew, onClose }: { init: HealthTest; isNew: boolean
           <Field label={t('hlTestValue')}>
             <NumBox value={x.value} onChange={(value) => setX({ ...x, value })} min={-100000} max={1000000} step={0.01} label={t('hlTestValue')} />
           </Field>
-          <Field label={t('hlTestUnit')}>
+          <Field label={<Tip text={t('hlTestRangeHint')}>{t('hlTestUnit')}</Tip>}>
             <input dir="ltr" value={x.unit} onChange={(e) => setX({ ...x, unit: e.target.value })} />
           </Field>
         </div>
-        <p className="muted small hl-score-note">{t('hlTestRangeHint')}</p>
+
         <Field label={t('hlDate')}>
           <input type="date" value={x.date} onChange={(e) => e.target.value && setX({ ...x, date: e.target.value })} />
         </Field>

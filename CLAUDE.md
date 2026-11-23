@@ -143,6 +143,18 @@ installed apps auto-update. Commit messages: clear "what + why".
   lookup (webcam / typed number / photo, @zxing/browser); only the search
   word or barcode is sent; free, no AI. OFF search is rate-limited (~10/min):
   the app shows "busy, try again" instead of failing.
+- **Less text in Health**: explanations are hover tips (`Tip`, shows after
+  1.3 s), not lines on screen; safety notes (red flag, stoma/ORS) stay visible.
+  IBD "Other problems today" is folded (button shows how many are picked).
+  IBD history: 30 / 90 days / year / from the start (no limit). Hebrew day
+  label uses the modern sans font.
+- **Doctor report**: 30 days default; 1 week / 90 days / any dates. Summary
+  boxes, week-by-week table (IBD: bowel movements/day, loose/day, blood days,
+  feeling, pain, tiredness, flare days; otherwise water/sleep/mood), other
+  symptoms with first date + days, flare day ranges, bowel movements per day
+  (<= 31 days), meds taken of planned, weight, tests, visit questions. Printed
+  from a clean hidden frame (white page) so "Microsoft Print to PDF" works.
+  Logic: `reportData` in `src/shared/healthExtras.ts` (tested).
 - Startup window: shows today's remaining medication doses only when Health is
   on; never any IBD item.
 - **Automatic backups** (Settings > Backup, desktop only): per-computer
@@ -161,8 +173,9 @@ installed apps auto-update. Commit messages: clear "what + why".
     stools + 200 each (max + 1 L, ORS tip). Clamp 1.2-3.5 L; doctor's limit wins.
   - BMI: WHO adult bands, neutral wording, no band under 18.
   - **Nothing pregnancy-related anywhere in Health** (owner's rule).
-  - Crohn's: Harvey-Bradshaw (<5 / 5-7 / 8-16 / >16); mass item "only if a
-    doctor found one"; note that it isn't validated with an ileostomy.
+  - Crohn's: Harvey-Bradshaw (<5 / 5-7 / 8-16 / >16); the belly-lump (mass)
+    item was removed at the owner's request and counts as 0; note that it
+    isn't validated with an ileostomy.
   - UC: SCCAI (Walmsley 1998) from the bathroom log (day/night count,
     urgency, blood none/trace/obvious) + well-being + 4 extra-intestinal items;
     <=2 calm, 3-4 mild, >=5 active.

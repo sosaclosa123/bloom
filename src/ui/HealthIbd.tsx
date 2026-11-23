@@ -8,7 +8,7 @@ import { parseISODate } from '../shared/dates';
 import { bathroomStats, bloodLevel, forDate, HBI_COMPLICATIONS, healthOf, ibdDayScore, isNightTime, SCCAI_EXTRACOLONIC } from '../shared/health';
 import type { FlareMark, HealthBathroom, HealthIbdDay, ISODate } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Toggle } from './common';
-import { Pills, useHealth } from './healthUi';
+import { Pills, Tip, useHealth } from './healthUi';
 import { useBloom } from './store';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -41,6 +41,7 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
     }
   };
   const [editing, setEditing] = useState<{ b: HealthBathroom; isNew: boolean } | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const log = healthOf(all, 'bathroom')
     .filter((b) => b.date === date)
     .sort((a, b) => a.time.localeCompare(b.time));
@@ -60,9 +61,20 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
         </h3>
         <div className="hl-head-actions">
           {score.any && (
-            <span className={`hl-score lvl-${score.level}`} title={t('hlScoreNote')}>
-              {score.kind === 'uc' ? t('hlScoreUc', { n: score.score }) : t('hlScoreHbi', { n: score.score })} · {t(`hlLvl_${score.level}` as StringKey)}
-            </span>
+            <Tip
+              text={[
+                score.kind === 'hbi' && profile?.ostomy !== 'ostomy' ? t('hlLiquidFromLog', { n: stats.liquid }) : '',
+                score.kind === 'uc' ? t('hlSccaiFromLog') : '',
+                t('hlScoreNote'),
+                profile?.ostomy === 'ostomy' ? t('hlScoreOstomy') : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            >
+              <span className={`hl-score lvl-${score.level}`}>
+                {score.kind === 'uc' ? t('hlScoreUc', { n: score.score }) : t('hlScoreHbi', { n: score.score })} · {t(`hlLvl_${score.level}` as StringKey)}
+              </span>
+            </Tip>
           )}
           <IconButton icon={min ? 'plus' : 'minus'} label={min ? t('hlExpand') : t('hlMinimize')} className="hl-min-btn" onClick={toggleMin} aria-expanded={!min} />
         </div>
@@ -141,15 +153,14 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
             <span className="hl-row-label">{t('hlFatigue')}</span>
             <Pills label={t('hlFatigue')} value={cur.fatigue} onChange={(fatigue) => set({ fatigue })} options={lvl('hlLevel', 4)} />
           </div>
-          {profile?.ibdType !== 'uc' && (
-            <div className="hl-row wide">
-              <span className="hl-row-label">{t('hlMassDoctor')}</span>
-              <Pills label={t('hlMass')} value={cur.mass} onChange={(mass) => set({ mass })} options={lvl('hlMass', 4)} />
-            </div>
-          )}
           {(
             <div className="hl-row wide">
-              <span className="hl-row-label">{t('hlComplications')}</span>
+              {/* Half hidden: a button that opens the list (shows what's picked). */}
+              <button type="button" className="hl-toggle-btn" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)}>
+                <Icon name="chevronRight" size={14} className="hl-chev" /> {t('hlComplications')}
+                {cur.complications.length > 0 && <span className="hl-tag ibd">{cur.complications.length}</span>}
+              </button>
+              {moreOpen && (
               <div className="hl-pills" role="group" aria-label={t('hlComplications')}>
                 {/* UC (SCCAI) counts only the four extra-intestinal problems. */}
                 {(profile?.ibdType === 'uc' ? SCCAI_EXTRACOLONIC : HBI_COMPLICATIONS).map((c) => {
@@ -167,6 +178,7 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
                   );
                 })}
               </div>
+              )}
             </div>
           )}
           <div className="hl-row wide">
@@ -180,12 +192,6 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
             />
           </div>
         </div>
-        <p className="muted small hl-score-note">
-          {score.kind === 'hbi' && profile?.ostomy !== 'ostomy' ? `${t('hlLiquidFromLog', { n: stats.liquid })} · ` : ''}
-          {score.kind === 'uc' ? `${t('hlSccaiFromLog')} · ` : ''}
-          {t('hlScoreNote')}
-        </p>
-        {profile?.ostomy === 'ostomy' && <p className="muted small hl-score-note">{t('hlScoreOstomy')}</p>}
         {(stats.frank > 0 || stats.maxPain >= 3 || (cur.pain ?? 0) >= 3 || score.level === 'severe' || (cur.wellbeing ?? 0) >= 4) && (
           <p className="hl-redflag" role="note">
             <Icon name="bell" size={14} /> {t('hlRedFlag')}

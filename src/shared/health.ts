@@ -276,7 +276,8 @@ export function ibdDayScore(
 ): { score: number; level: ActivityLevel; kind: 'hbi' | 'uc'; any: boolean } {
   const any = !!day || stats.total > 0;
   if (profile?.ibdType === 'uc') return { ...sccai(stats, day), kind: 'uc', any };
-  const r = hbi({ ...day, liquidStools: day?.liquidStools ?? stats.liquid });
+  // The belly-lump item (a doctor's exam finding) isn't asked any more, so it counts as 0.
+  const r = hbi({ ...day, mass: 0, liquidStools: day?.liquidStools ?? stats.liquid });
   return { score: r.score, level: r.level, kind: 'hbi', any };
 }
 

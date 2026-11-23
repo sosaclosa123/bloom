@@ -9,7 +9,7 @@ import { forGrams, OFF_FIELDS, parseOff, searchIL, validBarcode, type FoodProduc
 import { FOOD_TAGS, healthOf } from '../shared/health';
 import type { HealthFood, ISODate } from '../shared/types';
 import { Button, Icon, IconButton, Modal, Segmented } from './common';
-import { CardHead, NumBox, Pills, useHealth } from './healthUi';
+import { CardHead, NumBox, Pills, Tip, useHealth } from './healthUi';
 import { useBloom } from './store';
 
 const MEALS: HealthFood['meal'][] = ['breakfast', 'lunch', 'dinner'];
@@ -66,20 +66,11 @@ export function FoodTab({ date, isToday }: { date: ISODate; isToday: boolean }) 
       </div>
       <div className="wl-side">
         <TotalsCard meals={meals} snacks={snacks} />
-        <FoodSourceNote />
       </div>
     </div>
   );
 }
 
-function FoodSourceNote() {
-  const { t, settings } = useBloom();
-  return (
-    <p className="hl-note">
-      <Icon name="note" size={14} /> {settings.healthFoodOnline ? t('hlFoodSourceOnline') : t('hlFoodSourceOffline')}
-    </p>
-  );
-}
 
 function MealsCard({ date, isToday, list }: { date: ISODate; isToday: boolean; list: HealthFood[] }) {
   const { t } = useBloom();
@@ -96,7 +87,7 @@ function SnacksCard({ date, isToday, list }: { date: ISODate; isToday: boolean; 
   const { t } = useBloom();
   return (
     <section className="w-card hl-food hl-snacks">
-      <CardHead sticker="coffee" title={t('hlSnacks')} sub={t('hlSnacksSub')} />
+      <CardHead sticker="coffee" title={t('hlSnacks')} tip={t('hlSnacksSub')} />
       <FoodAdd date={date} isToday={isToday} snack />
       {list.length > 0 && <FoodList list={list} chips />}
     </section>
@@ -146,7 +137,7 @@ function FoodList({ list, chips }: { list: HealthFood[]; chips?: boolean }) {
 }
 
 function TotalsCard({ meals, snacks }: { meals: HealthFood[]; snacks: HealthFood[] }) {
-  const { t, locale } = useBloom();
+  const { t, locale, settings } = useBloom();
   const sum = (xs: HealthFood[], k: 'kcal' | 'protein' | 'fat' | 'carbs') => Math.round(xs.reduce((a, f) => a + (f[k] ?? 0), 0) * 10) / 10;
   const allItems = [...meals, ...snacks];
   const kcal = sum(allItems, 'kcal');
@@ -154,7 +145,7 @@ function TotalsCard({ meals, snacks }: { meals: HealthFood[]; snacks: HealthFood
   const pMeals = kcal ? (sum(meals, 'kcal') / kcal) * 100 : 0;
   return (
     <section className="w-card hl-totals">
-      <CardHead title={t('hlFoodTotal')} />
+      <CardHead title={t('hlFoodTotal')} tip={settings.healthFoodOnline ? t('hlFoodSourceOnline') : t('hlFoodSourceOffline')} />
       <span className="hl-total-kcal">{t('hlKcal', { n: kcal.toLocaleString(locale) })}</span>
       {kcal > 0 && (
         <div className="hl-kcal-bar" aria-hidden="true">
@@ -340,8 +331,9 @@ function FoodAdd({ date, isToday, snack }: { date: ISODate; isToday: boolean; sn
       ) : (
         text.trim() && (
           <div className="hl-portion">
-            <NumBox value={manualKcal} onChange={setManualKcal} min={0} max={10000} unit={t('hlKcalUnit')} label={t('hlKcalManual')} />
-            <span className="muted small">{t('hlKcalManualHint')}</span>
+            <Tip text={t('hlKcalManualHint')}>
+              <NumBox value={manualKcal} onChange={setManualKcal} min={0} max={10000} unit={t('hlKcalUnit')} label={t('hlKcalManual')} />
+            </Tip>
           </div>
         )
       )}

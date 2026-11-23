@@ -395,3 +395,117 @@ export function behindPace(plan: NudgePlan, goalMl: number, glassMl: number, dra
   const expected = (goalMl * elapsed) / span;
   return drankMl < goalMl && expected - drankMl >= glassMl / 2;
 }
+
+// ---------------------------------------------------------------- doctor report
+
+export interface ReportWeek {
+  start: ISODate;
+  end: ISODate;
+  days: number; // days in the range that fall in this week
+  logged: number; // days with IBD data
+  stoolsPerDay: number | null;
+  loosePerDay: number | null;
+  bloodDays: number;
+  wellbeing: number | null; // 0 very well .. 4 terrible
+  pain: number | null; // 0..3
+  fatigue: number | null; // 0..3
+  flareDays: number;
+  score: number | null;
+  water: number | null;
+  sleep: number | null;
+  mood: number | null;
+}
+
+export interface ReportData {
+  from: ISODate;
+  to: ISODate;
+  daysLogged: number;
+  weeks: ReportWeek[];
+  daily: { date: ISODate; stools: number; loose: number; blood: number; flare: boolean }[];
+  symptoms: { id: string; first: ISODate; days: number }[];
+  flareRanges: { from: ISODate; to: ISODate }[];
+  flareDays: number;
+  stoolsPerDay: number | null;
+  meds: { id: string; planned: number; taken: number }[];
+}
+
+const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null);
+
+/** Everything the doctor report shows, for an inclusive date range. Weeks follow the calendar's week start. */
+export function reportData(all: HealthItem[], from: ISODate, to: ISODate, ibd: boolean, weekStart: 0 | 1): ReportData {
+  const ix = indexOf(all);
+  const dates: ISODate[] = [];
+  for (let d = dayNum(from); d <= dayNum(to); d++) dates.push(fromDayNum(d));
+  const daily: ReportData['daily'] = [];
+  const symptoms = new Map<string, { first: ISODate; days: number }>();
+  const weeks = new Map<ISODate, { dates: ISODate[]; ibdDays: ISODate[] }>();
+  for (const date of dates) {
+    const dow = new Date(dayNum(date) * 86400000).getUTCDay();
+    const ws = fromDayNum(dayNum(date) - ((dow - weekStart + 7) % 7));
+    const w = weeks.get(ws) ?? { dates: [], ibdDays: [] };
+    w.dates.push(date);
+    if (ibd) {
+      const st = bathroomStats(ix.bathroom.get(date) ?? [], date);
+      const s = ibdOn(all, date);
+      if (s) w.ibdDays.push(date);
+      if (st.total || s) daily.push({ date, stools: st.total, loose: st.liquid, blood: st.blood, flare: !!s?.flare });
+      for (const c of ix.ibdday.get(date)?.complications ?? []) {
+        const cur = symptoms.get(c);
+        symptoms.set(c, { first: cur?.first ?? date, days: (cur?.days ?? 0) + 1 });
+      }
+    }
+    weeks.set(ws, w);
+  }
+  const out: ReportWeek[] = [];
+  for (const [start, w] of weeks) {
+    const facts = w.dates.map((d) => dayFacts(all, d, ibd));
+    const ibdDays = w.ibdDays;
+    const stats = ibdDays.map((d) => bathroomStats(ix.bathroom.get(d) ?? [], d));
+    const days = ibdDays.map((d) => ix.ibdday.get(d)).filter((x): x is HealthIbdDay => !!x);
+    out.push({
+      start,
+      end: fromDayNum(dayNum(start) + 6),
+      days: w.dates.length,
+      logged: ibdDays.length,
+      stoolsPerDay: avg(stats.map((s) => s.total)),
+      loosePerDay: avg(stats.map((s) => s.liquid)),
+      bloodDays: stats.filter((s) => s.blood > 0).length,
+      wellbeing: avg(days.filter((d) => d.wellbeing != null).map((d) => d.wellbeing!)),
+      pain: avg(days.filter((d) => d.pain != null).map((d) => d.pain!)),
+      fatigue: avg(days.filter((d) => d.fatigue != null).map((d) => d.fatigue!)),
+      flareDays: ibdDays.filter((d) => ibdOn(all, d)?.flare).length,
+      score: avg(ibdDays.map((d) => ibdOn(all, d)?.score ?? 0)),
+      water: avg(facts.filter((f) => f.waterMl > 0).map((f) => f.waterMl)),
+      sleep: avg(facts.filter((f) => f.sleepH != null).map((f) => f.sleepH!)),
+      mood: avg(facts.filter((f) => f.mood != null).map((f) => f.mood!)),
+    });
+  }
+  // Flare days joined into ranges (e.g. 12-16 Nov).
+  const flareRanges: { from: ISODate; to: ISODate }[] = [];
+  for (const d of daily.filter((x) => x.flare).map((x) => x.date)) {
+    const last = flareRanges[flareRanges.length - 1];
+    if (last && dayNum(d) - dayNum(last.to) === 1) last.to = d;
+    else flareRanges.push({ from: d, to: d });
+  }
+  const planned = new Map<string, { planned: number; taken: number }>();
+  for (const date of dates) {
+    for (const x of dosesOn(ix.meds, ix.taken.get(date) ?? [], date)) {
+      const cur = planned.get(x.med.id) ?? { planned: 0, taken: 0 };
+      cur.planned++;
+      if (x.taken) cur.taken++;
+      planned.set(x.med.id, cur);
+    }
+  }
+  return {
+    from,
+    to,
+    daysLogged: dates.filter((d) => dayFacts(all, d, ibd).any).length,
+    weeks: out,
+    daily,
+    symptoms: [...symptoms.entries()].map(([id, v]) => ({ id, ...v })).sort((a, b) => a.first.localeCompare(b.first)),
+    flareRanges,
+    flareDays: daily.filter((x) => x.flare).length,
+    stoolsPerDay: avg(daily.map((x) => x.stools)),
+    meds: [...planned.entries()].map(([id, v]) => ({ id, ...v })),
+  };
+}

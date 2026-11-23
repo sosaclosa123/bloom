@@ -116,7 +116,7 @@ export function Pills<T extends string | number>({
 
 // ---------------------------------------------------------------- card header with sticker art
 
-export function CardHead({ sticker, title, sub, children }: { sticker?: string; title: ReactNode; sub?: ReactNode; children?: ReactNode }) {
+export function CardHead({ sticker, title, sub, tip, children }: { sticker?: string; title: ReactNode; sub?: ReactNode; tip?: string; children?: ReactNode }) {
   return (
     <div className="w-card-head hl-head">
       <div className="hl-head-title">
@@ -126,7 +126,7 @@ export function CardHead({ sticker, title, sub, children }: { sticker?: string; 
           </span>
         )}
         <div>
-          <h3>{title}</h3>
+          <h3>{tip ? <Tip text={tip}>{title}</Tip> : title}</h3>
           {sub && <p className="w-card-sub">{sub}</p>}
         </div>
       </div>
@@ -276,4 +276,37 @@ export function onHealthRedo(cb: () => void) {
   return () => {
     redoListeners.delete(l);
   };
+}
+
+// ---------------------------------------------------------------- hover explanation (after 1.3 s)
+
+/** Explanations stay out of sight: hold the mouse over the item for 1.3 s to see them. */
+export function Tip({ text, children, className }: { text: ReactNode; children: ReactNode; className?: string }) {
+  const [show, setShow] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clear = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => clear, []);
+  return (
+    <span
+      className={`hl-tip ${className ?? ''}`}
+      onMouseEnter={() => {
+        clear();
+        timer.current = setTimeout(() => setShow(true), 1300);
+      }}
+      onMouseLeave={() => {
+        clear();
+        setShow(false);
+      }}
+    >
+      {children}
+      {show && (
+        <span className="hl-tip-bubble" role="tooltip">
+          {text}
+        </span>
+      )}
+    </span>
+  );
 }
