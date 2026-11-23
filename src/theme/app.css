@@ -6094,3 +6094,14 @@ input[type='time'] {
 .hl-insight-list li.better .icon {
   color: var(--hl-green);
 }
+/* startup window: today's medication doses (only when Health is on) */
+.glance-pill {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  background: var(--hl-pink-soft);
+}

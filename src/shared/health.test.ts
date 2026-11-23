@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { alertsDueBetween } from './alerts';
 import { newMeta } from './db';
-import { bathroomStats, bleedingFromLog, bmi, dosesOn, emptyProfile, foodInsights, forDate, hbi, ibdDayScore, ibdScores, isFlareDay, latestWeight, profileOf, ucScore, waterGoal } from './health';
+import { bathroomStats, bleedingFromLog, bmi, dosesOn, emptyProfile, foodInsights, forDate, glanceDoses, hbi, ibdDayScore, ibdScores, isFlareDay, latestWeight, profileOf, ucScore, waterGoal } from './health';
 import { DEFAULT_SETTINGS, type HealthBathroom, type HealthItem, type HealthMed, type HealthMedTaken, type HealthProfile } from './types';
 
 const prof = (p: Partial<HealthProfile>): HealthProfile => ({ ...newMeta(), ...emptyProfile(), ...p });
@@ -178,5 +178,17 @@ describe('food insights', () => {
     const s = ibdScores(all, prof({}), ['2026-01-02', '2026-01-03', '2026-02-01']);
     expect(s.get('2026-01-02')).toEqual({ score: 5, level: 'mild', flare: 'mild' });
     expect(s.has('2026-02-01')).toBe(false);
+  });
+});
+
+describe('startup window', () => {
+  it('shows only remaining doses, only when Health is on, generic by default', () => {
+    const med: HealthMed = { ...newMeta(), kind: 'med', name: 'Humira', dose: '', times: ['08:00', '20:00', '22:00'], remind: true, active: true, supplement: false };
+    const taken: HealthMedTaken = { ...newMeta(), kind: 'taken', medId: med.id, date: '2026-01-10', time: '20:00' };
+    const now = new Date(2026, 0, 10, 9, 0);
+    const on = { ...DEFAULT_SETTINGS, healthEnabled: true };
+    expect(glanceDoses({ settings: on, health: [med, taken] }, now)).toEqual([{ label: null, time: '22:00' }]);
+    expect(glanceDoses({ settings: { ...on, healthMedNames: true }, health: [med] }, now).map((d) => d.label)).toEqual(['Humira', 'Humira']);
+    expect(glanceDoses({ settings: DEFAULT_SETTINGS, health: [med] }, now)).toEqual([]);
   });
 });

@@ -84,7 +84,7 @@ Detailed, one question per screen, skippable, editable later in the tab.
 - [x] 5. Medications (+ private reminders) and Body/Tests/Doctor cards.
 - [x] 6. IBD: bathroom log, symptoms, HBI, flare marking (hidden when IBD off).
 - [x] 7. Trends charts (+ 30-day flare timeline) and food insights.
-- [ ] 8. Startup window rules + full QA (EN/HE, light/dark, sizes, large
+- [x] 8. Startup window rules + full QA (EN/HE, light/dark, sizes, large
       text, privacy tests, desktop). Update `CLAUDE.md` rules.
 
 ## Also requested: automatic backups

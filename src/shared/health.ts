@@ -10,6 +10,7 @@ import type {
   HealthMedTaken,
   HealthProfile,
   ISODate,
+  Snapshot,
   SyncMeta,
 } from './types';
 
@@ -312,4 +313,22 @@ export function foodInsights(all: HealthItem[], profile: Partial<HealthProfile> 
     out.push({ tag, withAvg: Math.round(a * 10) / 10, withoutAvg: Math.round(b * 10) / 10, withDays: w.length, worse: a > b });
   }
   return out.sort((x, y) => Math.abs(y.withAvg - y.withoutAvg) - Math.abs(x.withAvg - x.withoutAvg));
+}
+
+// ---------------------------------------------------------------- startup "Coming up" window
+
+/**
+ * Health in the startup window: only when Health is on for this computer,
+ * and only today's medication doses still to take (generic "Medication",
+ * label null, unless medicine names were turned on). No IBD items here.
+ */
+export function glanceDoses(snap: Pick<Snapshot, 'settings' | 'health'>, now: Date): { label: string | null; time: string }[] {
+  if (!snap.settings.healthEnabled) return [];
+  const all = snap.health ?? [];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const hhmm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  return dosesOn(healthOf(all, 'med'), healthOf(all, 'taken'), today)
+    .filter((d) => !d.taken && d.time >= hhmm)
+    .map((d) => ({ label: snap.settings.healthMedNames ? d.med.name : null, time: d.time }));
 }

@@ -9,6 +9,7 @@ import { parseISODate, toISODate } from './shared/dates';
 import { personalDays } from './shared/db';
 import { expandEvents, type EventOccurrence } from './shared/recurrence';
 import { countdownsOn } from './shared/schedule';
+import { glanceDoses } from './shared/health';
 import type { DayEntry, Snapshot } from './shared/types';
 import { dayColor, inkOf, monthColor, setCustomMonthColors } from './ui/season';
 import { CountdownIcon, StickerArt, StickerDefs, repeatingStickersOn } from './ui/Stickers';
@@ -65,6 +66,8 @@ function Glance() {
   const locale = localeFor(lang);
   const now = useMemo(() => new Date(), [snap]);
   const days = useMemo(() => (snap ? upcomingDays(snap, now) : []), [snap, now]);
+  const doses = useMemo(() => (snap ? glanceDoses(snap, now) : []), [snap, now]);
+  const empty = days.length === 0 && doses.length === 0;
 
   useEffect(() => {
     if (!snap) return;
@@ -75,14 +78,14 @@ function Glance() {
     document.documentElement.dir = dirFor(lang);
     setCustomMonthColors(snap.settings.monthColors);
     // Nothing coming up: no window at all.
-    if (days.length === 0) bridge.glance.close();
-  }, [snap, days.length, lang, bridge]);
+    if (empty) bridge.glance.close();
+  }, [snap, empty, lang, bridge]);
 
   useLayoutEffect(() => {
-    if (ref.current && days.length) bridge.glance.resize(ref.current.getBoundingClientRect().height);
+    if (ref.current && !empty) bridge.glance.resize(ref.current.getBoundingClientRect().height);
   });
 
-  if (!snap || days.length === 0) return null;
+  if (!snap || empty) return null;
   const today = toISODate(now);
   const tomorrow = toISODate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
   const dayName = (iso: string) =>
@@ -164,6 +167,24 @@ function Glance() {
             </button>
           );
         })}
+        {doses.length > 0 && (
+          <button type="button" className="glance-day glance-health" onClick={() => bridge.glance.open(today)}>
+            <span className="glance-pill" aria-hidden="true">
+              💊
+            </span>
+            <span className="glance-info">
+              <span className="glance-dayname">{t('hlMeds')}</span>
+              {doses.map((d, i) => (
+                <span key={i} className="glance-ev">
+                  <span className="glance-time">{d.time}</span>
+                  <span className="glance-title" dir="auto">
+                    {d.label || t('hlMedication')}
+                  </span>
+                </span>
+              ))}
+            </span>
+          </button>
+        )}
       </div>
       <footer className="glance-foot">
         <button type="button" className="glance-open" onClick={() => bridge.glance.open(today)}>

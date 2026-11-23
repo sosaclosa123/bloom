@@ -20,9 +20,12 @@ Electron + React 18 + TypeScript + Vite; esbuild for main/preload
 Auto-update: electron-updater from GitHub Releases.
 
 - `src/shared/` pure logic (types, db + migrations, recurrence, alerts,
-  holidays (@hebcal), money, schedule). Unit-tested; no DOM here.
+  holidays (@hebcal), money, schedule, health). Unit-tested; no DOM here.
 - `src/ui/` React UI. `store.tsx` = state + save/del. `season.tsx` = month
   colors/particles. `Stickers.tsx` + `stickerDesigns.ts`. `Wallet.tsx`.
+  Health: `Health.tsx` (page + settings), `HealthProfile.tsx` (questionnaire),
+  `HealthCheckin.tsx`, `HealthCards.tsx` (meds/body/tests/visits),
+  `HealthIbd.tsx`, `HealthTrends.tsx` (trends/flares/food), `healthUi.tsx`.
 - `src/glance.tsx` startup "Coming up" window. `src/popup.tsx` reminder popup.
 - `electron/` main process: windows, tray, scheduler (fires reminders),
   game-mode detection, file store, updater.
@@ -83,13 +86,30 @@ installed apps auto-update. Commit messages: clear "what + why".
   stays until closed, setting to turn off (default on).
 - Text size setting (small/medium/large); day squares never cut text
   (fit logic folds events into "+N more").
+- **Health tab is always private.** `health` collection: visibility forced to
+  'private' on save/load/merge (`asPrivateHealth`); the sync engine only puts it
+  in the person's own area (`ALWAYS_PRIVATE`) and ignores any found in a shared
+  calendar (test: `src/sync/health.test.ts`). No share toggle. Never shown in
+  Search, the calendar, Scheduled (a doctor visit adds a private calendar event
+  only if asked).
+- Health settings are **per computer, default OFF**: `healthEnabled`,
+  `healthIbd`, `healthMedNames`. Rail heart tab always visible, dimmed when off
+  ("Health is off · Turn on in Settings"). Her PC keeps both off.
+- **IBD off = every IBD part completely hidden** (IBD card, flare timeline, food
+  insights, IBD tests like calprotectin, IBD profile questions, symptoms trend).
+  IBD cards use the soft pink tint + "IBD" tag.
+- Medication reminders use the normal scheduler, only where Health is on; text
+  is just "Medication" unless "Show medicine names" is on; popup has "Taken".
+- Startup window: shows today's remaining medication doses only when Health is
+  on; never any IBD item.
+- Health formulas live in `src/shared/health.ts` with sources in comments
+  (water ~35 ml/kg + extras, doctor's fluid limit wins; BMI neutral WHO wording;
+  HBI for Crohn's, partial-Mayo style for UC). Always "Not medical advice".
 
 ## In progress
-- **Health tab** (private health tracking incl. Crohn's/IBD) and **automatic
-  backups**: full approved plan + checklist in `HEALTH_PLAN.md`. Build it in a
-  fresh session, ticking the checklist as you go; any session continues from
-  the first unticked box. The owner keeps using the long main chat for later
-  updates, so keep `HEALTH_PLAN.md` and this file accurate.
+- **Health tab: done** (steps 1-8 in `HEALTH_PLAN.md`).
+- **Automatic backups** (last box in `HEALTH_PLAN.md`): any session continues
+  from the first unticked box. Keep `HEALTH_PLAN.md` and this file accurate.
 
 ## Open ideas
 - **Android app** (owner wants Android only, free install via APK, no Play
