@@ -5734,3 +5734,169 @@ input[type='time'] {
   border-color: var(--hl-pink-line);
   color: var(--hl-pink);
 }
+/* IBD card: soft pink tint + "IBD" marker */
+.hl-ibd {
+  background: linear-gradient(180deg, var(--hl-pink-soft), color-mix(in srgb, var(--hl-pink-soft) 35%, var(--surface)));
+  border-color: var(--hl-pink-line);
+}
+.hl-ibd > .w-card-head h3::after {
+  content: 'IBD';
+  margin-inline-start: 8px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--hl-pink);
+  color: var(--surface);
+  vertical-align: 2px;
+}
+.hl-ibd .hl-pills button {
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+}
+.hl-ibd .hl-pills button.active {
+  background: var(--hl-pink-soft);
+  border-color: var(--hl-pink);
+  color: var(--hl-pink);
+}
+.hl-ibd-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--hl-pink-line);
+}
+.hl-ibd-sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px var(--space-2);
+}
+.hl-row.wide {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+.hl-row.wide .hl-row-label {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.hl-score {
+  font-family: 'Outfit', var(--font-sans);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.hl-score.lvl-remission {
+  color: var(--hl-green);
+  border-color: color-mix(in srgb, var(--hl-green) 45%, transparent);
+}
+.hl-score.lvl-mild {
+  color: #c98a2b;
+  border-color: color-mix(in srgb, #e3a72f 50%, transparent);
+}
+.hl-score.lvl-moderate,
+.hl-score.lvl-severe {
+  color: var(--hl-pink);
+  border-color: var(--hl-pink);
+  background: var(--hl-pink-soft);
+}
+.hl-score-note {
+  margin: 0;
+}
+.hl-bath-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hl-bath {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--hl-pink-line);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px 3px 6px;
+}
+[dir='rtl'] .hl-bath {
+  padding: 3px 6px 3px 10px;
+}
+.hl-bath:hover {
+  border-color: var(--hl-pink);
+}
+.hl-bath .hl-dose-time {
+  min-width: 0;
+}
+.hl-bristol {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: #a98a6d;
+}
+.hl-bath.b1 .hl-bristol,
+.hl-bath.b2 .hl-bristol {
+  background: #8f6a4f;
+}
+.hl-bath.b3 .hl-bristol,
+.hl-bath.b4 .hl-bristol,
+.hl-bath.b5 .hl-bristol {
+  background: var(--hl-green);
+}
+.hl-bath.b6 .hl-bristol,
+.hl-bath.b7 .hl-bristol {
+  background: var(--hl-pink);
+}
+.hl-bath-mark {
+  font-weight: 800;
+  color: #c98a2b;
+  font-size: var(--fs-sm);
+}
+.hl-blood {
+  color: #d9566b;
+  fill: #d9566b;
+}
+.hl-bristol-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(92px * var(--fs-scale, 1)), 1fr));
+  gap: 6px;
+}
+.hl-bristol-grid button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-md);
+  padding: 6px 4px;
+  font-size: var(--fs-xs);
+  line-height: 1.2;
+  text-align: center;
+}
+.hl-bristol-grid button strong {
+  font-family: 'Outfit', var(--font-sans);
+  font-size: var(--fs-md);
+}
+.hl-bristol-grid button:hover {
+  background: var(--surface-hover);
+}
+.hl-bristol-grid button.active {
+  border-color: var(--hl-pink);
+  background: var(--hl-pink-soft);
+  color: var(--hl-pink);
+}
+.hl-ibd-modal .hl-time-in:not([type='checkbox']):not([type='radio']):not([type='range']) {
+  width: calc(130px * var(--fs-scale, 1));
+}

@@ -8,6 +8,7 @@ import { Button, Icon, IconButton, Toggle } from './common';
 import { useHealth } from './healthUi';
 import { BodyCard, MedsCard, TestsCard, VisitsCard } from './HealthCards';
 import { CheckinCard } from './HealthCheckin';
+import { IbdCard } from './HealthIbd';
 import { ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
 import { useBloom } from './store';
 
@@ -101,6 +102,8 @@ function HealthOn() {
         <div className="wl-main">
           {!profile?.done && <SetupCard onStart={() => setWizard(true)} />}
           <CheckinCard date={date} isToday={isToday} goal={goal} />
+          {/* IBD parts exist only while IBD is on for this computer. */}
+          {ibd && <IbdCard date={date} isToday={isToday} />}
           <MedsCard date={date} />
         </div>
         <div className="wl-side">
