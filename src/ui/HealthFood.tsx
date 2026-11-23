@@ -344,9 +344,14 @@ export function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () =>
       }
     >
       <div className="hl-form">
-        <Field label={t('hlFoodName')}>
+        <Field label={t('hlShowAs')}>
           <input dir="auto" value={f.text} onChange={(e) => setF({ ...f, text: e.target.value })} />
         </Field>
+        {f.product && f.product !== f.text && (
+          <p className="muted small hl-product-of" dir="auto">
+            {t('hlProductIs', { p: f.product })}
+          </p>
+        )}
         {kind === 'meal' && (
           <Pills label={t('hlMeals')} value={f.meal} onChange={(v) => v && setF({ ...f, meal: v })} options={MEALS.map((x) => ({ value: x, label: t(`hlMeal_${x}` as StringKey) }))} />
         )}
@@ -409,6 +414,8 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
   const lang = settings.language;
   const drink = kind === 'drink';
   const [text, setText] = useState('');
+  // Your own short name for the picked product ("XL"); the search box keeps the full title.
+  const [title, setTitle] = useState('');
   const [db, setDb] = useState<FoodsIL | null>(null);
   const [online, setOnline] = useState<FoodProduct[] | 'busy' | 'loading' | null>(null);
   const [pick, setPick] = useState<FoodProduct | null>(null);
@@ -453,6 +460,11 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
   }, [text, settings.healthFoodOnline, pick, lang]);
 
   const choose = (p: FoodProduct) => {
+    // The name you gave this product last time comes back.
+    const last = healthOf(all, 'food')
+      .filter((f) => f.productId === p.id && f.product && f.text !== f.product)
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    setTitle(last?.text ?? '');
     setPick(p);
     setText(p.brand ? `${p.name} (${p.brand})` : p.name);
     setGrams(p.portions[0]?.grams ?? (drink ? 250 : 100));
@@ -475,6 +487,7 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
     setTagsOpen(false);
     setMode('grams');
     setBoxOpen(false);
+    setTitle('');
   };
   const useGrams =
     mode === 'pieces' ? (piece && pieces ? piecesToGrams(pieces, piece.grams) : null) : mode === 'box' ? (pack ? Math.round(pack * frac * 10) / 10 : null) : grams;
@@ -489,7 +502,8 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
       time: isToday ? nowTime() : '',
       meal: kind === 'drink' ? 'drink' : kind === 'snack' ? 'snack' : meal,
       snack: kind === 'snack',
-      text: text.trim(),
+      text: (pick && title.trim()) || text.trim(),
+      product: pick ? text.trim() : undefined,
       tags,
       grams: pick ? useGrams : null,
       kcal: n ? n.kcal : manualKcal,
@@ -566,6 +580,14 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
           {t('hlScan')}
         </Button>
       </div>
+      {pick && (
+        <label className="hl-showas">
+          <Tip text={t('hlShowAsTip')}>
+            <span>{t('hlShowAs')}</span>
+          </Tip>
+          <input dir="auto" value={title} maxLength={60} placeholder={pick.name} onChange={(e) => setTitle(e.target.value)} aria-label={t('hlShowAs')} />
+        </label>
+      )}
       {pick && <NutritionLabel p={pick} grams={useGrams} drink={drink} pieces={mode === 'pieces' && piece ? pieces : null} />}
       {pick && !drink && (
         <Segmented

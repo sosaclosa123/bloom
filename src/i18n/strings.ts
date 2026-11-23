@@ -1010,6 +1010,9 @@ const en = {
   hlLogEmpty: "Nothing added yet. Use Quick add above.",
   hlEditBody: "Body today",
   hlDocOne: "1 document",
+  hlShowAs: "Show as",
+  hlShowAsTip: "Your own short name for it (e.g. \"XL\"). Only this name shows in your day; the full product stays saved.",
+  hlProductIs: "Product: {p}",
 };
 
 export type StringKey = keyof typeof en;
@@ -2022,6 +2025,9 @@ const he: Record<StringKey, string> = {
   hlLogEmpty: "עדיין לא נוסף כלום. אפשר להוסיף ב\"הוספה מהירה\" למעלה.",
   hlEditBody: "הגוף היום",
   hlDocOne: "מסמך אחד",
+  hlShowAs: "שם לתצוגה",
+  hlShowAsTip: "שם קצר משלך (למשל \"XL\"). רק השם הזה יופיע ביום שלך; שם המוצר המלא נשמר.",
+  hlProductIs: "מוצר: {p}",
 };
 
 const dict: Record<Language, Record<StringKey, string>> = { en, he };

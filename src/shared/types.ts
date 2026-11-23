@@ -300,6 +300,8 @@ export interface HealthFood extends SyncMeta {
   /** Where the numbers came from: Israeli MoH database, Open Food Facts, or typed in. */
   source?: 'il' | 'off' | 'manual';
   productId?: string;
+  /** The full product name it was picked from (text = your own "show as" name). */
+  product?: string;
   /** Logged as a number of pieces ("5 cookies"); grams = pieces x pieceG. */
   pieces?: number | null;
   pieceG?: number | null;

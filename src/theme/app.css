@@ -8144,3 +8144,25 @@ button.hl-line-dot.at-l:not(:hover):not(:focus-visible) .hl-dot-label {
 .hl-log-list button:hover .hl-log-edit {
   opacity: 1;
 }
+/* Food: "show as" name for the picked product */
+.hl-showas {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(420px * var(--fs-scale, 1));
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.hl-showas > span,
+.hl-showas .tip-wrap {
+  flex: none;
+  white-space: nowrap;
+}
+.hl-showas input {
+  flex: 1;
+  min-width: 0;
+}
+.hl-product-of {
+  margin: -4px 0 0;
+  overflow-wrap: anywhere;
+}

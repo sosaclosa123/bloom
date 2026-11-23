@@ -171,6 +171,10 @@ installed apps auto-update. Commit messages: clear "what + why".
   Facts serving like "3 biscuits (30 g)") > typical weight (shown "≈",
   "typical estimate"). Box weight: yours > MoH package portion > OFF
   `product_quantity`. Logic: `pieceWeight`/`packWeight` in `src/shared/food.ts`.
+- **"Show as" name**: search results keep the full product titles; after
+  picking, a "Show as" box (e.g. "XL") sets the name shown in the day
+  (`text`); the full title is kept in `product` and shown in the editor.
+  The last "show as" name for that product comes back next time.
 - Picked food/drink shows as a **nutrition label** (owner chose design C):
   name + brand, amount pill, big Calories line, protein / carbs (sugars) /
   fat / fiber for the amount, per-100 g line, source (`NutritionLabel`).
