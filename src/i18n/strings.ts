@@ -924,6 +924,10 @@ const en = {
   hlRepDaily: "Bowel movements per day",
   hlRepLooseN: "{n} loose",
   hlRepTakenOf: "{a} of {b} doses taken",
+  signOutUnsynced: "{n} change(s) are not saved online yet (no internet?). If you sign out now they will be lost from this account. Sign out anyway?",
+  accountDataNote: "Your things are saved in your account and show on every computer you sign in to. Signing out removes them from this computer (they stay in your account and backups).",
+  offlineDataNote: "Signed out: this is this computer's offline Bloom. Signing in shows your account's things instead.",
+  addOfflineData: "Add this computer's offline items to my account ({n})",
 };
 
 export type StringKey = keyof typeof en;
@@ -1850,6 +1854,10 @@ const he: Record<StringKey, string> = {
   hlRepDaily: "יציאות לפי יום",
   hlRepLooseN: "{n} רכות",
   hlRepTakenOf: "{a} מתוך {b} מנות נלקחו",
+  signOutUnsynced: "{n} שינויים עדיין לא נשמרו באינטרנט (אין חיבור?). אם מתנתקים עכשיו הם יאבדו מהחשבון. להתנתק בכל זאת?",
+  accountDataNote: "הדברים שלך שמורים בחשבון ומופיעים בכל מחשב שמתחברים ממנו. התנתקות מסירה אותם מהמחשב הזה (הם נשארים בחשבון ובגיבויים).",
+  offlineDataNote: "לא מחובר: זה ה-Bloom המקומי של המחשב הזה. התחברות תציג במקומו את הדברים מהחשבון.",
+  addOfflineData: "הוספת הפריטים המקומיים של המחשב לחשבון ({n})",
 };
 
 const dict: Record<Language, Record<StringKey, string>> = { en, he };

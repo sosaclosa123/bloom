@@ -28,6 +28,9 @@ export interface PlatformAPI {
   hasPhoto(fileName: string): Promise<boolean>;
   writePhoto(fileName: string, dataUrl: string): Promise<void>;
   applyRemote(c: Partial<Collections>): Promise<void>;
+  /** Signed in: that account's data; null: this computer's offline data. `forget` removes an account's local copy. */
+  switchProfile(uid: string | null, forget?: string | null): Promise<void>;
+  offlineData(): Promise<Partial<Collections>>;
   exportBackup(): Promise<boolean>;
   importBackup(): Promise<'merged' | 'cancelled' | 'invalid'>;
   /** Automatic weekly backups (desktop only; null = not available here). */
@@ -66,6 +69,8 @@ function desktop(b: DesktopBridge): PlatformAPI {
     hasPhoto: (f) => b.hasPhoto(f),
     writePhoto: (f, d) => b.writePhoto(f, d),
     applyRemote: (c) => b.applyRemote(c),
+    switchProfile: (uid, forget) => b.switchProfile(uid, forget),
+    offlineData: () => b.offlineData(),
     photoUrl: async (p) => `bloom-photo://p/${encodeURIComponent(p.fileName)}`,
     exportBackup: () => b.exportBackup(),
     importBackup: () => b.importBackup(),
@@ -88,7 +93,8 @@ function desktop(b: DesktopBridge): PlatformAPI {
   };
 }
 
-const LS_KEY = 'bloom-data-v1';
+const LS_KEY = 'bloom-data-v1'; // offline data; an account's copy is `${LS_KEY}:<uid>`
+const LS_PROFILE = 'bloom-profile-v1';
 const LS_SOUNDS = 'bloom-sounds-v1';
 const LS_PHOTOS = 'bloom-photos-v1';
 
@@ -111,14 +117,26 @@ function shrinkImage(file: File, max = 1400): Promise<string> {
 }
 
 function web(): PlatformAPI {
-  let snap: Snapshot;
+  let active: string | null = null;
+  let profileKnown = false;
   try {
-    snap = normalizeSnapshot(JSON.parse(localStorage.getItem(LS_KEY) || 'null'));
+    const p = JSON.parse(localStorage.getItem(LS_PROFILE) || 'null');
+    profileKnown = p !== null;
+    active = p?.active ?? null;
   } catch {
-    snap = emptySnapshot();
+    /* ignore */
   }
+  const keyOf = (uid: string | null) => (uid ? `${LS_KEY}:${uid}` : LS_KEY);
+  const readKey = (k: string) => {
+    try {
+      return normalizeSnapshot(JSON.parse(localStorage.getItem(k) || 'null'));
+    } catch {
+      return emptySnapshot();
+    }
+  };
+  let snap: Snapshot = readKey(keyOf(active));
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(snap)); // save upgrades right away
+    localStorage.setItem(keyOf(active), JSON.stringify(snap)); // save upgrades right away
   } catch {
     /* ignore */
   }
@@ -128,7 +146,7 @@ function web(): PlatformAPI {
   const set = (next: Snapshot) => {
     snap = next;
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify(next));
+      localStorage.setItem(keyOf(active), JSON.stringify(next));
     } catch {
       /* storage full or blocked */
     }
@@ -246,6 +264,37 @@ function web(): PlatformAPI {
       } catch {
         /* storage full */
       }
+    },
+    offlineData: async () => {
+      if (active === null) return {};
+      const s = readKey(LS_KEY);
+      return Object.fromEntries(COLLECTIONS.filter((c) => c !== 'sounds').map((c) => [c, s[c]]));
+    },
+    switchProfile: async (uid, forget) => {
+      const first = !profileKnown;
+      profileKnown = true;
+      const saveProfile = () => {
+        try {
+          localStorage.setItem(LS_PROFILE, JSON.stringify({ active }));
+        } catch {
+          /* ignore */
+        }
+      };
+      if (uid === active && !forget) return saveProfile();
+      const settings = snap.settings;
+      // First sign-in with this version: the single old data set was this account's.
+      if (uid && first && active === null && localStorage.getItem(keyOf(uid)) === null) {
+        try {
+          localStorage.setItem(keyOf(uid), JSON.stringify(snap));
+          localStorage.setItem(LS_KEY, JSON.stringify({ ...emptySnapshot(), settings }));
+        } catch {
+          /* ignore */
+        }
+      }
+      active = uid;
+      saveProfile();
+      set({ ...readKey(keyOf(uid)), settings });
+      if (forget && forget !== uid) localStorage.removeItem(keyOf(forget));
     },
     applyRemote: async (c) => {
       const incoming = normalizeSnapshot({ ...snap, ...c });

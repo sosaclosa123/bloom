@@ -27,6 +27,10 @@ export interface DesktopBridge {
   hasPhoto(fileName: string): Promise<boolean>;
   writePhoto(fileName: string, dataUrl: string): Promise<void>;
   applyRemote(c: Partial<Collections>): Promise<void>;
+  /** Show an account's data (uid) or this computer's offline data (null); `forget` deletes that account's local copy. */
+  switchProfile(uid: string | null, forget?: string | null): Promise<void>;
+  /** This computer's offline data (shown when signed out). */
+  offlineData(): Promise<Partial<Collections>>;
 
   exportBackup(): Promise<boolean>;
   importBackup(): Promise<'merged' | 'cancelled' | 'invalid'>;

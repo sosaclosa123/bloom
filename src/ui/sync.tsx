@@ -46,6 +46,7 @@ export function startSync(): Promise<SyncEngine | null> {
       },
       hasPhoto: (f) => platform.hasPhoto(f),
       writePhoto: (f, d) => platform.writePhoto(f, d),
+      switchProfile: (uid, forget) => platform.switchProfile(uid, forget),
       getItem: (k) => {
         try {
           return localStorage.getItem(k);

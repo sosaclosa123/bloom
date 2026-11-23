@@ -1,5 +1,6 @@
 // Settings → Account: sign in, then connect with your partner by code.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { platform } from '../platform/api';
 import type { StringKey } from '../i18n/strings';
 import { formatCode } from '../sync/engine';
 import { Button, Field, Icon, Segmented } from './common';
@@ -29,6 +30,12 @@ export function AccountSettings() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<StringKey | null>(null);
   const [copied, setCopied] = useState(false);
+  // Signed in: how many things this computer has in its own offline data (can be added to the account).
+  const [offlineCount, setOfflineCount] = useState(0);
+  useEffect(() => {
+    if (!state.user) return;
+    void platform.offlineData().then((c) => setOfflineCount(Object.values(c).reduce((a, l) => a + (l ?? []).filter((x: { deletedAt?: number | null }) => !x.deletedAt).length, 0)));
+  }, [state.user]);
 
   if (!available) return <p className="muted">{t('syncNotReady')}</p>;
 
@@ -56,6 +63,7 @@ export function AccountSettings() {
         }}
       >
         <p className="muted">{t('syncIntro')}</p>
+        <p className="muted small">{t('offlineDataNote')}</p>
         <Segmented
           value={mode}
           onChange={setMode}
@@ -116,13 +124,44 @@ export function AccountSettings() {
             {state.user.email}
           </span>
         </div>
-        <Button size="sm" variant="ghost" onClick={() => run(() => engine!.signOut())}>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={busy}
+          onClick={() =>
+            run(async () => {
+              // Upload everything first: after signing out, the account's data is removed from this computer.
+              const left = await engine!.flush();
+              if (left > 0 && !window.confirm(t('signOutUnsynced', { n: left }))) return;
+              await engine!.signOut();
+            })
+          }
+        >
           {t('signOut')}
         </Button>
       </div>
       <p className={`sync-status ${state.status}`}>
         <span className="sync-dot" /> {statusText}
       </p>
+      <p className="muted small">{t('accountDataNote')}</p>
+      {offlineCount > 0 && (
+        <div className="row">
+          <Button
+            size="sm"
+            icon="plus"
+            disabled={busy}
+            onClick={() =>
+              run(async () => {
+                const off = await platform.offlineData();
+                await platform.applyRemote(off);
+                setOfflineCount(0);
+              })
+            }
+          >
+            {t('addOfflineData', { n: offlineCount })}
+          </Button>
+        </div>
+      )}
 
       {!state.profile?.spaceId && (
         <div className="partner-card">

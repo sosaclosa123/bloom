@@ -52,6 +52,18 @@ installed apps auto-update. Commit messages: clear "what + why".
 
 ## Rules decided with the owner (don't break these)
 - **Private by default.** Sharing is opt-in per item.
+- **Data follows the account** (owner's rule): signed in = that account's
+  data (calendar, Health, Wallet, everything synced) on any PC; signed out =
+  this computer's own offline Bloom. Desktop files: `bloom-data.json`
+  (offline) and `accounts/<uid>.json` (working copy of the account);
+  `profile.json` remembers which is open so start-up shows the right one.
+  Sign-out uploads everything first (`engine.flush()`; asks before losing
+  unsynced changes), then deletes the account copy (`switchProfile(null,
+  uid)`), so account data lives only online + in backups. Restoring a backup
+  while signed out shows it in the offline data. First sign-in after this
+  change adopts the old single file as the account's copy. Account settings
+  offer "Add this computer's offline items to my account". Settings stay per
+  computer in every profile. Tests: `src/sync/profiles.test.ts`.
 - **Day info (busy dot, notes, to-dos, stickers) is always private.** Saves go
   to the person's own private day record (`asPrivateDay`); the UI shows one
   record per date (`personalDays`). Never edit a shared day record.

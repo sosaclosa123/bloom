@@ -28,6 +28,11 @@ export interface LocalPort {
   writePhoto(fileName: string, dataUrl: string): Promise<void>;
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+  /**
+   * Show the signed-in account's data (uid) or this computer's offline data
+   * (null). `forget` = an account whose local copy is deleted (signing out).
+   */
+  switchProfile?(uid: string | null, forget?: string | null): Promise<void>;
 }
 
 export type SyncStatus = 'off' | 'connecting' | 'syncing' | 'synced' | 'offline' | 'error';
@@ -111,9 +116,44 @@ export class SyncEngine {
     await this.backend.signIn(email.trim(), password);
   }
 
+  /** Things not yet saved online (signing out now would lose them). */
+  unsyncedCount(): number {
+    const { user, profile } = this.state;
+    if (!user || !profile) return 0;
+    const snap = this.port.snapshot();
+    let n = 0;
+    for (const coll of SYNCED) {
+      for (const rec of snap[coll] as SyncMeta[]) {
+        const scope = this.scopeFor(coll, rec);
+        if (!scope) continue;
+        const k = this.known[`${coll}/${rec.id}`];
+        if (!k || k.t < (rec.updatedAt ?? 0)) n++;
+      }
+    }
+    return n;
+  }
+
+  /** Upload everything now and wait for it. Returns how many things are still not online. */
+  async flush(): Promise<number> {
+    if (this.pushTimer) clearTimeout(this.pushTimer);
+    for (let i = 0; i < 3 && this.unsyncedCount() > 0; i++) {
+      while (this.pushing) await new Promise((r) => setTimeout(r, 50));
+      await this.push();
+    }
+    return this.unsyncedCount();
+  }
+
+  /**
+   * Sign out: the account's things stay online (and in backups) but are
+   * removed from this computer, which goes back to its own offline data.
+   * Call flush() first so nothing unsynced is lost.
+   */
   async signOut() {
+    const uid = this.state.user?.uid ?? null;
+    this.forgetOnSignOut = uid;
     await this.backend.signOut();
   }
+  private forgetOnSignOut: string | null = null;
 
   /** Creates the shared couple calendar and returns its invite code. */
   async createSpace(): Promise<string> {
@@ -151,9 +191,20 @@ export class SyncEngine {
   private async onUser(user: AuthUser | null) {
     this.stopScopes();
     if (!user) {
+      // Signed out: show this computer's offline data (and drop the account's copy if asked).
+      const forget = this.forgetOnSignOut;
+      this.forgetOnSignOut = null;
+      if (forget) {
+        this.port.setItem(`bloom-sync-known-${forget}`, '{}');
+        this.port.setItem(`bloom-sync-photos-${forget}`, '[]');
+      }
+      this.known = {};
+      await this.port.switchProfile?.(null, forget);
       this.set({ user: null, profile: null, space: null, status: 'off', error: null });
       return;
     }
+    // Signed in: this account's data (downloaded from online if this computer doesn't have it yet).
+    await this.port.switchProfile?.(user.uid);
     this.set({ user, status: 'connecting', error: null });
     this.known = this.readJSON(`bloom-sync-known-${user.uid}`, {});
     this.uploaded = new Set(this.readJSON<string[]>(`bloom-sync-photos-${user.uid}`, []));

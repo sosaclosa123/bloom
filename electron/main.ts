@@ -426,6 +426,8 @@ const AUDIO_MIME: Record<string, string> = {
 
 function registerIpc() {
   ipcMain.handle('data:load', () => store.get());
+  ipcMain.handle('data:profile', (_e, uid: string | null, forget: string | null) => store.switchProfile(uid, forget));
+  ipcMain.handle('data:offline', () => store.offlineData());
   ipcMain.handle('data:upsert', (_e, coll: CollectionName, item: RecordOf<CollectionName>) => {
     store.set(upsert(store.get(), coll, item as never));
   });

@@ -24,6 +24,8 @@ const bridge: DesktopBridge = {
   hasPhoto: (f) => ipcRenderer.invoke('photo:has', f),
   writePhoto: (f, d) => ipcRenderer.invoke('photo:write', f, d),
   applyRemote: (c) => ipcRenderer.invoke('data:merge', c),
+  switchProfile: (uid, forget) => ipcRenderer.invoke('data:profile', uid, forget ?? null),
+  offlineData: () => ipcRenderer.invoke('data:offline'),
 
   exportBackup: () => ipcRenderer.invoke('backup:export'),
   importBackup: () => ipcRenderer.invoke('backup:import'),
