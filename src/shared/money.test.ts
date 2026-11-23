@@ -49,8 +49,9 @@ const dep = (goalId: string, amount: number, by: string, vis: 'private' | 'share
 describe('wallet: spending vs. the monthly limit', () => {
   const items: MoneyItem[] = [
     { ...newMeta(), kind: 'limit', amount: 1000 },
-    spend({ amount: 120.5 }),
-    spend({ amount: 300 }),
+    // Same day: newest first (fixed times so the order never depends on the clock).
+    spend({ amount: 120.5, createdAt: 2 }),
+    spend({ amount: 300, createdAt: 1 }),
     spend({ amount: 99, date: '2026-10-30' }), // other month
     spend({ amount: 999, visibility: 'shared' }), // shared: not on my page
     spend({ amount: 40, deletedAt: 5 }), // deleted
