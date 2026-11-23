@@ -7809,3 +7809,71 @@ button.hl-line-dot.at-r:not(:hover):not(:focus-visible) .hl-dot-label,
 button.hl-line-dot.at-l:not(:hover):not(:focus-visible) .hl-dot-label {
   transform: none;
 }
+/* Food: pieces / part of box */
+.hl-food-add > .segmented {
+  align-self: flex-start;
+}
+.hl-food-add > .segmented button {
+  font-size: var(--fs-xs);
+}
+.hl-piece-info {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  font-size: var(--fs-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.hl-piece-src {
+  font-size: var(--fs-xs);
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.hl-piece-src.yours,
+.hl-piece-src.label {
+  background: var(--ev-mint-bg, var(--surface-2));
+  color: var(--text);
+}
+.hl-mybox-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px dashed var(--border);
+  background: none;
+  color: var(--accent-text);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.hl-mybox-btn:hover,
+.hl-mybox-btn.active {
+  background: var(--surface-2);
+}
+.hl-mybox {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 12px);
+  border: 1px dashed var(--border);
+}
+.hl-mybox label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.hl-mybox .hl-num input:not([type='checkbox']):not([type='radio']):not([type='range']) {
+  width: calc(80px * var(--fs-scale, 1));
+}
+.hl-mybox .hl-piece-info {
+  align-self: center;
+}

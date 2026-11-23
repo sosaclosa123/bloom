@@ -164,6 +164,13 @@ installed apps auto-update. Commit messages: clear "what + why".
   ("coke" -> Coca-Cola), general foods below (`ALIASES` in `src/shared/food.ts`).
   Tags (fried, sugary…) are auto-picked and editable in a foldable list; every
   logged item opens an editor (amount re-calculates calories).
+- **Food amounts: Grams | Pieces | Part of box** (foods, not drinks). Owner
+  chose "free, no AI" (no photo AI). One piece's weight, in order: "My box"
+  (box weight ÷ pieces, asked once, remembered per product as a private
+  `foodpack` health record) > product data (MoH "piece" portion, Open Food
+  Facts serving like "3 biscuits (30 g)") > typical weight (shown "≈",
+  "typical estimate"). Box weight: yours > MoH package portion > OFF
+  `product_quantity`. Logic: `pieceWeight`/`packWeight` in `src/shared/food.ts`.
 - IBD "Other problems today" has a "Something else…" box for any custom
   problem (shown in the report; not counted in HBI).
 - Medicines tab: "Taken / not taken" graph at the bottom for a chosen medicine

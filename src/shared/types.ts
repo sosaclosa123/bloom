@@ -300,6 +300,18 @@ export interface HealthFood extends SyncMeta {
   /** Where the numbers came from: Israeli MoH database, Open Food Facts, or typed in. */
   source?: 'il' | 'off' | 'manual';
   productId?: string;
+  /** Logged as a number of pieces ("5 cookies"); grams = pieces x pieceG. */
+  pieces?: number | null;
+  pieceG?: number | null;
+}
+
+/** "My box" for a product: its weight and how many pieces were in it (asked once, remembered). */
+export interface HealthFoodPack extends SyncMeta {
+  kind: 'foodpack';
+  productId: string;
+  name: string;
+  packG: number | null;
+  pieces: number | null;
 }
 
 /** Body log for a date: weight and/or exercise. */
@@ -372,6 +384,7 @@ export type HealthItem =
   | HealthMed
   | HealthMedTaken
   | HealthFood
+  | HealthFoodPack
   | HealthBody
   | HealthTest
   | HealthVisit

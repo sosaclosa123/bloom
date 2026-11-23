@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import db from '../data/foods-il.json';
-import { forGrams, parseOff, searchIL, validBarcode, type FoodsIL } from './food';
+import { forGrams, packWeight, parseOff, parseServing, pieceWeight, piecesToGrams, searchIL, typicalPiece, validBarcode, type FoodsIL } from './food';
 
 const DB = db as unknown as FoodsIL;
 
@@ -58,5 +58,38 @@ describe('real products first, drinks, automatic tags', async () => {
     expect(autoTags(searchIL(DB, 'שניצל חזה עוף', 'he')[0])).toEqual(expect.arrayContaining(['fried', 'gluten']));
     expect(autoTags(searchIL(DB, 'coke', 'en', 1, { drinks: true })[0], true)).toEqual(expect.arrayContaining(['caffeine', 'sugar']));
     expect(autoTags({ name: 'Cappuccino, decaffeinated', nameAlt: '', fat: 1, sugars: 3, fiber: 0 }, true)).not.toContain('caffeine');
+  });
+});
+
+describe('pieces ("I ate 5 cookies")', () => {
+  it('reads pieces from a label serving', () => {
+    expect(parseServing('3 biscuits (30 g)')).toEqual({ count: 3, grams: 30 });
+    expect(parseServing('1 cookie (12.5g)')).toEqual({ count: 1, grams: 12.5 });
+    expect(parseServing('2 עוגיות (25 גרם)')).toEqual({ count: 2, grams: 25 });
+    expect(parseServing('1 portion (30 g)')).toBeNull();
+    expect(parseServing('2 tbsp (30 g)')).toBeNull();
+    expect(parseServing('30 g')).toBeNull();
+  });
+  it('OFF product: piece from the serving, box from the quantity', () => {
+    const p = parseOff({ code: '1', product_name: 'Butter cookies', nutriments: { 'energy-kcal_100g': 500 }, serving_size: '4 cookies (32 g)', product_quantity: 350, product_quantity_unit: 'g' }, 'en')!;
+    expect(p.pieceG).toBe(8);
+    expect(p.packG).toBe(350);
+  });
+  it('MoH database: Oreo has a piece weight', () => {
+    const oreo = searchIL(DB, 'oreo', 'en').find((p) => /oreo/i.test(p.name))!;
+    expect(oreo.pieceG).toBe(11);
+  });
+  it('picks yours first, then the label, then a typical weight', () => {
+    const p = { name: 'Butter cookies', nameAlt: '', pieceG: 8, packG: 350 };
+    expect(pieceWeight(p, { packG: 350, pieces: 28 })).toEqual({ grams: 12.5, source: 'yours' });
+    expect(pieceWeight(p)).toEqual({ grams: 8, source: 'label' });
+    expect(pieceWeight({ ...p, pieceG: null })).toEqual({ grams: 12, source: 'typical' });
+    expect(pieceWeight({ name: 'Yellow cheese', nameAlt: '', pieceG: null })).toBeNull();
+    expect(typicalPiece('קרקר מלוח')).toBe(5);
+    expect(typicalPiece('Donut')).toBeNull();
+    expect(packWeight(p, { packG: 300 })).toBe(300);
+    expect(packWeight(p)).toBe(350);
+    expect(piecesToGrams(5, 12.5)).toBe(62.5);
+    expect(forGrams({ kcal: 480, protein: 6, fat: 20, carbs: 68 }, piecesToGrams(5, 12.5)).kcal).toBe(300);
   });
 });

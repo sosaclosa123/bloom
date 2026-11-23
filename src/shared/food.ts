@@ -19,6 +19,10 @@ export interface FoodProduct {
   /** Typical portions: label + grams. */
   portions: { label: string; grams: number }[];
   barcode?: string;
+  /** Weight of one piece (cookie, cracker…) when the data says so. */
+  pieceG?: number | null;
+  /** Weight of the whole box / pack when the data says so. */
+  packG?: number | null;
 }
 
 export interface FoodsIL {
@@ -55,7 +59,21 @@ export function ilProduct(db: FoodsIL, row: FoodsIL['foods'][number], lang: 'en'
     portions: portions
       .filter(([u]) => db.units[u])
       .map(([u, grams]) => ({ label: db.units[u][lang === 'he' ? 0 : 1], grams })),
+    pieceG: ilUnit(portions, PIECE_UNITS),
+    packG: ilUnit(portions, PACK_UNITS),
   };
+}
+
+// MoH portion unit codes: "piece" (100, medium 103, small 102…, candy, mini
+// snack) and whole packages (package, pack, bag, box…).
+const PIECE_UNITS = [100, 103, 102, 104, 101, 105, 1225, 1220];
+const PACK_UNITS = [900, 901, 906, 903, 902, 912, 911];
+function ilUnit(portions: [number, number][], codes: number[]): number | null {
+  for (const c of codes) {
+    const hit = portions.find(([u]) => u === c);
+    if (hit && hit[1] > 0) return hit[1];
+  }
+  return null;
 }
 
 // Everyday names for products the database lists under their general name
@@ -179,6 +197,10 @@ export function parseOff(p: Record<string, unknown> | null | undefined, lang: 'e
   const name = (lang === 'he' ? he || any || en : en || any || he) || String(p.code ?? '');
   if (!kcal) return null;
   const serving = Number(p.serving_quantity);
+  const servingText = String(p.serving_size ?? '').trim();
+  const parsed = parseServing(servingText);
+  const pack = Number(p.product_quantity);
+  const packUnit = String(p.product_quantity_unit ?? 'g').toLowerCase();
   return {
     id: `off:${p.code}`,
     source: 'off',
@@ -193,7 +215,73 @@ export function parseOff(p: Record<string, unknown> | null | undefined, lang: 'e
     fiber: num('fiber_100g'),
     portions: Number.isFinite(serving) && serving > 0 ? [{ label: String(p.serving_size ?? '').trim() || `${serving} g`, grams: serving }] : [],
     barcode: String(p.code ?? ''),
+    pieceG: parsed ? Math.round((parsed.grams / parsed.count) * 10) / 10 : null,
+    packG: Number.isFinite(pack) && pack > 0 && pack <= 5000 && (packUnit === 'g' || packUnit === 'ml') ? pack : null,
   };
+}
+
+// ---------------------------------------------------------------- pieces ("I ate 5 cookies")
+//
+// Calories need grams, so "5 cookies" needs the weight of one. In order:
+// what you told the app for this product (box weight ÷ pieces in the box),
+// the product data ("3 biscuits (30 g)" on the label; MoH "piece" portion),
+// then a typical weight for that kind of food (shown with ≈).
+
+/** "3 biscuits (30 g)", "1 cookie (12g)", "2 עוגיות (25 גרם)" -> 3 pieces of 30 g. Not "1 portion" / "2 tbsp" / "30 g". */
+export function parseServing(s: string): { count: number; grams: number } | null {
+  const m = /^\s*(\d+(?:[.,]\d+)?)\s*([^\d(]*?)\s*\(\s*(\d+(?:[.,]\d+)?)\s*(?:g|gr|grams?|גרם|ג)\.?\s*\)/i.exec(s);
+  if (!m) return null;
+  const count = Number(m[1].replace(',', '.'));
+  const grams = Number(m[3].replace(',', '.'));
+  const word = norm(m[2]);
+  if (!(count >= 1 && grams > 0) || !word) return null;
+  if (/^(g|gr|grams?|ml|portion|serving|serve|portions?|servings?|tbsp|tsp|tablespoons?|teaspoons?|cups?|slices? of|bags?|packs?|packages?|bottles?|cans?|גרם|מנה|מנות|כף|כפות|כפית|כוס|שקית|אריזה|בקבוק|פחית)$/.test(word)) return null;
+  return { count, grams };
+}
+
+// Typical weight of one piece (g), for when nothing else is known. Rough
+// averages from the MoH database portions of the same kind of food.
+const TYPICAL_PIECE: [RegExp, number][] = [
+  [/rice cake|פריכי|פריכיות/, 9],
+  [/cracker|קרקר|קרקרים|crispbread|פתית/, 5],
+  [/wafer|ופל|וופל/, 8],
+  [/pretzel|בייגל|בייגלה/, 4],
+  [/oreo|אוראו|sandwich cookie|עוגיות סנדוויץ/, 11],
+  [/petit|פתי בר|biscuit|ביסקוויט/, 8],
+  [/cookie|עוגי/, 12],
+  [/\bdates?\b|תמר/, 8],
+  [/candy|סוכרי|טופי|toffee/, 6],
+  [/\bnuts?\b|אגוז|almond|שקד|cashew|קשיו|pistachio|פיסטוק|peanut|בוטן/, 1.2],
+  [/chocolate|שוקולד|praline|פרלין|truffle|טראפל/, 10],
+  [/chip|ביסלי|צ'יפס|crisps?/, 2],
+];
+export function typicalPiece(name: string): number | null {
+  const n = norm(name);
+  for (const [re, g] of TYPICAL_PIECE) if (re.test(n)) return g;
+  return null;
+}
+
+export type PieceSource = 'yours' | 'label' | 'typical';
+
+/** One piece's weight and where it came from. `mine` = the box you described for this product. */
+export function pieceWeight(
+  p: Pick<FoodProduct, 'name' | 'nameAlt' | 'pieceG'>,
+  mine?: { packG: number | null; pieces: number | null } | null,
+): { grams: number; source: PieceSource } | null {
+  if (mine?.packG && mine.pieces) return { grams: Math.round((mine.packG / mine.pieces) * 10) / 10, source: 'yours' };
+  if (p.pieceG) return { grams: p.pieceG, source: 'label' };
+  const g = typicalPiece(`${p.name} ${p.nameAlt}`);
+  return g ? { grams: g, source: 'typical' } : null;
+}
+
+/** The whole box's weight: yours first, then the product data. */
+export function packWeight(p: Pick<FoodProduct, 'packG'>, mine?: { packG: number | null } | null): number | null {
+  return mine?.packG || p.packG || null;
+}
+
+/** Grams for a count of pieces (rounded to 0.1 g). */
+export function piecesToGrams(pieces: number, pieceG: number): number {
+  return Math.round(pieces * pieceG * 10) / 10;
 }
 
 /** Nutrition for a portion. */
@@ -212,4 +300,4 @@ export function validBarcode(code: string): boolean {
   return (10 - (sum % 10)) % 10 === check;
 }
 
-export const OFF_FIELDS = 'code,product_name,product_name_he,product_name_en,brands,nutriments,serving_quantity,serving_size';
+export const OFF_FIELDS = 'code,product_name,product_name_he,product_name_en,brands,nutriments,serving_quantity,serving_size,product_quantity,product_quantity_unit';
