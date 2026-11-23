@@ -188,7 +188,12 @@ installed apps auto-update. Commit messages: clear "what + why".
 - **Less text in Health**: explanations are hover tips (`Tip`, shows after
   1.3 s), not lines on screen; safety notes (red flag, stoma/ORS) stay visible.
   IBD "Other problems today" is folded (button shows how many are picked).
-  IBD history: 30 / 90 days / year / from the start (no limit). Hebrew day
+  IBD history: 30 / 90 days / year / from the start (no limit); it is the
+  same line chart as Trends (dots + dashed trend, click = day pop-up) with
+  Overall (average of pain, feeling, tiredness and flare score, 0-10) | Belly
+  pain | Feeling | Tiredness | Flare score (dotted "flare from" line: HBI 8,
+  SCCAI 5); higher = worse on every line (`ibdSeries` in healthExtras.ts).
+  **Every chart line in Health uses the same `LineChart`.** Hebrew day
   label uses the modern sans font.
 - **Doctor report**: 30 days default; 1 week / 90 days / any dates. Summary
   boxes, week-by-week table (IBD: bowel movements/day, loose/day, blood days,

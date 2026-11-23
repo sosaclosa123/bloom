@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newMeta } from './db';
 import { emptyProfile, medDueOn, nextMedDate, sleepFromTimes } from './health';
-import { badges, behindPace, challengeDays, dayFacts, goalPeriod, goalProgress, monthSummary, nudgePlan, streak } from './healthExtras';
+import { badges, behindPace, challengeDays, dayFacts, flareLine, goalPeriod, goalProgress, ibdSeries, monthSummary, nudgePlan, streak } from './healthExtras';
 import type { HealthChallenge, HealthGoal, HealthItem } from './types';
 
 const profile = { ...newMeta(), ...emptyProfile(), sex: 'female' as const, completed: true };
@@ -142,5 +142,27 @@ describe('doctor report data', async () => {
     ]);
     expect(r.flareRanges).toEqual([{ from: '2026-03-02', to: '2026-03-03' }]);
     expect(r.daily.find((d) => d.date === '2026-03-01')).toMatchObject({ stools: 2, loose: 1 });
+  });
+});
+
+describe('IBD history lines', () => {
+  const d = (date: string, wellbeing: number | null, pain: number | null, fatigue: number | null) =>
+    ({ ...newMeta(), kind: 'ibdday' as const, date, wellbeing, pain, fatigue, mass: null, complications: [], liquidStools: 0, bleeding: null, flare: 'none' as const });
+  const all: HealthItem[] = [profile, d(day(1), 0, 0, 0), d(day(2), 4, 3, 3), d(day(3), null, 2, null)];
+  it('one point per logged day, higher = worse', () => {
+    expect(ibdSeries(all, 'pain', day(1), day(31)).map((p) => p.value)).toEqual([0, 3, 2]);
+    expect(ibdSeries(all, 'feeling', day(1), day(31)).map((p) => p.value)).toEqual([0, 4]);
+    expect(ibdSeries(all, 'tired', day(2), day(31))).toEqual([{ date: day(2), value: 3 }]);
+    expect(ibdSeries(all, 'flare', day(1), day(31)).length).toBe(3);
+  });
+  it('overall = average of what was logged, 0-10', () => {
+    const o = ibdSeries(all, 'overall', day(1), day(31));
+    expect(o[0].value).toBe(0);
+    expect(o[1].value).toBeGreaterThan(7);
+    expect(o[1].value).toBeLessThanOrEqual(10);
+  });
+  it('flare line: HBI 8, SCCAI 5', () => {
+    expect(flareLine('hbi')).toBe(8);
+    expect(flareLine('uc')).toBe(5);
   });
 });

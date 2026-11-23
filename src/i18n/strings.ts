@@ -979,6 +979,12 @@ const en = {
   hlLblFromMoH: "Ministry of Health database",
   hlLblFromOFF: "Open Food Facts",
   hlGramsUnit: "g",
+  hlIbdOverall: "Overall",
+  hlIbdFeeling: "Feeling",
+  hlIbdFlareScore: "Flare score",
+  hlIbdHigherWorse: "higher = worse",
+  hlFlareFrom: "Flare from {n}",
+  hlOutOf10: "{v} / 10",
 };
 
 export type StringKey = keyof typeof en;
@@ -1960,6 +1966,12 @@ const he: Record<StringKey, string> = {
   hlLblFromMoH: "מאגר משרד הבריאות",
   hlLblFromOFF: "Open Food Facts",
   hlGramsUnit: "ג׳",
+  hlIbdOverall: "כללי",
+  hlIbdFeeling: "הרגשה",
+  hlIbdFlareScore: "מדד התלקחות",
+  hlIbdHigherWorse: "גבוה יותר = פחות טוב",
+  hlFlareFrom: "התלקחות מ-{n}",
+  hlOutOf10: "{v} מתוך 10",
 };
 
 const dict: Record<Language, Record<StringKey, string>> = { en, he };

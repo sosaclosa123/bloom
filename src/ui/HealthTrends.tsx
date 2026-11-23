@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { FOOD_TAGS, foodInsights, type WaterGoal } from '../shared/health';
-import { ibdOn, sleepHours } from '../shared/healthExtras';
+import { flareLine, ibdOn, ibdSeries, sleepHours, type IbdMetric } from '../shared/healthExtras';
 import type { ISODate } from '../shared/types';
 import { Icon, Segmented } from './common';
 import { CardHead, LineChart, Pills, useHealth, useWaterFmt } from './healthUi';
@@ -116,77 +116,79 @@ export function TrendsCard({ date, goal }: { date: ISODate; goal: WaterGoal }) {
   );
 }
 
-// ---------------------------------------------------------------- IBD: 30-day flare timeline
+// ---------------------------------------------------------------- IBD history: line chart (same look as Trends)
 
 export function FlareTimelineCard({ date }: { date: ISODate }) {
   const { t, locale } = useBloom();
   const { all } = useHealth();
   // 30 days by default; up to the whole history (no limit).
   const [range, setRange] = useState<30 | 90 | 365 | 0>(30);
-  const first = useMemo(() => {
-    let f = date;
-    for (const x of all) if ((x.kind === 'ibdday' || x.kind === 'bathroom') && x.date < f) f = x.date;
-    return f;
-  }, [all, date]);
-  const days = range || Math.max(30, Math.round((parseISODate(date).getTime() - parseISODate(first).getTime()) / 86400000) + 1);
-  const dates = useMemo(() => datesBack(date, days), [date, days]);
-  const scores = useMemo(() => new Map(dates.map((d) => [d, ibdOn(all, d)] as const)), [all, dates]);
-  const known = [...scores.values()].filter((s): s is NonNullable<typeof s> => !!s);
-  const top = Math.max(8, ...known.map((s) => s.score));
-  const flareDays = known.filter((s) => s.flare).length;
-  const label = (d: ISODate, i: number) => {
-    const day = parseISODate(d);
-    if (days <= 31) return i % 5 === 4 || i === 0 ? String(day.getDate()) : '';
-    if (days <= 120) return day.getDate() === 1 || i === 0 ? day.toLocaleDateString(locale, { day: 'numeric', month: 'short' }) : '';
-    if (days <= 400) return day.getDate() === 1 && day.getMonth() % 2 === 0 ? day.toLocaleDateString(locale, { month: 'short' }) : '';
-    return day.getDate() === 1 && day.getMonth() === 0 ? String(day.getFullYear()) : '';
-  };
+  const [metric, setMetric] = useState<IbdMetric>('overall');
+  const [day, setDay] = useState<ISODate | null>(null);
+  const from = range === 0 ? '0000-01-01' : toISODate(addDays(parseISODate(date), -(range - 1)));
+  const points = useMemo(() => ibdSeries(all, metric, from, date), [all, metric, from, date]);
+  const flareDays = useMemo(() => ibdSeries(all, 'flare', from, date).filter((p) => ibdOn(all, p.date)?.flare).length, [all, from, date]);
+  const kind = points.length ? (ibdOn(all, points[points.length - 1].date)?.kind ?? 'hbi') : 'hbi';
+  const num = (v: number) => (Math.round(v * 10) / 10).toLocaleString(locale);
+  const fmt = (v: number) =>
+    metric === 'overall'
+      ? t('hlOutOf10', { v: num(v) })
+      : (metric === 'pain' || metric === 'tired') && Number.isInteger(v) && v >= 0 && v <= 3
+        ? t(`hlLevel_${v}` as StringKey)
+        : metric === 'feeling' && Number.isInteger(v) && v >= 0 && v <= 4
+          ? t(`hlWell_${v}` as StringKey)
+          : num(v);
+  const metrics: { value: IbdMetric; label: string }[] = [
+    { value: 'overall', label: t('hlIbdOverall') },
+    { value: 'pain', label: t('hlAbdPain') },
+    { value: 'feeling', label: t('hlIbdFeeling') },
+    { value: 'tired', label: t('hlFatigue') },
+    { value: 'flare', label: t('hlIbdFlareScore') },
+  ];
+  const name = metrics.find((x) => x.value === metric)?.label ?? '';
+  const avg = points.length ? points.reduce((a, p) => a + p.value, 0) / points.length : null;
   return (
     <section className="w-card hl-ibd hl-timeline">
       <CardHead title={t('hlIbdHistory')}>
-        <span className={`hl-score ${flareDays ? 'lvl-moderate' : 'lvl-remission'}`}>
-          {flareDays === 0 ? t('hlNoFlares') : flareDays === 1 ? t('hlFlareDaysOne') : t('hlFlareDays', { n: flareDays })}
-        </span>
+        <Segmented
+          value={range}
+          onChange={setRange}
+          label={t('hlIbdHistory')}
+          options={[
+            { value: 30, label: t('hlNDays', { n: 30 }) },
+            { value: 90, label: t('hlNDays', { n: 90 }) },
+            { value: 365, label: t('hlYear') },
+            { value: 0, label: t('hlFromStart') },
+          ]}
+        />
       </CardHead>
-      <Segmented
-        value={range}
-        onChange={setRange}
-        label={t('hlIbdHistory')}
-        options={[
-          { value: 30, label: t('hlNDays', { n: 30 }) },
-          { value: 90, label: t('hlNDays', { n: 90 }) },
-          { value: 365, label: t('hlYear') },
-          { value: 0, label: t('hlFromStart') },
-        ]}
-      />
-      <div className={`hl-chart r-month timeline ${days > 120 ? 'dense' : ''}`} role="img" aria-label={t('hlIbdHistory')}>
-        {dates.map((d, i) => {
-          const s = scores.get(d);
-          return (
-            <span
-              key={d}
-              className="hl-col"
-              title={`${parseISODate(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}${s ? ` · ${s.score} · ${t(`hlLvl_${s.level}` as StringKey)}` : ''}`}
-            >
-              <span className="hl-bar-wrap">
-                {s ? <span className={`hl-bar ${s.flare ? 'flare-' + s.flare : 'calm'}`} style={{ height: `${Math.max(8, (s.score / top) * 100)}%` }} /> : <span className="hl-bar none" />}
-              </span>
-              <span className="hl-col-label">{label(d, i)}</span>
+      <Pills className="hl-metric-pills" label={t('hlIbdHistory')} value={metric} onChange={(v) => v && setMetric(v)} options={metrics} />
+      {points.length === 0 ? (
+        <p className="empty-note hl-chart-empty">{t('hlNoData')}</p>
+      ) : (
+        <div className="hl-chart-box">
+          <LineChart
+            onPick={setDay}
+            dateLabel={(d) => parseISODate(d).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+            label={`${t('hlIbdHistory')}: ${name}`}
+            points={points}
+            fmt={fmt}
+            fixed={metric === 'overall' ? [0, 10] : metric === 'feeling' ? [0, 4] : metric === 'pain' || metric === 'tired' ? [0, 3] : undefined}
+            goal={metric === 'flare' ? { value: flareLine(kind), label: t('hlFlareFrom', { n: flareLine(kind) }) } : undefined}
+          />
+          <p className="hl-legend-line">
+            <i className="dot" /> {name} {points.length >= 3 && <><i className="dash" /> {t('hlTrendLine')}</>}
+            <span className="muted">· {t('hlIbdHigherWorse')}</span>
+            {avg != null && <span className="hl-legend-avg">{t('hlAvg', { v: metric === 'overall' ? t('hlOutOf10', { v: num(avg) }) : num(avg) })}</span>}
+          </p>
+          <p className="hl-legend-line">
+            <span className={`hl-score ${flareDays ? 'lvl-moderate' : 'lvl-remission'}`}>
+              {flareDays === 0 ? t('hlNoFlares') : flareDays === 1 ? t('hlFlareDaysOne') : t('hlFlareDays', { n: flareDays })}
             </span>
-          );
-        })}
-      </div>
-      <div className="hl-legend">
-        <span>
-          <i className="calm" /> {t('hlLegendCalm')}
-        </span>
-        <span>
-          <i className="flare-flare" /> {t('hlLegendFlare')}
-        </span>
-        <span>
-          <i className="none" /> {t('hlLegendNone')}
-        </span>
-      </div>
+          </p>
+        </div>
+      )}
+      {day && <DaySummary date={day} onClose={() => setDay(null)} />}
     </section>
   );
 }

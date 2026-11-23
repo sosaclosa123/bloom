@@ -509,3 +509,44 @@ export function reportData(all: HealthItem[], from: ISODate, to: ISODate, ibd: b
     meds: [...planned.entries()].map(([id, v]) => ({ id, ...v })),
   };
 }
+
+// ---------------------------------------------------------------- IBD history lines
+
+export type IbdMetric = 'overall' | 'pain' | 'feeling' | 'tired' | 'flare';
+
+/**
+ * One point per logged day for the IBD history line chart (higher = worse
+ * for every line). pain / tiredness 0-3, feeling 0 (very well) - 4
+ * (terrible), flare = the day's HBI / SCCAI score. "overall" is the average
+ * of whatever was logged that day, each scaled to 0-1 (score: HBI / 16 =
+ * severe, SCCAI / 12, capped), shown 0-10.
+ */
+export function ibdSeries(all: HealthItem[], metric: IbdMetric, from: ISODate, to: ISODate): { date: ISODate; value: number }[] {
+  const dates = new Set<ISODate>();
+  for (const x of all) if (!x.deletedAt && (x.kind === 'ibdday' || x.kind === 'bathroom') && x.date >= from && x.date <= to) dates.add(x.date);
+  const ix = indexOf(all);
+  const out: { date: ISODate; value: number }[] = [];
+  for (const date of [...dates].sort()) {
+    const day = ix.ibdday.get(date);
+    const s = ibdOn(all, date);
+    let v: number | null = null;
+    if (metric === 'pain') v = day?.pain ?? null;
+    else if (metric === 'feeling') v = day?.wellbeing ?? null;
+    else if (metric === 'tired') v = day?.fatigue ?? null;
+    else if (metric === 'flare') v = s ? s.score : null;
+    else {
+      const parts = [
+        day?.pain != null ? day.pain / 3 : null,
+        day?.wellbeing != null ? day.wellbeing / 4 : null,
+        day?.fatigue != null ? day.fatigue / 3 : null,
+        s ? Math.min(1, s.score / (s.kind === 'uc' ? 12 : 16)) : null,
+      ].filter((p): p is number => p != null);
+      v = parts.length ? Math.round((parts.reduce((a, b) => a + b, 0) / parts.length) * 100) / 10 : null;
+    }
+    if (v != null) out.push({ date, value: v });
+  }
+  return out;
+}
+
+/** Where a flare starts on the score line: HBI 8 (moderate), SCCAI 5 (active). */
+export const flareLine = (kind: 'hbi' | 'uc') => (kind === 'uc' ? 5 : 8);
