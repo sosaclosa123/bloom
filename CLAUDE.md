@@ -122,9 +122,27 @@ installed apps auto-update. Commit messages: clear "what + why".
   water reminders (even pace over waking hours, ~one glass per nudge, none in
   the last 1.5 h before bed, dropped while gaming), weekly weigh-in day, My goals
   (N times every N days/weeks/months, stays done until the next period),
-  7-day challenges, sticker book (dimmed book button in the Health top bar;
+  7-day challenges, Achievements book ("הישגים"; dimmed book button in the Health top bar;
   22 families / 120+ badges from day 1 to 5+ years; IBD ones only with IBD).
   Logic in `src/shared/healthExtras.ts` (tested).
+- **Health layout = tabs inside Health** (owner chose option A): Today
+  (check-in, meds today, IBD card, food summary) | Food | Medicines | Body &
+  tests (About you, Body, Tests, Visits) | Trends | IBD (only with IBD) |
+  Goals (only if goals/challenges on). Last tab remembered per computer.
+- Trends = line chart, a dot per logged day joined by a line, dashed trend
+  line, goal line; Week / Month / Year / From the start.
+- Body is pre-filled from the health questions / last weight; the
+  questionnaire's weight is also saved to today's Body log. Settings > Health
+  has "Start again" for the questions (opens Health + questions from the start).
+- **Food tab**: Meals (breakfast/lunch/dinner + IBD food tags) and a separate
+  Snacks area; calories + protein/carbs/fat per portion; day total.
+  Offline (default): built-in Israeli Ministry of Health national nutrition
+  database (`src/data/foods-il.json`, 4,600+ foods incl. Israeli brands,
+  rebuilt by `scripts/fetch-foods-il.mjs`, lazy-loaded chunk). Setting
+  "Online food search" (default OFF) adds Open Food Facts search and barcode
+  lookup (webcam / typed number / photo, @zxing/browser); only the search
+  word or barcode is sent; free, no AI. OFF search is rate-limited (~10/min):
+  the app shows "busy, try again" instead of failing.
 - Startup window: shows today's remaining medication doses only when Health is
   on; never any IBD item.
 - **Automatic backups** (Settings > Backup, desktop only): per-computer
@@ -138,10 +156,11 @@ installed apps auto-update. Commit messages: clear "what + why".
   - **Water = drinks goal from EFSA 2010** (80% of adequate total water):
     women 1.6 L, men 2.0 L, children by age; **body weight is NOT used**
     (35 ml/kg gave ~4 L). + ~500 ml/h exercise (max +1 L), + 500 hot days,
-    + 300 pregnancy / + 700 breastfeeding; IBD: ileostomy/J-pouch + 500 with
+    IBD: ileostomy/J-pouch + 500 with
     oral-rehydration + high-output-stoma warning, colostomy nothing, loose
     stools + 200 each (max + 1 L, ORS tip). Clamp 1.2-3.5 L; doctor's limit wins.
-  - BMI: WHO adult bands, neutral wording, no band under 18 or in pregnancy.
+  - BMI: WHO adult bands, neutral wording, no band under 18.
+  - **Nothing pregnancy-related anywhere in Health** (owner's rule).
   - Crohn's: Harvey-Bradshaw (<5 / 5-7 / 8-16 / >16); mass item "only if a
     doctor found one"; note that it isn't validated with an ileostomy.
   - UC: SCCAI (Walmsley 1998) from the bathroom log (day/night count,

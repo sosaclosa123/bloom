@@ -30,9 +30,9 @@ describe('water goal (drinks)', () => {
     expect(waterGoal(prof({ sex: 'male', age: 12 }), D).ml).toBe(1700);
     expect(waterGoal(prof({ sex: 'female', age: 14 }), D).ml).toBe(1600);
   });
-  it('adds exercise, hot days and pregnancy', () => {
-    const g = waterGoal(prof({ sex: 'female', exerciseMin: 60, hot: 'summer', pregnancy: 'pregnant' }), { date: '2026-07-10' });
-    expect(g.ml).toBe(1600 + 500 + 500 + 300);
+  it('adds exercise and hot days', () => {
+    const g = waterGoal(prof({ sex: 'female', exerciseMin: 60, hot: 'summer' }), { date: '2026-07-10' });
+    expect(g.ml).toBe(1600 + 500 + 500);
     // Summer heat only counts in summer months; the day's logged exercise wins over the usual.
     expect(waterGoal(prof({ sex: 'female', exerciseMin: 60, hot: 'summer' }), { date: '2026-01-10', exerciseMin: 30 }).ml).toBe(1600 + 250);
     // Exercise adds at most 1 L.
@@ -72,7 +72,6 @@ describe('BMI', () => {
     expect(bmi(170, 80)?.cat).toBe('over');
     expect(bmi(170, 90)?.cat).toBe('obese');
     expect(bmi(170, 65, 15)?.cat).toBeNull();
-    expect(bmi(170, 80, 30, true)?.cat).toBeNull(); // not in pregnancy
     expect(bmi(null, 65)).toBeNull();
   });
 });

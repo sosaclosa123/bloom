@@ -6949,3 +6949,342 @@ button.hl-tile.open {
     transform: none !important;
   }
 }
+
+/* ------------------------------------------------------------ health: tabs inside Health (layout A) */
+.hl-subtabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px var(--space-4);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex: none;
+}
+.hl-subtabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.hl-subtabs button svg {
+  margin: -4px 0;
+}
+.hl-subtabs button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.hl-subtabs button.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.hl-subtabs button.ibd {
+  color: var(--hl-pink);
+}
+.hl-subtabs button.ibd.active {
+  background: var(--hl-pink-soft);
+}
+/* line chart extras */
+.hl-line-goal {
+  stroke: var(--hl-water);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+  opacity: 0.8;
+}
+.hl-line-goal-label {
+  position: absolute;
+  left: 4px;
+  transform: translateY(-115%);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-2) 85%, transparent);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.hl-line-dot.small {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-width: 1.5px;
+}
+.hl-line-from,
+.hl-line-to {
+  position: absolute;
+  bottom: -20px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-family: 'Outfit', var(--font-sans);
+}
+.hl-line-from {
+  left: 0;
+}
+.hl-line-to {
+  right: 0;
+}
+.hl-chart-box .hl-line {
+  margin-bottom: 22px;
+}
+.hl-legend-avg {
+  margin-inline-start: auto;
+  font-weight: 600;
+}
+/* food */
+.hl-food-search {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.hl-food-search input:not([type='checkbox']) {
+  width: 100%;
+}
+.hl-food-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  inset-inline: 0;
+  z-index: 25;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md, 0 10px 30px rgba(0, 0, 0, 0.14));
+  padding: 4px;
+}
+.hl-food-results > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  color: var(--text);
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  text-align: start;
+}
+.hl-food-results > button:hover {
+  background: var(--surface-hover);
+}
+.hl-fr-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.hl-fr-kcal {
+  font-family: 'Outfit', var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.hl-fr-src {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+}
+.hl-fr-src.off {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.hl-fr-empty {
+  margin: 0;
+  padding: 8px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.hl-fr-more {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: none;
+  color: var(--accent-text);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  padding: 8px;
+}
+.hl-portion {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hl-portion .hl-num input:not([type='checkbox']):not([type='radio']):not([type='range']) {
+  width: calc(80px * var(--fs-scale, 1));
+  font-size: var(--fs-md);
+}
+.hl-portion .hl-pills button {
+  font-size: var(--fs-xs);
+  padding: 4px 9px;
+}
+.hl-portion-kcal {
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+}
+.hl-food-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.hl-food-kcal {
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.hl-snacks {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ev-peach-bg) 60%, var(--surface)), var(--surface) 70%);
+}
+.hl-snack-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hl-snack {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--ev-peach-bg);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+[dir='rtl'] .hl-snack {
+  padding: 4px 12px 4px 6px;
+}
+.hl-snack b {
+  font-family: 'Outfit', var(--font-sans);
+}
+.hl-snack button {
+  border: none;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+.hl-total-kcal {
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
+  font-size: var(--fs-2xl);
+}
+.hl-kcal-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface-hover);
+}
+.hl-kcal-bar .meals {
+  background: #e0a36a;
+}
+.hl-kcal-bar .snacks {
+  background: var(--ev-peach);
+}
+.hl-macros {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.hl-macros span {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.hl-macros b {
+  font-family: 'Outfit', var(--font-sans);
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+.hl-food-sum {
+  width: 100%;
+  text-align: start;
+  color: var(--text);
+  cursor: pointer;
+}
+.hl-food-sum:hover {
+  border-color: var(--accent);
+}
+.hl-food-sum-kcal {
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
+  font-size: var(--fs-lg);
+}
+/* barcode */
+.hl-scan-video {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #111;
+  aspect-ratio: 4 / 3;
+}
+.hl-scan-video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hl-scan-frame {
+  position: absolute;
+  inset: 30% 12%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.25);
+}
+.hl-scan-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px;
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--accent-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+.hl-scan-photo input {
+  display: none;
+}
+.hl-scan-state {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  min-height: 1.3em;
+}
+.hl-scan-state.notfound,
+.hl-scan-state.error,
+.hl-scan-state.nocamera,
+.hl-scan-state.badphoto {
+  color: var(--danger);
+  font-weight: 600;
+}
+.hl-scan-off {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.hl-scan-off p {
+  margin: 0;
+}

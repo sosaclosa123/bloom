@@ -4,7 +4,7 @@ import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta, uuid } from '../shared/db';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
-import { dosesOn, forDate, healthOf, medDueOn, nextMedDate } from '../shared/health';
+import { dosesOn, forDate, healthOf, latestWeight, medDueOn, nextMedDate, profileOf } from '../shared/health';
 import type { CalendarEvent, HealthBody, HealthMed, HealthMedTaken, HealthTest, HealthVisit, ISODate } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented, Toggle } from './common';
 import { newEvent } from './drafts';
@@ -27,7 +27,7 @@ function CheckBtn({ on, label, onClick }: { on: boolean; label: string; onClick:
 
 // ---------------------------------------------------------------- medications
 
-export function MedsCard({ date }: { date: ISODate }) {
+export function MedsCard({ date, todayOnly }: { date: ISODate; todayOnly?: boolean }) {
   const { t, locale, save } = useBloom();
   const { all } = useHealth();
   const [editing, setEditing] = useState<{ med: HealthMed; isNew: boolean } | null>(null);
@@ -35,9 +35,9 @@ export function MedsCard({ date }: { date: ISODate }) {
   const taken = healthOf(all, 'taken');
   const doses = dosesOn(meds, taken, date);
   const asNeeded = meds.filter((m) => m.active && m.times.length === 0);
-  const paused = meds.filter((m) => !m.active);
+  const paused = todayOnly ? [] : meds.filter((m) => !m.active);
   // Not due this day (e.g. an injection every 2 weeks): shown with its next date.
-  const later = meds
+  const later = (todayOnly ? [] : meds)
     .filter((m) => m.active && m.times.length && !medDueOn(m, date))
     .map((m) => ({ med: m, next: nextMedDate(m, date) }))
     .filter((x) => x.next)
@@ -67,7 +67,7 @@ export function MedsCard({ date }: { date: ISODate }) {
 
   return (
     <section className="w-card hl-meds">
-      <CardHead sticker="pill" title={t('hlMeds')}>
+      <CardHead sticker="pill" title={todayOnly ? t('hlMedsToday') : t('hlMeds')}>
         <Button size="sm" icon="plus" onClick={add}>
           {t('hlAddMed')}
         </Button>
@@ -278,6 +278,10 @@ export function BodyCard({ date }: { date: ISODate }) {
   const { all } = useHealth();
   const rec = forDate(all, 'body', date);
   const cur: HealthBody = rec ?? { ...newMeta(), kind: 'body', date, weightKg: null, exerciseMin: null, steps: null };
+  // Filled in from your last weight / the health questions until you change it.
+  const prefillWeight = cur.weightKg ?? latestWeight(all, date);
+  const prefillExercise = cur.exerciseMin ?? profileOf(all)?.exerciseMin ?? null;
+  const prefilled = (cur.weightKg == null && prefillWeight != null) || (cur.exerciseMin == null && prefillExercise != null);
   const set = (p: Partial<HealthBody>) => save('health', { ...cur, ...p });
   // Neutral change over about a month (no judgement).
   const weights = healthOf(all, 'body')
@@ -298,17 +302,18 @@ export function BodyCard({ date }: { date: ISODate }) {
       <div className="hl-body-grid">
         <label className="hl-mini-field">
           <span className="field-label">{t('hlWeight')}</span>
-          <NumBox value={cur.weightKg} onChange={(weightKg) => set({ weightKg })} min={10} max={400} step={0.1} unit={t('hlUnitKg')} label={t('hlWeight')} />
+          <NumBox value={prefillWeight} onChange={(weightKg) => set({ weightKg })} min={10} max={400} step={0.1} unit={t('hlUnitKg')} label={t('hlWeight')} />
         </label>
         <label className="hl-mini-field">
           <span className="field-label">{t('hlExercise')}</span>
-          <NumBox value={cur.exerciseMin} onChange={(exerciseMin) => set({ exerciseMin })} min={0} max={1000} unit={t('hlUnitMin')} label={t('hlExercise')} />
+          <NumBox value={prefillExercise} onChange={(exerciseMin) => set({ exerciseMin })} min={0} max={1000} unit={t('hlUnitMin')} label={t('hlExercise')} />
         </label>
         <label className="hl-mini-field">
           <span className="field-label">{t('hlSteps')}</span>
           <NumBox value={cur.steps} onChange={(steps) => set({ steps })} min={0} max={200000} step={100} label={t('hlSteps')} />
         </label>
       </div>
+      {prefilled && <p className="muted small hl-score-note">{t('hlPrefilled')}</p>}
       {diff != null && first && (
         <p className="w-card-sub">
           {t('hlWeightSince', { d: `\u2066${diff > 0 ? '+' : ''}${diff.toLocaleString(locale)}\u2069 ${t('hlUnitKg')}`, date: fmtDay(first.date, locale) })}

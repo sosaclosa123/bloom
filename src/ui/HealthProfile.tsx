@@ -3,8 +3,9 @@
 import { useState, type ReactNode } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { toISODate } from '../shared/dates';
-import { bmi, emptyProfile, latestWeight, waterGoal, type WaterGoal } from '../shared/health';
-import type { HealthActivity, HealthHot, HealthPregnancy, HealthProfile, HealthSex, IbdOstomy, IbdType } from '../shared/types';
+import { bmi, emptyProfile, forDate, latestWeight, waterGoal, type WaterGoal } from '../shared/health';
+import { newMeta } from '../shared/db';
+import type { HealthActivity, HealthHot, HealthProfile, HealthSex, IbdOstomy, IbdType } from '../shared/types';
 import { Button, Icon, Modal } from './common';
 import { NumBox, useHealth, useWaterFmt } from './healthUi';
 import { useBloom } from './store';
@@ -29,7 +30,6 @@ const FIELDS: Record<string, (keyof Draft)[]> = {
   activity: ['activity'],
   exercise: ['exerciseMin'],
   hot: ['hot'],
-  pregnancy: ['pregnancy'],
   fluid: ['fluidLimit', 'fluidLimitMl'],
   glass: ['glassMl'],
   ibdType: ['ibdType'],
@@ -71,12 +71,6 @@ function useQuestions(): Q[] {
     },
     { id: 'exercise', title: 'hlQExercise', render: (d, set) => <NumBox autoFocus value={d.exerciseMin} onChange={(exerciseMin) => set({ exerciseMin })} min={0} max={600} unit={t('hlUnitMin')} label={t('hlQExercise')} /> },
     { id: 'hot', title: 'hlQHot', hint: 'hlQHotHint', render: (d, set) => <Choice<HealthHot> prefix="hlHot" value={d.hot} options={['no', 'summer', 'yes']} onChange={(hot) => set({ hot })} /> },
-    {
-      id: 'pregnancy',
-      title: 'hlQPregnancy',
-      when: (d) => d.sex !== 'male',
-      render: (d, set) => <Choice<HealthPregnancy> prefix="hlPreg" value={d.pregnancy} options={['none', 'pregnant', 'breastfeeding']} onChange={(pregnancy) => set({ pregnancy })} />,
-    },
     {
       id: 'fluid',
       title: 'hlQFluid',
@@ -124,9 +118,9 @@ function useQuestions(): Q[] {
 }
 
 /** One question per screen. Every answer is saved right away; Skip leaves it empty. */
-export function ProfileWizard({ onClose }: { onClose: () => void }) {
+export function ProfileWizard({ onClose, restart }: { onClose: () => void; restart?: boolean }) {
   const { t } = useBloom();
-  const { profile, ibd, saveProfile } = useHealth();
+  const { profile, ibd, saveProfile, all } = useHealth();
   const [draft, setDraft] = useState<Draft>(() => {
     const base = { ...emptyProfile(), ...(profile ?? {}) } as Draft & Partial<HealthProfile>;
     const { id: _i, createdAt: _c, updatedAt: _u, deletedAt: _d, ownerId: _o, visibility: _v, ...rest } = base;
@@ -135,7 +129,7 @@ export function ProfileWizard({ onClose }: { onClose: () => void }) {
   const questions = useQuestions().filter((q) => !q.when || q.when(draft, ibd));
   // Not finished yet: carry on from the first question without an answer.
   const [i, setI] = useState(() => {
-    if (profileComplete(profile, ibd)) return 0;
+    if (restart || profileComplete(profile, ibd)) return 0;
     // General part already done (IBD was turned on later): go to the IBD questions.
     const IBD_IDS = ['ibdType', 'ibdLocation', 'ibdMeds', 'ostomy', 'stools', 'triggers'];
     const k = profile?.completed ? questions.findIndex((q) => IBD_IDS.includes(q.id)) : questions.findIndex((q) => !answered(draft, q.id));
@@ -144,8 +138,16 @@ export function ProfileWizard({ onClose }: { onClose: () => void }) {
   const atEnd = i >= questions.length;
   const set = (p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p }));
   // Only going through to the last question counts as filled in; closing early keeps the setup card.
-  const commit = (d: Draft, last: boolean) =>
+  const { save } = useBloom();
+  const commit = (d: Draft, last: boolean) => {
     saveProfile({ ...d, ...(last ? { completed: true, completedIbd: ibd || !!d.completedIbd, done: true } : {}) });
+    // The weight from the questions also goes into today's Body log (so Body and the weight chart start from it).
+    if (d.weightKg && d.weightKg !== profile?.weightKg) {
+      const today = toISODate(new Date());
+      const cur = forDate(all, 'body', today);
+      save('health', cur ? { ...cur, weightKg: d.weightKg } : { ...newMeta(), kind: 'body', date: today, weightKg: d.weightKg, exerciseMin: null, steps: null });
+    }
+  };
 
   const next = () => {
     commit(draft, i + 1 >= questions.length);
@@ -201,7 +203,7 @@ export function ProfileWizard({ onClose }: { onClose: () => void }) {
       {atEnd ? (
         <div className="hl-results">
           <WaterGoalBlock goal={goal} />
-          <BmiBlock heightCm={draft.heightCm} weightKg={draft.weightKg} age={draft.age} pregnant={draft.sex !== 'male' && draft.pregnancy === 'pregnant'} />
+          <BmiBlock heightCm={draft.heightCm} weightKg={draft.weightKg} age={draft.age} />
           <p className="hl-note">
             <Icon name="heartPulse" size={14} /> {t('hlNotAdvice')}
           </p>
@@ -262,9 +264,9 @@ export function WaterGoalBlock({ goal, compact }: { goal: WaterGoal; compact?: b
   );
 }
 
-export function BmiBlock({ heightCm, weightKg, age, pregnant }: { heightCm: number | null; weightKg: number | null; age: number | null; pregnant?: boolean }) {
+export function BmiBlock({ heightCm, weightKg, age }: { heightCm: number | null; weightKg: number | null; age: number | null }) {
   const { t, locale } = useBloom();
-  const b = bmi(heightCm, weightKg, age, pregnant);
+  const b = bmi(heightCm, weightKg, age);
   return (
     <div className="hl-bmi">
       <span className="hl-goal-label">{t('hlBmi')}</span>
@@ -347,7 +349,7 @@ export function ProfileCard({ date, onEdit, goal }: { date: string; onEdit: () =
         </button>
       </div>
       <WaterGoalBlock goal={goal} compact />
-      <BmiBlock heightCm={profile?.heightCm ?? null} weightKg={weight} age={profile?.age ?? null} pregnant={profile?.sex !== 'male' && profile?.pregnancy === 'pregnant'} />
+      <BmiBlock heightCm={profile?.heightCm ?? null} weightKg={weight} age={profile?.age ?? null} />
     </section>
   );
 }

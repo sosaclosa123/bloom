@@ -1,14 +1,13 @@
-// Health trends (week / month bars), the 30-day IBD flare timeline, the food
-// log and (IBD only) simple food & symptom insights.
+// Health trends (line chart with a trend line: week / month / year / from the
+// start), the 30-day IBD flare timeline and (IBD only) food & symptom insights.
 import { useMemo, useState } from 'react';
 import type { StringKey } from '../i18n/strings';
-import { platform } from '../platform/api';
-import { newMeta } from '../shared/db';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
-import { FOOD_TAGS, foodInsights, forDate, healthOf, ibdScores, type WaterGoal } from '../shared/health';
-import type { HealthFood, ISODate } from '../shared/types';
-import { Button, Icon, IconButton, Segmented } from './common';
-import { CardHead, Pills, useHealth, useWaterFmt } from './healthUi';
+import { FOOD_TAGS, foodInsights, ibdScores, type WaterGoal } from '../shared/health';
+import { ibdOn, sleepHours } from '../shared/healthExtras';
+import type { ISODate } from '../shared/types';
+import { Icon, Segmented } from './common';
+import { CardHead, LineChart, Pills, useHealth, useWaterFmt } from './healthUi';
 import { useBloom } from './store';
 
 const datesBack = (end: ISODate, n: number) => Array.from({ length: n }, (_, i) => toISODate(addDays(parseISODate(end), i - n + 1)));
@@ -19,35 +18,54 @@ type Metric = 'water' | 'sleep' | 'mood' | 'weight' | 'symptoms';
 
 export function TrendsCard({ date, goal }: { date: ISODate; goal: WaterGoal }) {
   const { t, locale } = useBloom();
-  const { all, profile, ibd } = useHealth();
+  const { all, ibd } = useHealth();
   const fmtWater = useWaterFmt();
-  const [range, setRange] = useState<'week' | 'month'>('week');
+  const [range, setRange] = useState<'week' | 'month' | 'year' | 'all'>('month');
   const [metric, setMetric] = useState<Metric>('water');
   const m: Metric = !ibd && metric === 'symptoms' ? 'water' : metric;
-  const dates = useMemo(() => datesBack(date, range === 'week' ? 7 : 30), [date, range]);
-  const scores = useMemo(() => (ibd ? ibdScores(all, profile, dates) : new Map()), [all, profile, dates, ibd]);
 
-  const values = dates.map((d): number | null => {
-    if (m === 'water') return forDate(all, 'checkin', d)?.waterMl || null;
-    if (m === 'sleep') return forDate(all, 'checkin', d)?.sleepH ?? null;
-    if (m === 'mood') return forDate(all, 'checkin', d)?.mood ?? null;
-    if (m === 'weight') return forDate(all, 'body', d)?.weightKg ?? null;
-    return scores.get(d)?.score ?? null;
-  });
-  const known = values.filter((v): v is number => v != null);
-  const ref = m === 'water' ? goal.ml : m === 'sleep' ? 7 : null;
-  const top = m === 'mood' ? 5 : Math.max(1, ref ?? 0, ...known);
-  // Weight: bars show the change within the period, not from zero.
-  const lo = m === 'weight' && known.length ? Math.min(...known) - 1 : 0;
-  const height = (v: number) => Math.max(4, ((v - lo) / Math.max(0.0001, top - lo)) * 100);
+  // One value per day that has one (newest record wins), indexed once.
+  const points = useMemo(() => {
+    const byDate = new Map<ISODate, number>();
+    const newest = new Map<ISODate, number>();
+    const put = (d: ISODate, v: number | null | undefined, at: number) => {
+      if (v == null || (m === 'water' && !v)) return;
+      if ((newest.get(d) ?? -1) > at) return;
+      newest.set(d, at);
+      byDate.set(d, v);
+    };
+    if (m === 'symptoms') {
+      const dates = new Set(all.filter((x) => x.kind === 'ibdday' || x.kind === 'bathroom').map((x) => (x as { date: ISODate }).date));
+      for (const d of dates) {
+        const s = ibdOn(all, d);
+        if (s) byDate.set(d, s.score);
+      }
+    } else {
+      for (const x of all) {
+        if (m === 'weight' && x.kind === 'body') put(x.date, x.weightKg, x.updatedAt);
+        if (x.kind !== 'checkin' || m === 'weight') continue;
+        if (m === 'water') put(x.date, x.waterMl, x.updatedAt);
+        if (m === 'sleep') put(x.date, sleepHours(x), x.updatedAt);
+        if (m === 'mood') put(x.date, x.mood, x.updatedAt);
+      }
+    }
+    const from = range === 'all' ? '0000-01-01' : toISODate(addDays(parseISODate(date), -(range === 'week' ? 6 : range === 'month' ? 29 : 364)));
+    return [...byDate.entries()]
+      .filter(([d]) => d >= from && d <= date)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([d, v]) => ({ date: d, value: v }));
+  }, [all, m, range, date]);
+
   const fmt = (v: number) =>
-    m === 'water' ? fmtWater(v) : m === 'sleep' ? t('hlHours', { n: v.toLocaleString(locale, { maximumFractionDigits: 1 }) }) : m === 'weight' ? `${v.toLocaleString(locale)} ${t('hlUnitKg')}` : v.toLocaleString(locale, { maximumFractionDigits: 1 });
-  const avg = known.length ? known.reduce((a, b) => a + b, 0) / known.length : null;
-  const label = (d: ISODate, i: number) => {
-    const day = parseISODate(d);
-    if (range === 'week') return day.toLocaleDateString(locale, { weekday: 'narrow' });
-    return i % 5 === 4 || i === 0 ? String(day.getDate()) : '';
-  };
+    m === 'water'
+      ? fmtWater(v)
+      : m === 'sleep'
+        ? t('hlHours', { n: (Math.round(v * 10) / 10).toLocaleString(locale) })
+        : m === 'weight'
+          ? `${(Math.round(v * 10) / 10).toLocaleString(locale)} ${t('hlUnitKg')}`
+          : (Math.round(v * 10) / 10).toLocaleString(locale);
+  const avg = points.length ? points.reduce((a, p) => a + p.value, 0) / points.length : null;
+  const ref = m === 'water' ? goal.ml : m === 'sleep' ? 7 : null;
   const metrics: { value: Metric; label: string }[] = [
     { value: 'water', label: t('hlWater') },
     { value: 'sleep', label: t('hlSleep') },
@@ -58,8 +76,7 @@ export function TrendsCard({ date, goal }: { date: ISODate; goal: WaterGoal }) {
 
   return (
     <section className="w-card hl-trends">
-      <div className="w-card-head">
-        <h3>{t('hlTrends')}</h3>
+      <CardHead title={t('hlTrends')}>
         <Segmented
           value={range}
           onChange={setRange}
@@ -67,35 +84,28 @@ export function TrendsCard({ date, goal }: { date: ISODate; goal: WaterGoal }) {
           options={[
             { value: 'week', label: t('hlWeek') },
             { value: 'month', label: t('hlMonth') },
+            { value: 'year', label: t('hlYear') },
+            { value: 'all', label: t('hlFromStart') },
           ]}
         />
-      </div>
+      </CardHead>
       <Pills className="hl-metric-pills" label={t('hlTrends')} value={m} onChange={(v) => v && setMetric(v)} options={metrics} />
-      {known.length === 0 ? (
+      {points.length === 0 ? (
         <p className="empty-note hl-chart-empty">{t('hlNoData')}</p>
       ) : (
-        <>
-          <div className={`hl-chart r-${range} m-${m}`} role="img" aria-label={`${t('hlTrends')}: ${metrics.find((x) => x.value === m)?.label}`}>
-            {ref != null && ref <= top && (
-              <span className="hl-chart-ref-area" aria-hidden="true">
-                <span className="hl-chart-ref" style={{ bottom: `${height(ref)}%` }}>
-                  <span>{t('hlGoalLine', { v: fmt(ref) })}</span>
-                </span>
-              </span>
-            )}
-            {dates.map((d, i) => {
-              const v = values[i];
-              const flare = m === 'symptoms' ? scores.get(d)?.flare : null;
-              return (
-                <span key={d} className="hl-col" title={`${parseISODate(d).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })}${v != null ? ' · ' + fmt(v) : ''}`}>
-                  <span className="hl-bar-wrap">{v != null && <span className={`hl-bar ${flare ? 'flare-' + flare : ''} ${d === date ? 'sel' : ''}`} style={{ height: `${height(v)}%` }} />}</span>
-                  <span className="hl-col-label">{label(d, i)}</span>
-                </span>
-              );
-            })}
-          </div>
-          {avg != null && <p className="w-card-sub">{t('hlAvg', { v: fmt(Math.round(avg * 10) / 10) })}</p>}
-        </>
+        <div className="hl-chart-box">
+          <LineChart
+            label={`${t('hlTrends')}: ${metrics.find((x) => x.value === m)?.label}`}
+            points={points}
+            fmt={fmt}
+            fixed={m === 'mood' ? [1, 5] : undefined}
+            goal={ref != null ? { value: ref, label: t('hlGoalLine', { v: fmt(ref) }) } : undefined}
+          />
+          <p className="hl-legend-line">
+            <i className="dot" /> {metrics.find((x) => x.value === m)?.label} {points.length >= 3 && <><i className="dash" /> {t('hlTrendLine')}</>}
+            {avg != null && <span className="hl-legend-avg">{t('hlAvg', { v: fmt(avg) })}</span>}
+          </p>
+        </div>
       )}
     </section>
   );
@@ -151,81 +161,6 @@ export function FlareTimelineCard({ date }: { date: ISODate }) {
 }
 
 // ---------------------------------------------------------------- food log
-
-const MEALS: HealthFood['meal'][] = ['breakfast', 'lunch', 'dinner', 'snack'];
-const mealFor = (h: number): HealthFood['meal'] => (h < 11 ? 'breakfast' : h < 16 ? 'lunch' : h < 21 ? 'dinner' : 'snack');
-
-export function FoodCard({ date, isToday }: { date: ISODate; isToday: boolean }) {
-  const { t, save } = useBloom();
-  const { all } = useHealth();
-  const [text, setText] = useState('');
-  const [meal, setMeal] = useState<HealthFood['meal']>(() => mealFor(new Date().getHours()));
-  const [tags, setTags] = useState<string[]>([]);
-  const list = healthOf(all, 'food')
-    .filter((f) => f.date === date)
-    .sort((a, b) => MEALS.indexOf(a.meal) - MEALS.indexOf(b.meal) || a.time.localeCompare(b.time));
-  const ok = !!text.trim() || tags.length > 0;
-  const add = () => {
-    if (!ok) return;
-    const now = new Date();
-    const time = isToday ? `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}` : '';
-    save('health', { ...newMeta(), kind: 'food', date, time, meal, text: text.trim(), tags } satisfies HealthFood);
-    setText('');
-    setTags([]);
-  };
-  const tagName = (x: string) => ((FOOD_TAGS as readonly string[]).includes(x) ? t(`hlTag_${x}` as StringKey) : x);
-  return (
-    <section className="w-card hl-food">
-      <CardHead sticker="cooking" title={t('hlFood')} />
-      <form
-        className="hl-food-add"
-        onSubmit={(e) => {
-          e.preventDefault();
-          add();
-        }}
-      >
-        <Pills label={t('hlFood')} value={meal} onChange={(v) => v && setMeal(v)} options={MEALS.map((x) => ({ value: x, label: t(`hlMeal_${x}` as StringKey) }))} />
-        <div className="hl-food-row">
-          <input dir="auto" value={text} placeholder={t('hlFoodPlaceholder')} aria-label={t('hlFoodPlaceholder')} onChange={(e) => setText(e.target.value)} />
-          <Button variant="primary" icon="plus" disabled={!ok} onClick={add}>
-            {t('hlAddFood')}
-          </Button>
-        </div>
-        <div className="hl-pills hl-food-tags" role="group" aria-label={t('hlFood')}>
-          {FOOD_TAGS.map((x) => {
-            const on = tags.includes(x);
-            return (
-              <button type="button" key={x} aria-pressed={on} className={on ? 'active' : ''} onClick={() => setTags(on ? tags.filter((y) => y !== x) : [...tags, x])}>
-                {tagName(x)}
-              </button>
-            );
-          })}
-        </div>
-        <button type="submit" hidden />
-      </form>
-      {list.length === 0 ? (
-        <p className="empty-note">{t('hlNoFood')}</p>
-      ) : (
-        <ul className="hl-list">
-          {list.map((f) => (
-            <li key={f.id} className="hl-food-item">
-              <span className="hl-food-meal">{t(`hlMeal_${f.meal}` as StringKey)}</span>
-              <span className="hl-food-text" dir="auto">
-                {f.text}
-                {f.tags.map((x) => (
-                  <span key={x} className="hl-tag">
-                    {tagName(x)}
-                  </span>
-                ))}
-              </span>
-              <IconButton icon="close" label={t('delete')} onClick={() => void platform.remove('health', f.id)} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
 
 // ---------------------------------------------------------------- IBD: food & symptoms
 

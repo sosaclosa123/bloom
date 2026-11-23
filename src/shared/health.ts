@@ -47,7 +47,6 @@ export function emptyProfile(): Omit<HealthProfile, keyof SyncMeta> {
     activity: null,
     exerciseMin: null,
     hot: null,
-    pregnancy: null,
     fluidLimit: null,
     fluidLimitMl: null,
     glassMl: 250,
@@ -83,7 +82,6 @@ export function latestWeight(all: HealthItem[], date: ISODate): number | null {
 //   Minutes come from the day's log, else the profile, else the activity
 //   level ('active' ~30 min/day = WHO 150 min/week, 'very' ~60 min/day).
 // + Hot weather: EFSA values are for moderate temperatures; + ~500 ml.
-// + Pregnancy + 300 ml, breastfeeding + 700 ml (EFSA 2010).
 // IBD (only when IBD is on):
 // + Ileostomy or J-pouch: + 500 ml (extra losses). Part of it should be an
 //   oral rehydration solution; with a HIGH-output stoma, more plain water
@@ -93,7 +91,7 @@ export function latestWeight(all: HealthItem[], date: ISODate): number | null {
 //   (ideally as oral rehydration solution). Not counted with an ileostomy.
 // Clamped to 1.2-3.5 L. A doctor's fluid limit (kidney/heart) always wins.
 
-export type WaterPartKey = 'base' | 'exercise' | 'hot' | 'pregnant' | 'breastfeeding' | 'ostomy' | 'diarrhoea' | 'limit';
+export type WaterPartKey = 'base' | 'exercise' | 'hot' | 'ostomy' | 'diarrhoea' | 'limit';
 export interface WaterPart {
   key: WaterPartKey;
   ml: number;
@@ -141,8 +139,6 @@ export function waterGoal(
   const month = Number(day.date.slice(5, 7)); // 1..12
   if (p?.hot === 'yes' || (p?.hot === 'summer' && month >= 5 && month <= 9)) parts.push({ key: 'hot', ml: 500 });
 
-  if (p?.sex !== 'male' && p?.pregnancy === 'pregnant') parts.push({ key: 'pregnant', ml: 300 });
-  if (p?.sex !== 'male' && p?.pregnancy === 'breastfeeding') parts.push({ key: 'breastfeeding', ml: 700 });
 
   if (day.ibd) {
     const ileo = p?.ostomy === 'ostomy'; // 'ostomy' = ileostomy
@@ -169,15 +165,13 @@ export function bmi(
   heightCm: number | null | undefined,
   weightKg: number | null | undefined,
   age?: number | null,
-  pregnant?: boolean,
 ): { value: number; cat: BmiCategory | null } | null {
   if (!heightCm || !weightKg || heightCm < 50 || weightKg < 10) return null;
   const m = heightCm / 100;
   const value = Math.round((weightKg / (m * m)) * 10) / 10;
   // WHO: < 18.5 underweight, 18.5-24.9 healthy, 25-29.9 overweight, >= 30 obesity.
-  // Adult ranges only: under 18 uses growth charts, and BMI categories don't
-  // apply in pregnancy, so no category then.
-  const cat: BmiCategory | null = (age != null && age < 18) || pregnant ? null : value < 18.5 ? 'under' : value < 25 ? 'normal' : value < 30 ? 'over' : 'obese';
+  // Adult ranges only (under 18 uses growth charts, so no category).
+  const cat: BmiCategory | null = age != null && age < 18 ? null : value < 18.5 ? 'under' : value < 25 ? 'normal' : value < 30 ? 'over' : 'obese';
   return { value, cat };
 }
 

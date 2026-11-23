@@ -180,7 +180,23 @@ export function StickerChoice({ value, onChange, label }: { value: string; onCha
 // ---------------------------------------------------------------- line chart (weight, test results)
 
 /** Points over time with an optional straight trend line (least squares). Responsive; works in RTL (time stays left-to-right like a graph). */
-export function LineChart({ points, fmt, trend = true, label }: { points: { date: string; value: number }[]; fmt: (v: number) => string; trend?: boolean; label: string }) {
+export function LineChart({
+  points,
+  fmt,
+  trend = true,
+  label,
+  goal,
+  fixed,
+}: {
+  points: { date: string; value: number }[];
+  fmt: (v: number) => string;
+  trend?: boolean;
+  label: string;
+  /** A dashed goal line (e.g. the water goal). */
+  goal?: { value: number; label: string };
+  /** Fixed value range (e.g. mood 1-5). */
+  fixed?: [number, number];
+}) {
   if (points.length === 0) return null;
   const W = 600;
   const H = 160;
@@ -189,15 +205,17 @@ export function LineChart({ points, fmt, trend = true, label }: { points: { date
   const t1 = Date.parse(points[points.length - 1].date);
   const span = Math.max(1, t1 - t0);
   const vals = points.map((p) => p.value);
-  let lo = Math.min(...vals);
-  let hi = Math.max(...vals);
+  let lo = Math.min(...vals, ...(goal ? [goal.value] : []));
+  let hi = Math.max(...vals, ...(goal ? [goal.value] : []));
+  if (fixed) [lo, hi] = fixed;
   if (hi - lo < 1e-9) {
     lo -= 1;
     hi += 1;
   }
-  const m = (hi - lo) * 0.15;
+  const m = (hi - lo) * (fixed ? 0.08 : 0.15);
   lo -= m;
   hi += m;
+  const small = points.length > 45;
   const x = (d: string) => pad.l + ((Date.parse(d) - t0) / span) * (W - pad.l - pad.r) + (points.length === 1 ? (W - pad.l - pad.r) / 2 : 0);
   const y = (v: number) => pad.t + (1 - (v - lo) / (hi - lo)) * (H - pad.t - pad.b);
   let tr: { y0: number; y1: number } | null = null;
@@ -216,12 +234,46 @@ export function LineChart({ points, fmt, trend = true, label }: { points: { date
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="hl-line-svg">
         {tr && <line x1={x(points[0].date)} x2={x(points[points.length - 1].date)} y1={y(tr.y0)} y2={y(tr.y1)} className="hl-line-trend" vectorEffect="non-scaling-stroke" />}
         <path d={path} className="hl-line-path" vectorEffect="non-scaling-stroke" />
+        {goal && <line x1={pad.l} x2={W - pad.r} y1={y(goal.value)} y2={y(goal.value)} className="hl-line-goal" vectorEffect="non-scaling-stroke" />}
       </svg>
+      {goal && (
+        <span className="hl-line-goal-label" style={{ top: `${(y(goal.value) / H) * 100}%` }}>
+          {goal.label}
+        </span>
+      )}
       {points.map((p) => (
-        <span key={p.date} className="hl-line-dot" style={{ left: `${(x(p.date) / W) * 100}%`, top: `${(y(p.value) / H) * 100}%` }} title={`${p.date} · ${fmt(p.value)}`} />
+        <span key={p.date} className={`hl-line-dot ${small ? 'small' : ''}`} style={{ left: `${(x(p.date) / W) * 100}%`, top: `${(y(p.value) / H) * 100}%` }} title={`${p.date} · ${fmt(p.value)}`} />
       ))}
       <span className="hl-line-max">{fmt(Math.max(...vals))}</span>
       <span className="hl-line-min">{fmt(Math.min(...vals))}</span>
+      <span className="hl-line-from">{points[0].date.slice(5).split('-').reverse().join('.')}</span>
+      <span className="hl-line-to">{points[points.length - 1].date.slice(5).split('-').reverse().join('.')}</span>
     </div>
   );
+}
+
+// ---------------------------------------------------------------- "answer the questions again" (from Settings)
+
+let redoPending = false;
+const redoListeners = new Set<() => void>();
+/** Settings asks to restart the health questions: opens Health and the questionnaire from the start. */
+export function requestHealthRedo() {
+  redoPending = true;
+  window.dispatchEvent(new CustomEvent('bloom:health-redo'));
+  redoListeners.forEach((l) => l());
+}
+export function takeHealthRedo(): boolean {
+  const r = redoPending;
+  redoPending = false;
+  return r;
+}
+export function onHealthRedo(cb: () => void) {
+  const l = () => {
+    redoPending = false;
+    cb();
+  };
+  redoListeners.add(l);
+  return () => {
+    redoListeners.delete(l);
+  };
 }

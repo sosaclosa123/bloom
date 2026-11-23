@@ -337,7 +337,7 @@ function StickerBook({ list, onClose }: { list: Badge[]; onClose: () => void }) 
 // ---------------------------------------------------------------- monthly summary
 
 /** Shown in the first week of a month, for the month before (can be hidden). */
-export function MonthSummaryCard() {
+export function MonthSummaryCard({ always }: { always?: boolean }) {
   const { t, locale } = useBloom();
   const { all, ibd } = useHealth();
   const fmt = useWaterFmt();
@@ -353,7 +353,7 @@ export function MonthSummaryCard() {
     }
   });
   const m = useMemo(() => monthSummary(all, month, ibd), [all, month, ibd]);
-  if (now.getDate() > 7 || hidden || m.daysLogged === 0) return null;
+  if (m.daysLogged === 0 || (!always && (now.getDate() > 7 || hidden))) return null;
   const hide = () => {
     setHidden(true);
     try {
@@ -374,7 +374,7 @@ export function MonthSummaryCard() {
   return (
     <section className="w-card hl-month">
       <CardHead sticker="flowers" title={t('hlSumTitle', { m: prev.toLocaleDateString(locale, { month: 'long' }) })}>
-        <IconButton icon="close" label={t('close')} onClick={hide} />
+        {!always && <IconButton icon="close" label={t('close')} onClick={hide} />}
       </CardHead>
       <dl className="hl-sum">
         {rows.map(([k, v]) => (

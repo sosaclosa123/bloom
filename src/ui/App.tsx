@@ -111,6 +111,16 @@ export function App() {
     }
   }, [view, tab]);
 
+  // "Answer the health questions again" in Settings: go to Health (it opens the questions).
+  useEffect(() => {
+    const go = () => {
+      setModal(null);
+      setTab('health');
+    };
+    window.addEventListener('bloom:health-redo', go);
+    return () => window.removeEventListener('bloom:health-redo', go);
+  }, []);
+
   // Platform events
   useEffect(() => {
     void startSync();

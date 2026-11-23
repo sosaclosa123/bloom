@@ -1,16 +1,18 @@
 // Health tab: private health tracking (optional IBD / Crohn's part).
 // Everything here is always private (see db.ts `asPrivateHealth`) and only
 // shows on a computer where Health is turned on in Settings.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { bathroomStats, forDate, healthOf, waterGoal } from '../shared/health';
 import { Button, Icon, IconButton, Toggle } from './common';
-import { useHealth } from './healthUi';
+import { onHealthRedo, requestHealthRedo, takeHealthRedo, useHealth } from './healthUi';
+import { FoodSummaryCard, FoodTab } from './HealthFood';
+import { StickerArt } from './Stickers';
 import { BodyCard, MedsCard, TestsCard, VisitsCard } from './HealthCards';
 import { CheckinCard } from './HealthCheckin';
 import { IbdCard } from './HealthIbd';
 import { ChallengesCard, DoctorReport, GoalsCard, MonthSummaryCard, StickerBookButton } from './HealthExtras';
-import { FlareTimelineCard, FoodCard, InsightsCard, TrendsCard } from './HealthTrends';
+import { FlareTimelineCard, InsightsCard, TrendsCard } from './HealthTrends';
 import { profileComplete, ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
 import { useBloom } from './store';
 
@@ -47,6 +49,14 @@ export function HealthSettings() {
               ))}
             </select>
           </label>
+          <Toggle checked={settings.healthFoodOnline} label={t('hlSetFoodOnline')} onChange={(healthFoodOnline) => setSettings({ healthFoodOnline })} />
+          <p className="muted small">{t('hlSetFoodOnlineHint')}</p>
+          <div className="hl-set-row">
+            <span>{t('hlRedoTitle')}</span>
+            <Button size="sm" icon="repeat" onClick={() => requestHealthRedo()}>
+              {t('hlRedo')}
+            </Button>
+          </div>
           <h4 className="settings-h">{t('hlSetFun')}</h4>
           <Toggle checked={settings.healthGoals} label={t('hlSetGoals')} onChange={(healthGoals) => setSettings({ healthGoals })} />
           <Toggle checked={settings.healthChallenges} label={t('hlSetChallenges')} onChange={(healthChallenges) => setSettings({ healthChallenges })} />
@@ -88,7 +98,15 @@ function HealthOn() {
   const [report, setReport] = useState(false);
   const today = toISODate(new Date());
   const [date, setDate] = useState(today);
-  const [wizard, setWizard] = useState(false);
+  const [wizard, setWizard] = useState<false | 'resume' | 'restart'>(() => (takeHealthRedo() ? 'restart' : false));
+  const [tab, setTab] = useState<string>(() => {
+    try {
+      return localStorage.getItem('bloom-health-tab') || 'today';
+    } catch {
+      return 'today';
+    }
+  });
+  useEffect(() => onHealthRedo(() => setWizard('restart')), []);
   const isToday = date === today;
   const step = (n: number) => {
     const d = toISODate(addDays(parseISODate(date), n));
@@ -102,6 +120,26 @@ function HealthOn() {
   const stats = bathroomStats(healthOf(all, 'bathroom'), date);
   const body = forDate(all, 'body', date);
   const goal = waterGoal(profile, { date, ibd, liquidStools: stats.liquid, exerciseMin: body?.exerciseMin ?? null });
+
+  type Sub = 'today' | 'food' | 'meds' | 'body' | 'trends' | 'ibd' | 'goals';
+  const subs: { id: Sub; label: string; sticker?: string; icon?: 'calendar' }[] = [
+    { id: 'today', label: t('hlTabToday'), icon: 'calendar' },
+    { id: 'food', label: t('hlFood'), sticker: 'cooking' },
+    { id: 'meds', label: t('hlTabMeds'), sticker: 'pill' },
+    { id: 'body', label: t('hlTabBody'), sticker: 'gym' },
+    { id: 'trends', label: t('hlTrends'), sticker: 'idea' },
+    ...(ibd ? [{ id: 'ibd' as Sub, label: 'IBD' }] : []),
+    ...(settings.healthGoals || settings.healthChallenges ? [{ id: 'goals' as Sub, label: t('hlTabGoals'), sticker: 'gift' }] : []),
+  ];
+  const sub: Sub = subs.some((x) => x.id === tab) ? (tab as Sub) : 'today';
+  const pickTab = (x: Sub) => {
+    setTab(x);
+    try {
+      localStorage.setItem('bloom-health-tab', x);
+    } catch {
+      /* ignore */
+    }
+  };
 
   return (
     <div className="page hl">
@@ -125,34 +163,100 @@ function HealthOn() {
           <Icon name="lock" size={12} /> {t('hlPrivate')}
         </span>
       </div>
-      <div className="wallet-body wl-two hl-two">
-        <div className="wl-main">
-          {/* Stays until the questionnaire is filled in to the end. */}
-          {!profileComplete(profile, ibd) && <SetupCard onStart={() => setWizard(true)} />}
-          <CheckinCard date={date} isToday={isToday} goal={goal} />
-          <MedsCard date={date} />
-          {/* IBD parts exist only while IBD is on for this computer. */}
-          {ibd && <IbdCard date={date} isToday={isToday} />}
-          {settings.healthGoals && <GoalsCard date={date} />}
-          {settings.healthChallenges && <ChallengesCard date={date} />}
-          <FoodCard date={date} isToday={isToday} />
-          <TrendsCard date={date} goal={goal} />
-          {ibd && <FlareTimelineCard date={date} />}
-          {ibd && <InsightsCard date={date} />}
-        </div>
-        <div className="wl-side">
-          {isToday && <MonthSummaryCard />}
-          <ProfileCard goal={goal} date={date} onEdit={() => setWizard(true)} />
-          <BodyCard date={date} />
-          <TestsCard />
-          <VisitsCard />
-          <p className="hl-note">
-            <Icon name="heartPulse" size={14} /> {t('hlNotAdvice')}
-          </p>
-        </div>
+      <div className="hl-subtabs" role="tablist">
+        {subs.map((x) => (
+          <button type="button" role="tab" key={x.id} aria-selected={sub === x.id} className={`${sub === x.id ? 'active' : ''} ${x.id === 'ibd' ? 'ibd' : ''}`} onClick={() => pickTab(x.id)}>
+            {x.sticker ? <StickerArt kind={x.sticker} size={20} /> : x.icon ? <Icon name={x.icon} size={15} /> : null}
+            {x.label}
+          </button>
+        ))}
       </div>
-      {wizard && <ProfileWizard onClose={() => setWizard(false)} />}
+      {sub === 'food' ? (
+        <FoodTab date={date} isToday={isToday} />
+      ) : (
+        <div className="wallet-body wl-two hl-two">
+          {sub === 'today' && (
+            <>
+              <div className="wl-main">
+                {/* Stays until the questionnaire is filled in to the end. */}
+                {!profileComplete(profile, ibd) && <SetupCard onStart={() => setWizard('resume')} />}
+                <CheckinCard date={date} isToday={isToday} goal={goal} />
+                <MedsCard date={date} todayOnly />
+              </div>
+              <div className="wl-side">
+                {isToday && <MonthSummaryCard />}
+                {/* IBD parts exist only while IBD is on for this computer. */}
+                {ibd && <IbdCard date={date} isToday={isToday} />}
+                <FoodSummaryCard date={date} onOpen={() => pickTab('food')} />
+                <Note />
+              </div>
+            </>
+          )}
+          {sub === 'meds' && (
+            <>
+              <div className="wl-main">
+                <MedsCard date={date} />
+              </div>
+              <div className="wl-side">
+                <VisitsCard />
+                <Note />
+              </div>
+            </>
+          )}
+          {sub === 'body' && (
+            <>
+              <div className="wl-main">
+                <BodyCard date={date} />
+                <TestsCard />
+              </div>
+              <div className="wl-side">
+                <ProfileCard goal={goal} date={date} onEdit={() => setWizard('restart')} />
+                <Note />
+              </div>
+            </>
+          )}
+          {sub === 'trends' && (
+            <>
+              <div className="wl-main">
+                <TrendsCard date={date} goal={goal} />
+              </div>
+              <div className="wl-side">
+                <MonthSummaryCard always />
+                <Note />
+              </div>
+            </>
+          )}
+          {sub === 'ibd' && ibd && (
+            <>
+              <div className="wl-main">
+                <IbdCard date={date} isToday={isToday} />
+                <FlareTimelineCard date={date} />
+              </div>
+              <div className="wl-side">
+                <InsightsCard date={date} />
+                <Note />
+              </div>
+            </>
+          )}
+          {sub === 'goals' && (
+            <>
+              <div className="wl-main">{settings.healthGoals && <GoalsCard date={date} />}</div>
+              <div className="wl-side">{settings.healthChallenges && <ChallengesCard date={date} />}</div>
+            </>
+          )}
+        </div>
+      )}
+      {wizard && <ProfileWizard restart={wizard === 'restart'} onClose={() => setWizard(false)} />}
       {report && <DoctorReport onClose={() => setReport(false)} />}
     </div>
+  );
+}
+
+function Note() {
+  const { t } = useBloom();
+  return (
+    <p className="hl-note">
+      <Icon name="heartPulse" size={14} /> {t('hlNotAdvice')}
+    </p>
   );
 }

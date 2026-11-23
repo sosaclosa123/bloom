@@ -176,7 +176,6 @@ export type MoneyItem = MoneyLimit | MoneySpend | MoneyRecurring | MoneyGoal | M
 export type HealthSex = 'female' | 'male' | 'other';
 export type HealthActivity = 'sedentary' | 'light' | 'active' | 'very';
 export type HealthHot = 'no' | 'summer' | 'yes';
-export type HealthPregnancy = 'none' | 'pregnant' | 'breastfeeding';
 export type IbdType = 'crohns' | 'uc' | 'unsure';
 /** 'ostomy' = ileostomy (kept as the stored value for older data). */
 export type IbdOstomy = 'none' | 'ostomy' | 'colostomy' | 'jpouch';
@@ -192,7 +191,6 @@ export interface HealthProfile extends SyncMeta {
   activity: HealthActivity | null;
   exerciseMin: number | null; // typical minutes of exercise per day
   hot: HealthHot | null;
-  pregnancy: HealthPregnancy | null;
   /** Kidney/heart condition that limits fluids: follow the doctor's limit. */
   fluidLimit: boolean | null;
   fluidLimitMl: number | null;
@@ -289,6 +287,17 @@ export interface HealthFood extends SyncMeta {
   meal: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   text: string;
   tags: string[];
+  /** Small snacks are logged in their own area. */
+  snack?: boolean;
+  /** Portion and nutrition (when known). */
+  grams?: number | null;
+  kcal?: number | null;
+  protein?: number | null;
+  fat?: number | null;
+  carbs?: number | null;
+  /** Where the numbers came from: Israeli MoH database, Open Food Facts, or typed in. */
+  source?: 'il' | 'off' | 'manual';
+  productId?: string;
 }
 
 /** Body log for a date: weight and/or exercise. */
@@ -406,6 +415,8 @@ export interface Settings {
   healthStickerBook: boolean;
   healthGoals: boolean;
   healthChallenges: boolean;
+  /** Look foods up online (Open Food Facts, barcodes). Off = built-in list only. */
+  healthFoodOnline: boolean;
   /** Automatic weekly backups go to this folder (this computer only); null = off. */
   backupFolder: string | null;
 }
@@ -437,6 +448,7 @@ export const DEFAULT_SETTINGS: Settings = {
   healthStickerBook: false,
   healthGoals: false,
   healthChallenges: false,
+  healthFoodOnline: false,
   backupFolder: null,
 };
 
