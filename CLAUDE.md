@@ -112,9 +112,22 @@ installed apps auto-update. Commit messages: clear "what + why".
   `bloom-backup-YYYY-MM-DD.json`; keeps the newest 8 of those files and never
   touches other files; shows "Last backup" or a clear error. Logic:
   `src/shared/backup.ts` (tested), `electron/autoBackup.ts`.
-- Health formulas live in `src/shared/health.ts` with sources in comments
-  (water ~35 ml/kg + extras, doctor's fluid limit wins; BMI neutral WHO wording;
-  HBI for Crohn's, partial-Mayo style for UC). Always "Not medical advice".
+- Health formulas live in `src/shared/health.ts` with sources in comments.
+  Researched with the owner's OK; don't change without new sources:
+  - **Water = drinks goal from EFSA 2010** (80% of adequate total water):
+    women 1.6 L, men 2.0 L, children by age; **body weight is NOT used**
+    (35 ml/kg gave ~4 L). + ~500 ml/h exercise (max +1 L), + 500 hot days,
+    + 300 pregnancy / + 700 breastfeeding; IBD: ileostomy/J-pouch + 500 with
+    oral-rehydration + high-output-stoma warning, colostomy nothing, loose
+    stools + 200 each (max + 1 L, ORS tip). Clamp 1.2-3.5 L; doctor's limit wins.
+  - BMI: WHO adult bands, neutral wording, no band under 18 or in pregnancy.
+  - Crohn's: Harvey-Bradshaw (<5 / 5-7 / 8-16 / >16); mass item "only if a
+    doctor found one"; note that it isn't validated with an ileostomy.
+  - UC: SCCAI (Walmsley 1998) from the bathroom log (day/night count,
+    urgency, blood none/trace/obvious) + well-being + 4 extra-intestinal items;
+    <=2 calm, 3-4 mild, >=5 active.
+  - Red-flag note (blood, severe pain, fever, dehydration -> doctor today).
+    Sleep line = 7 h (adults 7+). Always "Not medical advice".
 
 ## In progress
 - Nothing right now. Health tab + automatic backups are done (all boxes in

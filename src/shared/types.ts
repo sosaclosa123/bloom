@@ -178,7 +178,8 @@ export type HealthActivity = 'sedentary' | 'light' | 'active' | 'very';
 export type HealthHot = 'no' | 'summer' | 'yes';
 export type HealthPregnancy = 'none' | 'pregnant' | 'breastfeeding';
 export type IbdType = 'crohns' | 'uc' | 'unsure';
-export type IbdOstomy = 'none' | 'ostomy' | 'jpouch';
+/** 'ostomy' = ileostomy (kept as the stored value for older data). */
+export type IbdOstomy = 'none' | 'ostomy' | 'colostomy' | 'jpouch';
 export type FlareMark = 'none' | 'mild' | 'flare';
 
 /** The personal questionnaire (one per person). Any answer can be skipped (null). */
@@ -233,7 +234,7 @@ export interface HealthIbdDay extends SyncMeta {
   complications: string[]; // HBI complication ids
   /** Liquid/soft stools; null = count from the bathroom log. */
   liquidStools: number | null;
-  /** UC (partial Mayo): rectal bleeding 0..3; null = from the bathroom log. */
+  /** Old (no longer used): UC bleeding is taken from the bathroom log. */
   bleeding: number | null;
   flare: FlareMark;
 }
@@ -244,8 +245,12 @@ export interface HealthBathroom extends SyncMeta {
   date: ISODate;
   time: string; // "08:30"
   bristol: number; // 1..7
-  urgency: number; // 0 none .. 3 severe
-  blood: boolean;
+  urgency: number; // 0 no rush, 1 had to hurry, 2 had to go right away, 3 didn't make it
+  blood: boolean; // any blood (kept for older data; see bloodLevel)
+  /** 0 none, 1 a trace, 2 obvious blood. */
+  bloodLevel?: number;
+  /** Woke up at night to go (default: 23:00-06:00). */
+  night?: boolean;
   pain: number; // 0..3
   notes: string;
 }

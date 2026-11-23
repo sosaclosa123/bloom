@@ -401,6 +401,7 @@ function TestEditor({ init, isNew, onClose }: { init: HealthTest; isNew: boolean
             <input dir="ltr" value={x.unit} onChange={(e) => setX({ ...x, unit: e.target.value })} />
           </Field>
         </div>
+        <p className="muted small hl-score-note">{t('hlTestRangeHint')}</p>
         <Field label={t('hlDate')}>
           <input type="date" value={x.date} onChange={(e) => e.target.value && setX({ ...x, date: e.target.value })} />
         </Field>

@@ -70,24 +70,37 @@ export function latestWeight(all: HealthItem[], date: ISODate): number | null {
 
 // ---------------------------------------------------------------- water goal
 //
-// Base: about 35 ml of drinks per kg of body weight a day (common clinical
-// rule of thumb, in line with EFSA 2010 / US NAM 2004 adequate intakes:
-// total water ~2.0 L/day for women and ~2.5 L/day for men, ~70-80% of it from
-// drinks). Without a weight we use those EFSA drink amounts.
-// + ~500 ml per hour of exercise (ACSM fluid replacement guidance, rounded)
-// + ~500 ml on hot days
-// + 300 ml when pregnant, 700 ml when breastfeeding (EFSA 2010)
-// IBD: + 500 ml with an ostomy or J-pouch, + 200 ml per liquid stool above
-// the usual number (diarrhoea / high output loses fluid), up to + 1 L.
-// Clamped to 1.5-4.5 L. A doctor's fluid limit (kidney/heart) always wins.
+// A goal for DRINKS (water, tea, coffee, milk... all count), not total water.
+// Base: EFSA 2010 adequate intakes of total water (EFSA Journal 8(3):1459) at
+// moderate temperature and activity: 2.0 L/day women, 2.5 L/day men (age 14+);
+// children 4-8 y 1.6 L, 9-13 y 1.9 L girls / 2.1 L boys. About 80% of that
+// comes from drinks (EFSA), so the drink goal is 1.6 L women, 2.0 L men,
+// 1.3 L age 4-8, 1.5 / 1.7 L age 9-13. (NHS: 6-8 glasses = ~1.5-2 L.)
+// Body weight is NOT used: "35 ml per kg" is a fitness rule of thumb, not an
+// official guideline, and gives far too much for larger bodies.
+// + Exercise: sweat losses vary a lot (ACSM 2007: replace losses, water is
+//   enough under 90 min); we add ~500 ml per hour of exercise, at most 1 L.
+//   Minutes come from the day's log, else the profile, else the activity
+//   level ('active' ~30 min/day = WHO 150 min/week, 'very' ~60 min/day).
+// + Hot weather: EFSA values are for moderate temperatures; + ~500 ml.
+// + Pregnancy + 300 ml, breastfeeding + 700 ml (EFSA 2010).
+// IBD (only when IBD is on):
+// + Ileostomy or J-pouch: + 500 ml (extra losses). Part of it should be an
+//   oral rehydration solution; with a HIGH-output stoma, more plain water
+//   makes it worse (BAPEN / NHS high-output stoma guidance) - see the notes.
+//   Colostomy: no extra.
+// + Loose stools (Bristol 6-7) on that day: + 200 ml each, at most + 1 L
+//   (ideally as oral rehydration solution). Not counted with an ileostomy.
+// Clamped to 1.2-3.5 L. A doctor's fluid limit (kidney/heart) always wins.
 
-export type WaterPartKey = 'weight' | 'base' | 'exercise' | 'hot' | 'pregnant' | 'breastfeeding' | 'ostomy' | 'diarrhoea' | 'limit';
+export type WaterPartKey = 'base' | 'exercise' | 'hot' | 'pregnant' | 'breastfeeding' | 'ostomy' | 'diarrhoea' | 'limit';
 export interface WaterPart {
   key: WaterPartKey;
   ml: number;
-  /** e.g. kg for 'weight', minutes for 'exercise', stools for 'diarrhoea'. */
+  /** minutes for 'exercise', stools for 'diarrhoea'. */
   n?: number;
 }
+export type WaterNote = 'ors' | 'stoma';
 export interface WaterGoal {
   ml: number;
   parts: WaterPart[];
@@ -95,27 +108,35 @@ export interface WaterGoal {
   limited: boolean;
   /** Has a fluid-limiting condition but no limit set yet. */
   needsLimit: boolean;
+  /** Extra advice to show: oral rehydration solution, high-output stoma. */
+  notes: WaterNote[];
 }
 
-/** Typical exercise minutes per activity level (used when minutes aren't given). */
-export const ACTIVITY_MINUTES = { sedentary: 0, light: 20, active: 45, very: 75 } as const;
+/** Exercise minutes a day assumed from the activity level (when minutes aren't given). */
+export const ACTIVITY_MINUTES = { sedentary: 0, light: 0, active: 30, very: 60 } as const;
 
 const round50 = (n: number) => Math.round(n / 50) * 50;
 
+/** EFSA-based drink amount for age and sex (see above). */
+export function baseDrinksMl(sex: HealthProfile['sex'] | undefined, age: number | null | undefined): number {
+  if (age != null && age < 9) return 1300;
+  if (age != null && age < 14) return sex === 'male' ? 1700 : sex === 'female' ? 1500 : 1600;
+  return sex === 'male' ? 2000 : sex === 'female' ? 1600 : 1800;
+}
+
 export function waterGoal(
   p: Partial<HealthProfile> | null | undefined,
-  day: { date: ISODate; exerciseMin?: number | null; liquidStools?: number; weightKg?: number | null; ibd?: boolean },
+  day: { date: ISODate; exerciseMin?: number | null; liquidStools?: number; ibd?: boolean },
 ): WaterGoal {
   const parts: WaterPart[] = [];
+  const notes: WaterNote[] = [];
   if (p?.fluidLimit && p.fluidLimitMl && p.fluidLimitMl > 0) {
-    return { ml: round50(p.fluidLimitMl), parts: [{ key: 'limit', ml: round50(p.fluidLimitMl) }], limited: true, needsLimit: false };
+    return { ml: round50(p.fluidLimitMl), parts: [{ key: 'limit', ml: round50(p.fluidLimitMl) }], limited: true, needsLimit: false, notes };
   }
-  const kg = day.weightKg ?? p?.weightKg ?? null;
-  if (kg && kg > 0) parts.push({ key: 'weight', ml: round50(35 * kg), n: kg });
-  else parts.push({ key: 'base', ml: p?.sex === 'male' ? 2000 : p?.sex === 'female' ? 1600 : 1800 });
+  parts.push({ key: 'base', ml: baseDrinksMl(p?.sex, p?.age) });
 
   const mins = day.exerciseMin ?? p?.exerciseMin ?? (p?.activity ? ACTIVITY_MINUTES[p.activity] : 0);
-  if (mins > 0) parts.push({ key: 'exercise', ml: round50((mins / 60) * 500), n: mins });
+  if (mins > 0) parts.push({ key: 'exercise', ml: Math.min(1000, round50((mins / 60) * 500)), n: mins });
 
   const month = Number(day.date.slice(5, 7)); // 1..12
   if (p?.hot === 'yes' || (p?.hot === 'summer' && month >= 5 && month <= 9)) parts.push({ key: 'hot', ml: 500 });
@@ -124,25 +145,39 @@ export function waterGoal(
   if (p?.sex !== 'male' && p?.pregnancy === 'breastfeeding') parts.push({ key: 'breastfeeding', ml: 700 });
 
   if (day.ibd) {
-    if (p?.ostomy === 'ostomy' || p?.ostomy === 'jpouch') parts.push({ key: 'ostomy', ml: 500 });
-    const extra = Math.max(0, (day.liquidStools ?? 0) - (p?.ostomy === 'jpouch' ? (p?.typicalStools ?? 0) : 0));
-    if (extra > 0) parts.push({ key: 'diarrhoea', ml: Math.min(1000, extra * 200), n: extra });
+    const ileo = p?.ostomy === 'ostomy'; // 'ostomy' = ileostomy
+    if (ileo || p?.ostomy === 'jpouch') {
+      parts.push({ key: 'ostomy', ml: 500 });
+      notes.push('stoma');
+    }
+    // Loose stools above the usual (a J-pouch normally gives a few loose ones).
+    const extra = ileo ? 0 : Math.max(0, (day.liquidStools ?? 0) - (p?.ostomy === 'jpouch' ? (p?.typicalStools ?? 0) : 0));
+    if (extra > 0) {
+      parts.push({ key: 'diarrhoea', ml: Math.min(1000, extra * 200), n: extra });
+      notes.push('ors');
+    }
   }
   const sum = parts.reduce((a, x) => a + x.ml, 0);
-  const ml = round50(Math.min(4500, Math.max(1500, sum)));
-  return { ml, parts, limited: false, needsLimit: !!p?.fluidLimit };
+  const ml = round50(Math.min(3500, Math.max(1200, sum)));
+  return { ml, parts, limited: false, needsLimit: !!p?.fluidLimit, notes };
 }
 
 // ---------------------------------------------------------------- BMI (WHO adult categories)
 
 export type BmiCategory = 'under' | 'normal' | 'over' | 'obese';
-export function bmi(heightCm: number | null | undefined, weightKg: number | null | undefined, age?: number | null): { value: number; cat: BmiCategory | null } | null {
+export function bmi(
+  heightCm: number | null | undefined,
+  weightKg: number | null | undefined,
+  age?: number | null,
+  pregnant?: boolean,
+): { value: number; cat: BmiCategory | null } | null {
   if (!heightCm || !weightKg || heightCm < 50 || weightKg < 10) return null;
   const m = heightCm / 100;
   const value = Math.round((weightKg / (m * m)) * 10) / 10;
   // WHO: < 18.5 underweight, 18.5-24.9 healthy, 25-29.9 overweight, >= 30 obesity.
-  // Adult ranges only (under 18 uses growth charts, so no category).
-  const cat: BmiCategory | null = age != null && age < 18 ? null : value < 18.5 ? 'under' : value < 25 ? 'normal' : value < 30 ? 'over' : 'obese';
+  // Adult ranges only: under 18 uses growth charts, and BMI categories don't
+  // apply in pregnancy, so no category then.
+  const cat: BmiCategory | null = (age != null && age < 18) || pregnant ? null : value < 18.5 ? 'under' : value < 25 ? 'normal' : value < 30 ? 'over' : 'obese';
   return { value, cat };
 }
 
@@ -150,18 +185,32 @@ export function bmi(heightCm: number | null | undefined, weightKg: number | null
 
 export interface BathroomStats {
   total: number;
+  /** Visits at night (woke up to go). */
+  night: number;
   liquid: number; // Bristol 6-7
+  /** Visits with any blood / with obvious blood. */
   blood: number;
-  maxUrgency: number;
+  frank: number;
+  maxUrgency: number; // 0 none, 1 had to hurry, 2 right away, 3 didn't make it
   maxPain: number;
 }
+
+/** Blood level of a visit: 0 none, 1 a trace, 2 obvious (older records only had yes/no). */
+export const bloodLevel = (b: HealthBathroom) => (b.bloodLevel ?? (b.blood ? 2 : 0));
+
+/** A visit between 23:00 and 06:00 counts as at night unless marked otherwise. */
+export const isNightTime = (time: string) => time >= '23:00' || time < '06:00';
+
 export function bathroomStats(list: HealthBathroom[], date: ISODate): BathroomStats {
-  const s: BathroomStats = { total: 0, liquid: 0, blood: 0, maxUrgency: 0, maxPain: 0 };
+  const s: BathroomStats = { total: 0, night: 0, liquid: 0, blood: 0, frank: 0, maxUrgency: 0, maxPain: 0 };
   for (const b of list) {
     if (b.deletedAt || b.date !== date) continue;
     s.total++;
+    if (b.night ?? isNightTime(b.time)) s.night++;
     if (b.bristol >= 6) s.liquid++;
-    if (b.blood) s.blood++;
+    const bl = bloodLevel(b);
+    if (bl > 0) s.blood++;
+    if (bl >= 2) s.frank++;
     s.maxUrgency = Math.max(s.maxUrgency, b.urgency);
     s.maxPain = Math.max(s.maxPain, b.pain);
   }
@@ -173,11 +222,14 @@ export function bathroomStats(list: HealthBathroom[], date: ISODate): BathroomSt
 // Harvey RF, Bradshaw JM. "A simple index of Crohn's-disease activity."
 // Lancet 1980;1(8178):514. Daily items: general well-being (0-4), abdominal
 // pain (0-3), number of liquid/soft stools, abdominal mass (0-3), and 1 point
-// per complication. Bands: < 5 remission, 5-7 mild, 8-16 moderate, > 16 severe.
+// per complication. Bands: < 5 remission, 5-7 mild, 8-16 moderate, > 16 severe
+// (Best 1998; Vermeire 2010). The "abdominal mass" item is normally found by
+// a doctor's exam, so it is only counted when entered. Not validated with an
+// ileostomy (stool counts don't apply): the app then shows a note.
 
 export const HBI_COMPLICATIONS = ['arthralgia', 'uveitis', 'erythema', 'aphthous', 'pyoderma', 'fissure', 'fistula', 'abscess'] as const;
 
-export type ActivityLevel = 'remission' | 'mild' | 'moderate' | 'severe';
+export type ActivityLevel = 'remission' | 'mild' | 'moderate' | 'active' | 'severe';
 
 export function hbi(d: Partial<Pick<HealthIbdDay, 'wellbeing' | 'pain' | 'mass' | 'complications'>> & { liquidStools?: number | null }): {
   score: number;
@@ -194,46 +246,49 @@ export function hbi(d: Partial<Pick<HealthIbdDay, 'wellbeing' | 'pain' | 'mass' 
   return { score, level, complete: d.wellbeing != null && d.pain != null && d.liquidStools != null };
 }
 
-// ---------------------------------------------------------------- UC: simple partial Mayo-style score
+// ---------------------------------------------------------------- UC: Simple Clinical Colitis Activity Index
 //
-// Patient-reported part of the Mayo score (Schroeder 1987; Lewis 2008 "partial
-// Mayo"): stool frequency vs. normal (0 = normal, 1 = 1-2 more, 2 = 3-4 more,
-// 3 = 5+ more) + rectal bleeding (0 none, 1 streaks < half the time,
-// 2 obvious blood most of the time, 3 blood alone). 0-6 here:
-// 0-1 remission, 2-3 mild, 4-5 moderate, 6 severe.
+// Walmsley RS et al. "A simple clinical colitis activity index." Gut
+// 1998;43:29-32. Fully patient-reported, 0-19:
+//  - bowel movements by day: 1-3 = 0, 4-6 = 1, 7-9 = 2, more than 9 = 3
+//  - at night: none = 0, 1-3 = 1, 4-6 or more = 2
+//  - urgency: none 0, hurry 1, immediately 2, incontinence 3
+//  - blood: none 0, trace 1, occasionally frank 2, usually frank 3
+//  - general well-being 0-4 (same scale as HBI)
+//  - 1 point each: arthritis/joint pain, eye inflammation (uveitis),
+//    erythema nodosum, pyoderma gangrenosum
+// Remission: score <= 2 (Higgins 2005, Gut 54:782: SCCAI < 2.5 best matched
+// patient-defined remission). Active disease: 5 or more (Walmsley; Jowett
+// 2003). 3-4 is shown as "mild". There is no validated "severe" band.
 
-export function ucScore(stools: number, usual: number | null | undefined, bleeding: number): { score: number; level: ActivityLevel } {
-  const more = Math.max(0, stools - (usual ?? 2));
-  const freq = more === 0 ? 0 : more <= 2 ? 1 : more <= 4 ? 2 : 3;
-  const score = freq + Math.max(0, Math.min(3, bleeding));
-  const level: ActivityLevel = score <= 1 ? 'remission' : score <= 3 ? 'mild' : score <= 5 ? 'moderate' : 'severe';
+export const SCCAI_EXTRACOLONIC = ['arthralgia', 'uveitis', 'erythema', 'pyoderma'] as const;
+
+export function sccai(s: BathroomStats, d: Partial<Pick<HealthIbdDay, 'wellbeing' | 'complications'>> | undefined): { score: number; level: ActivityLevel } {
+  const dayCount = s.total - s.night;
+  const freqDay = dayCount <= 3 ? 0 : dayCount <= 6 ? 1 : dayCount <= 9 ? 2 : 3;
+  const freqNight = s.night === 0 ? 0 : s.night <= 3 ? 1 : 2;
+  const blood = s.frank === 0 ? (s.blood > 0 ? 1 : 0) : s.frank / Math.max(1, s.total) < 0.5 ? 2 : 3;
+  const extra = (d?.complications ?? []).filter((c) => (SCCAI_EXTRACOLONIC as readonly string[]).includes(c)).length;
+  const score = freqDay + freqNight + Math.min(3, s.maxUrgency) + blood + (d?.wellbeing ?? 0) + extra;
+  const level: ActivityLevel = score <= 2 ? 'remission' : score <= 4 ? 'mild' : 'active';
   return { score, level };
 }
 
-/** Bleeding sub-score from the bathroom log (0 none, 1 under half the visits, 2 most visits). */
-export function bleedingFromLog(s: BathroomStats): number {
-  if (!s.blood) return 0;
-  return s.blood / Math.max(1, s.total) < 0.5 ? 1 : 2;
-}
-
-/** A day's IBD activity: HBI for Crohn's (and unsure), partial Mayo for UC. */
+/** A day's IBD activity: HBI for Crohn's (and unsure), SCCAI for UC. */
 export function ibdDayScore(
   profile: Partial<HealthProfile> | undefined,
   day: HealthIbdDay | undefined,
   stats: BathroomStats,
 ): { score: number; level: ActivityLevel; kind: 'hbi' | 'uc'; any: boolean } {
   const any = !!day || stats.total > 0;
-  if (profile?.ibdType === 'uc') {
-    const r = ucScore(stats.total, profile.typicalStools, day?.bleeding ?? bleedingFromLog(stats));
-    return { ...r, kind: 'uc', any };
-  }
+  if (profile?.ibdType === 'uc') return { ...sccai(stats, day), kind: 'uc', any };
   const r = hbi({ ...day, liquidStools: day?.liquidStools ?? stats.liquid });
   return { score: r.score, level: r.level, kind: 'hbi', any };
 }
 
 /** A flare day: marked as flare / mild flare, or the score is mild or worse. */
 export function isFlareDay(day: HealthIbdDay | undefined, level: ActivityLevel): 'flare' | 'mild' | null {
-  if (day?.flare === 'flare' || level === 'moderate' || level === 'severe') return 'flare';
+  if (day?.flare === 'flare' || level === 'moderate' || level === 'active' || level === 'severe') return 'flare';
   if (day?.flare === 'mild' || level === 'mild') return 'mild';
   return null;
 }

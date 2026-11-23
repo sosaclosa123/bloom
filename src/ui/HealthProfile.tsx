@@ -117,7 +117,7 @@ function useQuestions(): Q[] {
     { id: 'ibdType', title: 'hlQIbdType', when: (_, ibd) => ibd, render: (d, set) => <Choice<IbdType> prefix="hlIbd" value={d.ibdType} options={['crohns', 'uc', 'unsure']} onChange={(ibdType) => set({ ibdType })} /> },
     { id: 'ibdLocation', title: 'hlQIbdLocation', hint: 'hlQIbdLocationHint', when: (_, ibd) => ibd, render: text('ibdLocation', 'hlQIbdLocation', 'hlQIbdLocationHint') },
     { id: 'ibdMeds', title: 'hlQIbdMeds', hint: 'hlQIbdMedsHint', when: (_, ibd) => ibd, render: text('ibdMeds', 'hlQIbdMeds') },
-    { id: 'ostomy', title: 'hlQOstomy', when: (_, ibd) => ibd, render: (d, set) => <Choice<IbdOstomy> prefix="hlOst" value={d.ostomy} options={['none', 'ostomy', 'jpouch']} onChange={(ostomy) => set({ ostomy })} /> },
+    { id: 'ostomy', title: 'hlQOstomy', when: (_, ibd) => ibd, render: (d, set) => <Choice<IbdOstomy> prefix="hlOst" value={d.ostomy} options={['none', 'ostomy', 'colostomy', 'jpouch']} onChange={(ostomy) => set({ ostomy })} /> },
     { id: 'stools', title: 'hlQStools', when: (_, ibd) => ibd, render: (d, set) => <NumBox autoFocus value={d.typicalStools} onChange={(typicalStools) => set({ typicalStools })} min={0} max={30} unit={t('hlUnitPerDay')} label={t('hlQStools')} /> },
     { id: 'triggers', title: 'hlQTriggers', hint: 'hlQTriggersHint', when: (_, ibd) => ibd, render: text('triggerFoods', 'hlQTriggers', 'hlQTriggersHint') },
   ];
@@ -126,7 +126,7 @@ function useQuestions(): Q[] {
 /** One question per screen. Every answer is saved right away; Skip leaves it empty. */
 export function ProfileWizard({ onClose }: { onClose: () => void }) {
   const { t } = useBloom();
-  const { profile, ibd, saveProfile, all } = useHealth();
+  const { profile, ibd, saveProfile } = useHealth();
   const [draft, setDraft] = useState<Draft>(() => {
     const base = { ...emptyProfile(), ...(profile ?? {}) } as Draft & Partial<HealthProfile>;
     const { id: _i, createdAt: _c, updatedAt: _u, deletedAt: _d, ownerId: _o, visibility: _v, ...rest } = base;
@@ -166,7 +166,7 @@ export function ProfileWizard({ onClose }: { onClose: () => void }) {
   };
 
   const today = toISODate(new Date());
-  const goal = waterGoal(draft, { date: today, weightKg: latestWeight(all, today) ?? draft.weightKg, ibd });
+  const goal = waterGoal(draft, { date: today, ibd });
   const q = questions[i];
 
   return (
@@ -201,7 +201,7 @@ export function ProfileWizard({ onClose }: { onClose: () => void }) {
       {atEnd ? (
         <div className="hl-results">
           <WaterGoalBlock goal={goal} />
-          <BmiBlock heightCm={draft.heightCm} weightKg={draft.weightKg} age={draft.age} />
+          <BmiBlock heightCm={draft.heightCm} weightKg={draft.weightKg} age={draft.age} pregnant={draft.sex !== 'male' && draft.pregnancy === 'pregnant'} />
           <p className="hl-note">
             <Icon name="heartPulse" size={14} /> {t('hlNotAdvice')}
           </p>
@@ -237,7 +237,6 @@ export function WaterGoalBlock({ goal, compact }: { goal: WaterGoal; compact?: b
   const why = goal.parts
     .map((p, k) => {
       const n = p.ml.toLocaleString(locale);
-      if (p.key === 'weight') return t('hlWhyWeight', { n: p.n ?? 0 });
       if (p.key === 'base') return `${n} ${t('hlWhyBase')}`;
       if (p.key === 'limit') return t('hlWhyLimit');
       return `${k > 0 ? '+' : ''}${n} ${t(`hlWhy${p.key[0].toUpperCase()}${p.key.slice(1)}` as StringKey)}`;
@@ -255,14 +254,17 @@ export function WaterGoalBlock({ goal, compact }: { goal: WaterGoal; compact?: b
           {why}
         </span>
         {goal.needsLimit && <span className="hl-q-warn">{t('hlNeedsLimit')}</span>}
+        {!goal.limited && <span className="hl-goal-tip">{t('hlDrinksTip')}</span>}
+        {goal.notes.includes('ors') && <span className="hl-goal-tip strong">{t('hlOrsTip')}</span>}
+        {goal.notes.includes('stoma') && <span className="hl-goal-tip strong">{t('hlStomaTip')}</span>}
       </span>
     </div>
   );
 }
 
-export function BmiBlock({ heightCm, weightKg, age }: { heightCm: number | null; weightKg: number | null; age: number | null }) {
+export function BmiBlock({ heightCm, weightKg, age, pregnant }: { heightCm: number | null; weightKg: number | null; age: number | null; pregnant?: boolean }) {
   const { t, locale } = useBloom();
-  const b = bmi(heightCm, weightKg, age);
+  const b = bmi(heightCm, weightKg, age, pregnant);
   return (
     <div className="hl-bmi">
       <span className="hl-goal-label">{t('hlBmi')}</span>
@@ -345,7 +347,7 @@ export function ProfileCard({ date, onEdit, goal }: { date: string; onEdit: () =
         </button>
       </div>
       <WaterGoalBlock goal={goal} compact />
-      <BmiBlock heightCm={profile?.heightCm ?? null} weightKg={weight} age={profile?.age ?? null} />
+      <BmiBlock heightCm={profile?.heightCm ?? null} weightKg={weight} age={profile?.age ?? null} pregnant={profile?.sex !== 'male' && profile?.pregnancy === 'pregnant'} />
     </section>
   );
 }

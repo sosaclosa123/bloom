@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { alertsDueBetween } from './alerts';
 import { newMeta } from './db';
-import { bathroomStats, bleedingFromLog, bmi, dosesOn, emptyProfile, foodInsights, forDate, glanceDoses, hbi, ibdDayScore, ibdScores, isFlareDay, latestWeight, profileOf, ucScore, waterGoal } from './health';
+import { bathroomStats, bmi, dosesOn, emptyProfile, foodInsights, forDate, glanceDoses, hbi, ibdDayScore, ibdScores, isFlareDay, latestWeight, profileOf, sccai, waterGoal, type BathroomStats } from './health';
 import { DEFAULT_SETTINGS, type HealthBathroom, type HealthItem, type HealthMed, type HealthMedTaken, type HealthProfile } from './types';
 
 const prof = (p: Partial<HealthProfile>): HealthProfile => ({ ...newMeta(), ...emptyProfile(), ...p });
@@ -18,42 +18,50 @@ const bath = (date: string, bristol: number, extra: Partial<HealthBathroom> = {}
   ...extra,
 });
 
-describe('water goal', () => {
-  it('uses ~35 ml per kg', () => {
-    const g = waterGoal(prof({ weightKg: 60 }), { date: '2026-01-10' });
-    expect(g.ml).toBe(2100);
-    expect(g.parts).toEqual([{ key: 'weight', ml: 2100, n: 60 }]);
+describe('water goal (drinks)', () => {
+  const D = { date: '2026-01-10' };
+  it('uses EFSA drink amounts (80% of the adequate total water intake), not body weight', () => {
+    expect(waterGoal(prof({ sex: 'female', weightKg: 60 }), D)).toMatchObject({ ml: 1600, parts: [{ key: 'base', ml: 1600 }] });
+    expect(waterGoal(prof({ sex: 'male', weightKg: 110 }), D).ml).toBe(2000);
+    expect(waterGoal(null, D).ml).toBe(1800);
   });
-  it('falls back to EFSA drink amounts without a weight', () => {
-    expect(waterGoal(prof({ sex: 'female' }), { date: '2026-01-10' }).ml).toBe(1600);
-    expect(waterGoal(prof({ sex: 'male' }), { date: '2026-01-10' }).ml).toBe(2000);
-    expect(waterGoal(null, { date: '2026-01-10' }).ml).toBe(1800);
+  it('uses EFSA child values under 14', () => {
+    expect(waterGoal(prof({ sex: 'female', age: 7 }), D).ml).toBe(1300);
+    expect(waterGoal(prof({ sex: 'male', age: 12 }), D).ml).toBe(1700);
+    expect(waterGoal(prof({ sex: 'female', age: 14 }), D).ml).toBe(1600);
   });
   it('adds exercise, hot days and pregnancy', () => {
-    const g = waterGoal(prof({ weightKg: 60, sex: 'female', exerciseMin: 60, hot: 'summer', pregnancy: 'pregnant' }), { date: '2026-07-10' });
-    expect(g.ml).toBe(2100 + 500 + 500 + 300);
+    const g = waterGoal(prof({ sex: 'female', exerciseMin: 60, hot: 'summer', pregnancy: 'pregnant' }), { date: '2026-07-10' });
+    expect(g.ml).toBe(1600 + 500 + 500 + 300);
     // Summer heat only counts in summer months; the day's logged exercise wins over the usual.
-    const w = waterGoal(prof({ weightKg: 60, exerciseMin: 60, hot: 'summer' }), { date: '2026-01-10', exerciseMin: 30 });
-    expect(w.ml).toBe(2100 + 250);
+    expect(waterGoal(prof({ sex: 'female', exerciseMin: 60, hot: 'summer' }), { date: '2026-01-10', exerciseMin: 30 }).ml).toBe(1600 + 250);
+    // Exercise adds at most 1 L.
+    expect(waterGoal(prof({ sex: 'male', exerciseMin: 240 }), D).ml).toBe(3000);
   });
-  it('uses the activity level when minutes are not given', () => {
-    expect(waterGoal(prof({ weightKg: 60, activity: 'active' }), { date: '2026-01-10' }).parts.find((p) => p.key === 'exercise')?.n).toBe(45);
+  it('uses the activity level when minutes are not given (WHO ~150 min/week = active)', () => {
+    expect(waterGoal(prof({ activity: 'active' }), D).parts.find((p) => p.key === 'exercise')?.n).toBe(30);
+    expect(waterGoal(prof({ activity: 'light' }), D).parts.find((p) => p.key === 'exercise')).toBeUndefined();
   });
-  it('adds fluid for an ostomy and diarrhoea (IBD on only)', () => {
-    const p = prof({ weightKg: 60, ostomy: 'ostomy' });
-    expect(waterGoal(p, { date: '2026-01-10', liquidStools: 3, ibd: true }).ml).toBe(2100 + 500 + 600);
-    expect(waterGoal(p, { date: '2026-01-10', liquidStools: 3, ibd: false }).ml).toBe(2100);
-    // capped at +1 L
-    expect(waterGoal(prof({ weightKg: 60 }), { date: '2026-01-10', liquidStools: 9, ibd: true }).ml).toBe(3100);
+  it("the owner's case is no longer ~4 L", () => {
+    const g = waterGoal(prof({ sex: 'male', weightKg: 85, exerciseMin: 60, hot: 'summer' }), { date: '2026-07-10' });
+    expect(g.ml).toBe(3000);
+    expect(waterGoal(prof({ sex: 'male', weightKg: 85, exerciseMin: 60, hot: 'summer' }), D).ml).toBe(2500);
   });
-  it('clamps to a sensible range', () => {
-    expect(waterGoal(prof({ weightKg: 30 }), { date: '2026-01-10' }).ml).toBe(1500);
-    expect(waterGoal(prof({ weightKg: 140, exerciseMin: 180, hot: 'yes' }), { date: '2026-01-10' }).ml).toBe(4500);
+  it('IBD: ileostomy / J-pouch extra with stoma advice; colostomy none; loose stools with ORS advice', () => {
+    const ileo = waterGoal(prof({ sex: 'female', ostomy: 'ostomy' }), { ...D, liquidStools: 3, ibd: true });
+    expect(ileo).toMatchObject({ ml: 2100, notes: ['stoma'] }); // stool counts don't apply with an ileostomy
+    expect(waterGoal(prof({ sex: 'female', ostomy: 'colostomy' }), { ...D, ibd: true }).ml).toBe(1600);
+    const loose = waterGoal(prof({ sex: 'female' }), { ...D, liquidStools: 3, ibd: true });
+    expect(loose).toMatchObject({ ml: 2200, notes: ['ors'] });
+    expect(waterGoal(prof({ sex: 'female' }), { ...D, liquidStools: 9, ibd: true }).ml).toBe(2600); // + at most 1 L
+    expect(waterGoal(prof({ sex: 'female', ostomy: 'ostomy' }), { ...D, liquidStools: 3, ibd: false }).ml).toBe(1600);
+  });
+  it('clamps to 1.2-3.5 L', () => {
+    expect(waterGoal(prof({ sex: 'male', exerciseMin: 180, hot: 'yes' }), D).ml).toBe(3500);
   });
   it("follows the doctor's fluid limit", () => {
-    const g = waterGoal(prof({ weightKg: 80, fluidLimit: true, fluidLimitMl: 1200 }), { date: '2026-01-10' });
-    expect(g).toMatchObject({ ml: 1200, limited: true });
-    expect(waterGoal(prof({ weightKg: 80, fluidLimit: true }), { date: '2026-01-10' }).needsLimit).toBe(true);
+    expect(waterGoal(prof({ sex: 'male', fluidLimit: true, fluidLimitMl: 1200 }), D)).toMatchObject({ ml: 1200, limited: true });
+    expect(waterGoal(prof({ sex: 'male', fluidLimit: true }), D).needsLimit).toBe(true);
   });
 });
 
@@ -64,6 +72,7 @@ describe('BMI', () => {
     expect(bmi(170, 80)?.cat).toBe('over');
     expect(bmi(170, 90)?.cat).toBe('obese');
     expect(bmi(170, 65, 15)?.cat).toBeNull();
+    expect(bmi(170, 80, 30, true)?.cat).toBeNull(); // not in pregnancy
     expect(bmi(null, 65)).toBeNull();
   });
 });
@@ -79,20 +88,27 @@ describe('Harvey-Bradshaw Index', () => {
   it('counts liquid stools from the bathroom log', () => {
     const log = [bath('2026-01-10', 6), bath('2026-01-10', 7, { blood: true, urgency: 2 }), bath('2026-01-10', 4), bath('2026-01-11', 7)];
     const s = bathroomStats(log, '2026-01-10');
-    expect(s).toEqual({ total: 3, liquid: 2, blood: 1, maxUrgency: 2, maxPain: 0 });
+    expect(s).toMatchObject({ total: 3, liquid: 2, blood: 1, frank: 1, maxUrgency: 2, maxPain: 0 });
     const r = ibdDayScore(prof({ ibdType: 'crohns' }), undefined, s);
     expect(r).toMatchObject({ score: 2, kind: 'hbi', level: 'remission' });
   });
 });
 
-describe('UC partial Mayo-style score', () => {
-  it('scores stool frequency vs normal plus bleeding', () => {
-    expect(ucScore(2, 2, 0)).toEqual({ score: 0, level: 'remission' });
-    expect(ucScore(5, 2, 1)).toEqual({ score: 3, level: 'mild' });
-    expect(ucScore(8, 2, 2)).toEqual({ score: 5, level: 'moderate' });
-    expect(ucScore(9, 1, 3).level).toBe('severe');
-    expect(bleedingFromLog({ total: 4, liquid: 0, blood: 1, maxUrgency: 0, maxPain: 0 })).toBe(1);
-    expect(bleedingFromLog({ total: 2, liquid: 0, blood: 2, maxUrgency: 0, maxPain: 0 })).toBe(2);
+describe('UC: SCCAI (Walmsley 1998)', () => {
+  const st = (p: Partial<BathroomStats>): BathroomStats => ({ total: 0, night: 0, liquid: 0, blood: 0, frank: 0, maxUrgency: 0, maxPain: 0, ...p });
+  it('scores day/night frequency, urgency, blood, well-being and extra-intestinal problems', () => {
+    expect(sccai(st({ total: 3 }), { wellbeing: 0 })).toEqual({ score: 0, level: 'remission' });
+    // 5 by day (1) + 1 at night (1) + hurry (1) + trace (1) = 4 -> mild
+    expect(sccai(st({ total: 6, night: 1, blood: 1, maxUrgency: 1 }), { wellbeing: 0 })).toEqual({ score: 4, level: 'mild' });
+    // 8 by day (2) + 2 night (1) + right away (2) + frank most visits (3) + poor (2) + joint pain (1) = 11
+    expect(sccai(st({ total: 10, night: 2, blood: 6, frank: 6, maxUrgency: 2 }), { wellbeing: 2, complications: ['arthralgia', 'fissure'] })).toEqual({ score: 11, level: 'active' });
+    // frank blood in under half the visits = 2
+    expect(sccai(st({ total: 3, blood: 1, frank: 1 }), {}).score).toBe(2);
+  });
+  it('counts night visits and blood levels from the log', () => {
+    const log = [bath('2026-01-10', 4, { time: '02:00' }), bath('2026-01-10', 5, { time: '09:00', bloodLevel: 1, blood: true }), bath('2026-01-10', 6, { time: '23:30', night: false }), bath('2026-01-10', 7, { blood: true })];
+    expect(bathroomStats(log, '2026-01-10')).toMatchObject({ total: 4, night: 1, blood: 2, frank: 1, liquid: 2 });
+    expect(ibdDayScore(prof({ ibdType: 'uc' }), undefined, bathroomStats(log, '2026-01-10'))).toMatchObject({ kind: 'uc', score: 1 + 2, level: 'mild' });
   });
 });
 

@@ -3,7 +3,7 @@
 // shows on a computer where Health is turned on in Settings.
 import { useState } from 'react';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
-import { bathroomStats, forDate, healthOf, latestWeight, waterGoal } from '../shared/health';
+import { bathroomStats, forDate, healthOf, waterGoal } from '../shared/health';
 import { Button, Icon, IconButton, Toggle } from './common';
 import { useHealth } from './healthUi';
 import { BodyCard, MedsCard, TestsCard, VisitsCard } from './HealthCards';
@@ -79,7 +79,7 @@ function HealthOn() {
       : parseISODate(date).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
   const stats = bathroomStats(healthOf(all, 'bathroom'), date);
   const body = forDate(all, 'body', date);
-  const goal = waterGoal(profile, { date, weightKg: latestWeight(all, date), ibd, liquidStools: stats.liquid, exerciseMin: body?.exerciseMin ?? null });
+  const goal = waterGoal(profile, { date, ibd, liquidStools: stats.liquid, exerciseMin: body?.exerciseMin ?? null });
 
   return (
     <div className="page hl">

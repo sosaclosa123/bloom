@@ -35,7 +35,7 @@ export function TrendsCard({ date, goal }: { date: ISODate; goal: WaterGoal }) {
     return scores.get(d)?.score ?? null;
   });
   const known = values.filter((v): v is number => v != null);
-  const ref = m === 'water' ? goal.ml : m === 'sleep' ? 8 : null;
+  const ref = m === 'water' ? goal.ml : m === 'sleep' ? 7 : null;
   const top = m === 'mood' ? 5 : Math.max(1, ref ?? 0, ...known);
   // Weight: bars show the change within the period, not from zero.
   const lo = m === 'weight' && known.length ? Math.min(...known) - 1 : 0;
@@ -125,7 +125,7 @@ export function FlareTimelineCard({ date }: { date: ISODate }) {
             <span
               key={d}
               className="hl-col"
-              title={`${parseISODate(d).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}${s ? ` · ${s.score} · ${t(`hlAct_${s.level}` as StringKey)}` : ''}`}
+              title={`${parseISODate(d).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}${s ? ` · ${s.score} · ${t(`hlLvl_${s.level}` as StringKey)}` : ''}`}
             >
               <span className="hl-bar-wrap">
                 {s ? <span className={`hl-bar ${s.flare ? 'flare-' + s.flare : 'calm'}`} style={{ height: `${Math.max(8, (s.score / top) * 100)}%` }} /> : <span className="hl-bar none" />}

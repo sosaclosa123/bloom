@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { newMeta } from '../shared/db';
 import { parseISODate } from '../shared/dates';
-import { bathroomStats, forDate, HBI_COMPLICATIONS, healthOf, ibdDayScore } from '../shared/health';
+import { bathroomStats, bloodLevel, forDate, HBI_COMPLICATIONS, healthOf, ibdDayScore, isNightTime, SCCAI_EXTRACOLONIC } from '../shared/health';
 import type { FlareMark, HealthBathroom, HealthIbdDay, ISODate } from '../shared/types';
 import { Button, Field, Icon, Modal, Toggle } from './common';
 import { Pills, useHealth } from './healthUi';
@@ -34,7 +34,7 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
   const set = (p: Partial<HealthIbdDay>) => save('health', { ...cur, ...p });
   const score = ibdDayScore(profile, rec, stats);
   const lvl = (prefix: string, n: number) => Array.from({ length: n }, (_, v) => ({ value: v, label: t(`${prefix}_${v}` as StringKey) }));
-  const newVisit = () => setEditing({ b: { ...newMeta(), kind: 'bathroom', date, time: isToday ? nowTime() : '12:00', bristol: 4, urgency: 0, blood: false, pain: 0, notes: '' }, isNew: true });
+  const newVisit = () => setEditing({ b: { ...newMeta(), kind: 'bathroom', date, time: isToday ? nowTime() : '12:00', bristol: 4, urgency: 0, blood: false, bloodLevel: 0, pain: 0, notes: '' }, isNew: true });
 
   return (
     <section className="w-card hl-ibd">
@@ -44,7 +44,7 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
         </h3>
         {score.any && (
           <span className={`hl-score lvl-${score.level}`} title={t('hlScoreNote')}>
-            {score.kind === 'uc' ? t('hlScoreUc', { n: score.score }) : t('hlScoreHbi', { n: score.score })} · {t(`hlAct_${score.level}` as StringKey)}
+            {score.kind === 'uc' ? t('hlScoreUc', { n: score.score }) : t('hlScoreHbi', { n: score.score })} · {t(`hlLvl_${score.level}` as StringKey)}
           </span>
         )}
       </div>
@@ -71,7 +71,8 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
                   </span>
                   <span className="hl-bristol">{b.bristol}</span>
                   {b.urgency > 0 && <span className="hl-bath-mark">!{'!'.repeat(b.urgency - 1)}</span>}
-                  {b.blood && <Icon name="drop" size={12} className="hl-blood" />}
+                  {bloodLevel(b) > 0 && <Icon name="drop" size={12} className={`hl-blood ${bloodLevel(b) === 1 ? 'trace' : ''}`} />}
+                  {(b.night ?? isNightTime(b.time)) && <span className="hl-bath-night" title={t('hlNight')}>☾</span>}
                 </button>
               </li>
             ))}
@@ -97,15 +98,16 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
           </div>
           {profile?.ibdType !== 'uc' && (
             <div className="hl-row wide">
-              <span className="hl-row-label">{t('hlMass')}</span>
+              <span className="hl-row-label">{t('hlMassDoctor')}</span>
               <Pills label={t('hlMass')} value={cur.mass} onChange={(mass) => set({ mass })} options={lvl('hlMass', 4)} />
             </div>
           )}
-          {profile?.ibdType !== 'uc' && (
+          {(
             <div className="hl-row wide">
               <span className="hl-row-label">{t('hlComplications')}</span>
               <div className="hl-pills" role="group" aria-label={t('hlComplications')}>
-                {HBI_COMPLICATIONS.map((c) => {
+                {/* UC (SCCAI) counts only the four extra-intestinal problems. */}
+                {(profile?.ibdType === 'uc' ? SCCAI_EXTRACOLONIC : HBI_COMPLICATIONS).map((c) => {
                   const on = cur.complications.includes(c);
                   return (
                     <button
@@ -134,8 +136,16 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
           </div>
         </div>
         <p className="muted small hl-score-note">
-          {t('hlLiquidFromLog', { n: stats.liquid })} · {t('hlScoreNote')}
+          {score.kind === 'hbi' && profile?.ostomy !== 'ostomy' ? `${t('hlLiquidFromLog', { n: stats.liquid })} · ` : ''}
+          {score.kind === 'uc' ? `${t('hlSccaiFromLog')} · ` : ''}
+          {t('hlScoreNote')}
         </p>
+        {profile?.ostomy === 'ostomy' && <p className="muted small hl-score-note">{t('hlScoreOstomy')}</p>}
+        {(stats.frank > 0 || stats.maxPain >= 3 || (cur.pain ?? 0) >= 3 || score.level === 'severe' || (cur.wellbeing ?? 0) >= 4) && (
+          <p className="hl-redflag" role="note">
+            <Icon name="bell" size={14} /> {t('hlRedFlag')}
+          </p>
+        )}
       </div>
       {editing && <BathroomEditor init={editing.b} isNew={editing.isNew} onClose={() => setEditing(null)} />}
     </section>
@@ -203,13 +213,27 @@ function BathroomEditor({ init, isNew, onClose }: { init: HealthBathroom; isNew:
         </div>
         <div className="field">
           <span className="field-label">{t('hlUrgency')}</span>
-          <Pills label={t('hlUrgency')} value={b.urgency} onChange={(urgency) => setB({ ...b, urgency: urgency ?? 0 })} options={lvl(4)} />
+          <Pills
+            label={t('hlUrgency')}
+            value={b.urgency}
+            onChange={(urgency) => setB({ ...b, urgency: urgency ?? 0 })}
+            options={[0, 1, 2, 3].map((v) => ({ value: v, label: t(`hlUrg_${v}` as StringKey) }))}
+          />
         </div>
         <div className="field">
           <span className="field-label">{t('hlPain')}</span>
           <Pills label={t('hlPain')} value={b.pain} onChange={(pain) => setB({ ...b, pain: pain ?? 0 })} options={lvl(4)} />
         </div>
-        <Toggle checked={b.blood} label={t('hlBlood')} onChange={(blood) => setB({ ...b, blood })} />
+        <div className="field">
+          <span className="field-label">{t('hlBlood')}</span>
+          <Pills
+            label={t('hlBlood')}
+            value={bloodLevel(b)}
+            onChange={(v) => setB({ ...b, bloodLevel: v ?? 0, blood: (v ?? 0) > 0 })}
+            options={[0, 1, 2].map((v) => ({ value: v, label: t(`hlBlood_${v}` as StringKey) }))}
+          />
+        </div>
+        <Toggle checked={b.night ?? isNightTime(b.time)} label={t('hlNight')} onChange={(night) => setB({ ...b, night })} />
         <Field label={t('hlNote')}>
           <input dir="auto" value={b.notes} onChange={(e) => setB({ ...b, notes: e.target.value })} />
         </Field>
