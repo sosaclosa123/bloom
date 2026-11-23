@@ -52,6 +52,10 @@ installed apps auto-update. Commit messages: clear "what + why".
 
 ## Rules decided with the owner (don't break these)
 - **Private by default.** Sharing is opt-in per item.
+- **Security rules** (`firebase/firestore.rules`) are NOT deployed by CI: the
+  owner pastes them in the Firebase console (Firestore → Rules → Publish).
+  A full couple space is invisible to outsiders (get only for members or
+  while it has < 2 members); a join to a full space reads as "full".
 - **Data follows the account** (owner's rule): signed in = that account's
   data (calendar, Health, Wallet, everything synced) on any PC; signed out =
   this computer's own offline Bloom. Desktop files: `bloom-data.json`

@@ -65,7 +65,11 @@ export function createFirebaseBackend(config: FirebaseOptions): SyncBackend {
     },
     async joinSpace(uid, name, id) {
       const ref = doc(db, 'spaces', id);
-      const snap = await getDoc(ref);
+      // A full couple calendar can't be read by outsiders (security rules): that means "full".
+      const snap = await getDoc(ref).catch((e: unknown) => {
+        if (String((e as { code?: string })?.code ?? e).includes('permission-denied')) throw new Error('full');
+        throw e;
+      });
       if (!snap.exists()) throw new Error('not-found');
       const s = toSpace(id, snap.data())!;
       if (s.members.includes(uid)) return s;

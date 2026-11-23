@@ -110,6 +110,10 @@ describe('sync between two partners', () => {
     await stranger.engine.signUp('X', 'x@example.com', 'pw123456');
     await wait();
     await expect(stranger.engine.joinSpace(code)).rejects.toThrow('full');
+    // ...and can't even see who is in it.
+    const outsider = new FakeBackend(cloud);
+    await outsider.signIn('x@example.com', 'pw123456');
+    await expect(outsider.getSpace(code)).rejects.toThrow('permission-denied');
 
     // No endless echo: nothing left to push.
     const before = cloud.items.get(`s:${code}`)!.size;

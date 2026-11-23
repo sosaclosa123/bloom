@@ -9,7 +9,14 @@ service cloud.firestore {
 
     // A shared couple calendar. Its id is the invite code.
     match /spaces/{sid} {
-      allow get: if request.auth != null;
+      // Readable by its members, or while it still waits for a 2nd person
+      // (needed to join with the code). A full couple is invisible to
+      // everyone else, even with the code. A missing code reads as missing.
+      allow get: if request.auth != null && (
+        resource == null ||
+        request.auth.uid in resource.data.members ||
+        resource.data.members.size() < 2
+      );
       allow create: if request.auth != null
         && request.resource.data.members == [request.auth.uid];
       // Members can edit; a second person can join once (max 2 members).

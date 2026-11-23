@@ -78,7 +78,10 @@ export class FakeBackend implements SyncBackend {
     return s;
   }
   async getSpace(id: string) {
-    return this.cloud.spaces.get(id) ?? null;
+    const s = this.cloud.spaces.get(id);
+    // Same as the rules: a full couple is hidden from everyone else.
+    if (s && this.user && !s.members.includes(this.user.uid) && s.members.length >= 2) throw new Error('permission-denied');
+    return s ?? null;
   }
   onSpace(id: string, cb: (s: SpaceInfo | null) => void) {
     const sub = { id, cb };
