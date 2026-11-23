@@ -16,6 +16,15 @@ Keep this file updated whenever something important changes.
   (browser + desktop/Electron), both languages, light/dark, several window
   sizes and Windows scaling. Look for cut/hidden text. Report honestly.
 - Usage is limited: work efficiently; prefer one solid pass over many small ones.
+- **Check-in pauses (owner's rule for big jobs):** about every 15-20 minutes
+  of work, stop at a SAFE point and ask with AskUserQuestion "Continue?"
+  (options: "Yes, continue" / "Yes, continue (after a break)"). Owner will say
+  yes; the pause is only so usage doesn't run out mid-change.
+  A safe point means: the code builds, tests pass, nothing half-edited;
+  commit + push to the work branch (`claude/...`). Push to `main` (= a
+  release) only when a finished, tested piece is ready, never a half-done one.
+  Before each pause, update "In progress" below with a checklist (done / next
+  step / any gotchas) so a new session can pick up exactly there.
 
 ## Stack
 Electron + React 18 + TypeScript + Vite; esbuild for main/preload
