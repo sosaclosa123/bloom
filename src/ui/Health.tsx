@@ -9,6 +9,7 @@ import { useHealth } from './healthUi';
 import { BodyCard, MedsCard, TestsCard, VisitsCard } from './HealthCards';
 import { CheckinCard } from './HealthCheckin';
 import { IbdCard } from './HealthIbd';
+import { FlareTimelineCard, FoodCard, InsightsCard, TrendsCard } from './HealthTrends';
 import { ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
 import { useBloom } from './store';
 
@@ -105,6 +106,10 @@ function HealthOn() {
           {/* IBD parts exist only while IBD is on for this computer. */}
           {ibd && <IbdCard date={date} isToday={isToday} />}
           <MedsCard date={date} />
+          <FoodCard date={date} isToday={isToday} />
+          <TrendsCard date={date} goal={goal} />
+          {ibd && <FlareTimelineCard date={date} />}
+          {ibd && <InsightsCard date={date} />}
         </div>
         <div className="wl-side">
           <ProfileCard goal={goal} date={date} onEdit={() => setWizard(true)} />

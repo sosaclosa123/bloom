@@ -256,7 +256,7 @@ export function BodyCard({ date }: { date: ISODate }) {
       </div>
       {diff != null && first && (
         <p className="w-card-sub">
-          {t('hlWeightSince', { d: `${diff > 0 ? '+' : ''}${diff.toLocaleString(locale)} ${t('hlUnitKg')}`, date: fmtDay(first.date, locale) })}
+          {t('hlWeightSince', { d: `\u2066${diff > 0 ? '+' : ''}${diff.toLocaleString(locale)}\u2069 ${t('hlUnitKg')}`, date: fmtDay(first.date, locale) })}
         </p>
       )}
     </section>

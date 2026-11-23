@@ -257,3 +257,59 @@ export function checkinFilled(c: HealthCheckin | undefined): number {
   if (!c) return 0;
   return [c.waterMl > 0, c.mood != null, c.sleepH != null, c.energy != null, c.stress != null].filter(Boolean).length;
 }
+
+// ---------------------------------------------------------------- trends & food insights
+
+/** IBD score for each date that has any IBD data. */
+export function ibdScores(all: HealthItem[], profile: Partial<HealthProfile> | undefined, dates: ISODate[]): Map<ISODate, { score: number; level: ActivityLevel; flare: 'flare' | 'mild' | null }> {
+  const log = healthOf(all, 'bathroom');
+  const out = new Map<ISODate, { score: number; level: ActivityLevel; flare: 'flare' | 'mild' | null }>();
+  for (const date of dates) {
+    const day = forDate(all, 'ibdday', date);
+    const r = ibdDayScore(profile, day, bathroomStats(log, date));
+    if (r.any) out.set(date, { score: r.score, level: r.level, flare: isFlareDay(day, r.level) });
+  }
+  return out;
+}
+
+/** Common food tags (the person can add their own). */
+export const FOOD_TAGS = ['dairy', 'gluten', 'spicy', 'fried', 'fatty', 'sugar', 'alcohol', 'caffeine', 'fiber', 'redmeat'] as const;
+
+export interface FoodInsight {
+  tag: string;
+  withAvg: number;
+  withoutAvg: number;
+  withDays: number;
+  worse: boolean;
+}
+
+/**
+ * Simple counts, no statistics: for each food tag, the average IBD score on
+ * days the food was eaten vs. days it wasn't (both need at least `minDays`).
+ * Only differences of at least 1.5 points are reported, biggest first.
+ */
+export function foodInsights(all: HealthItem[], profile: Partial<HealthProfile> | undefined, dates: ISODate[], minDays = 3): FoodInsight[] {
+  const scores = ibdScores(all, profile, dates);
+  const tagsByDate = new Map<ISODate, Set<string>>();
+  for (const f of healthOf(all, 'food')) {
+    if (!scores.has(f.date)) continue;
+    const set = tagsByDate.get(f.date) ?? new Set<string>();
+    f.tags.forEach((x) => set.add(x));
+    tagsByDate.set(f.date, set);
+  }
+  // Only days with both a food log and a score count.
+  const days = [...tagsByDate.keys()];
+  const tags = new Set(days.flatMap((d) => [...tagsByDate.get(d)!]));
+  const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const out: FoodInsight[] = [];
+  for (const tag of tags) {
+    const w = days.filter((d) => tagsByDate.get(d)!.has(tag)).map((d) => scores.get(d)!.score);
+    const wo = days.filter((d) => !tagsByDate.get(d)!.has(tag)).map((d) => scores.get(d)!.score);
+    if (w.length < minDays || wo.length < minDays) continue;
+    const a = avg(w);
+    const b = avg(wo);
+    if (Math.abs(a - b) < 1.5) continue;
+    out.push({ tag, withAvg: Math.round(a * 10) / 10, withoutAvg: Math.round(b * 10) / 10, withDays: w.length, worse: a > b });
+  }
+  return out.sort((x, y) => Math.abs(y.withAvg - y.withoutAvg) - Math.abs(x.withAvg - x.withoutAvg));
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { alertsDueBetween } from './alerts';
 import { newMeta } from './db';
-import { bathroomStats, bleedingFromLog, bmi, dosesOn, emptyProfile, forDate, hbi, ibdDayScore, isFlareDay, latestWeight, profileOf, ucScore, waterGoal } from './health';
+import { bathroomStats, bleedingFromLog, bmi, dosesOn, emptyProfile, foodInsights, forDate, hbi, ibdDayScore, ibdScores, isFlareDay, latestWeight, profileOf, ucScore, waterGoal } from './health';
 import { DEFAULT_SETTINGS, type HealthBathroom, type HealthItem, type HealthMed, type HealthMedTaken, type HealthProfile } from './types';
 
 const prof = (p: Partial<HealthProfile>): HealthProfile => ({ ...newMeta(), ...emptyProfile(), ...p });
@@ -155,5 +155,28 @@ describe('medication reminders', () => {
   it('catches up over midnight', () => {
     const a = alertsDueBetween({ ...base, health: [med] }, at(19), at(32));
     expect(a.map((x) => x.when)).toEqual(['2026-01-10T20:00', '2026-01-11T08:00']);
+  });
+});
+
+describe('food insights', () => {
+  it('compares symptom scores on days with and without a food', () => {
+    const all: HealthItem[] = [];
+    const dates: string[] = [];
+    for (let i = 1; i <= 10; i++) {
+      const date = `2026-01-${String(i).padStart(2, '0')}`;
+      dates.push(date);
+      const dairy = i % 2 === 0;
+      all.push({ ...newMeta(), kind: 'food', date, time: '12:00', meal: 'lunch', text: '', tags: dairy ? ['dairy', 'gluten'] : ['gluten'] });
+      all.push({ ...newMeta(), kind: 'ibdday', date, wellbeing: dairy ? 3 : 0, pain: dairy ? 2 : 0, fatigue: 0, mass: 0, complications: [], liquidStools: 0, bleeding: 0, flare: 'none' });
+    }
+    const r = foodInsights(all, prof({ ibdType: 'crohns' }), dates);
+    expect(r).toEqual([{ tag: 'dairy', withAvg: 5, withoutAvg: 0, withDays: 5, worse: true }]);
+    // gluten is every day: nothing to compare with
+    expect(r.find((x) => x.tag === 'gluten')).toBeUndefined();
+    // Too little data: nothing.
+    expect(foodInsights(all, prof({}), dates.slice(0, 4))).toEqual([]);
+    const s = ibdScores(all, prof({}), ['2026-01-02', '2026-01-03', '2026-02-01']);
+    expect(s.get('2026-01-02')).toEqual({ score: 5, level: 'mild', flare: 'mild' });
+    expect(s.has('2026-02-01')).toBe(false);
   });
 });

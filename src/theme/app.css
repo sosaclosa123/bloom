@@ -5900,3 +5900,197 @@ input[type='time'] {
 .hl-ibd-modal .hl-time-in:not([type='checkbox']):not([type='radio']):not([type='range']) {
   width: calc(130px * var(--fs-scale, 1));
 }
+/* trends charts (HTML bars, so RTL and resizing just work) */
+.hl-metric-pills button {
+  font-size: var(--fs-xs);
+  padding: 4px 10px;
+}
+.hl-chart {
+  position: relative;
+  height: 140px;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding-top: 18px;
+}
+.hl-chart.r-month {
+  gap: 2px;
+}
+.hl-chart.timeline {
+  height: 90px;
+  padding-top: 4px;
+}
+.hl-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.hl-bar-wrap {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface-hover) 60%, transparent);
+}
+.hl-bar {
+  width: 100%;
+  max-width: 34px;
+  border-radius: 6px 6px 3px 3px;
+  background: var(--accent);
+  opacity: 0.75;
+  transition: height 380ms var(--ease, ease);
+}
+.hl-chart.r-month .hl-bar {
+  border-radius: 3px 3px 2px 2px;
+}
+.hl-bar.sel {
+  opacity: 1;
+}
+.m-water .hl-bar {
+  background: var(--hl-water);
+}
+.m-sleep .hl-bar {
+  background: #8b7fd8;
+}
+.m-mood .hl-bar {
+  background: #e3a72f;
+}
+.m-weight .hl-bar {
+  background: #a98a6d;
+}
+.m-symptoms .hl-bar,
+.hl-bar.calm {
+  background: var(--hl-green);
+}
+.hl-bar.flare-mild {
+  background: color-mix(in srgb, var(--hl-pink) 55%, var(--surface));
+  opacity: 1;
+}
+.hl-bar.flare-flare {
+  background: var(--hl-pink);
+  opacity: 1;
+}
+.hl-bar.none {
+  height: 3px;
+  background: var(--border-strong);
+  opacity: 0.6;
+}
+.hl-col-label {
+  height: calc(14px * var(--fs-scale, 1));
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: visible;
+}
+.hl-chart-ref-area {
+  position: absolute;
+  inset-inline: 0;
+  top: 18px;
+  bottom: calc(14px * var(--fs-scale, 1) + 4px);
+  pointer-events: none;
+  z-index: 1;
+}
+.hl-chart-ref {
+  position: absolute;
+  inset-inline: 0;
+  border-top: 1.5px dashed color-mix(in srgb, var(--text-muted) 55%, transparent);
+}
+.hl-chart-ref span {
+  position: absolute;
+  inset-inline-end: 0;
+  bottom: 2px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  background: var(--surface);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.hl-chart-empty {
+  padding: var(--space-4) 0;
+  text-align: center;
+}
+.hl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.hl-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.hl-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--hl-green);
+}
+.hl-legend i.flare-flare {
+  background: var(--hl-pink);
+}
+.hl-legend i.none {
+  background: var(--border-strong);
+}
+/* food */
+.hl-food-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.hl-food-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.hl-food-row input {
+  flex: 1;
+  min-width: 0;
+}
+.hl-food-tags button {
+  font-size: var(--fs-xs);
+  padding: 3px 10px;
+}
+.hl-food-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 34px;
+}
+.hl-food-meal {
+  flex: none;
+  min-width: calc(76px * var(--fs-scale, 1));
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.hl-food-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  overflow-wrap: anywhere;
+}
+.hl-insight-list li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 4px 0;
+}
+.hl-insight-list .icon {
+  flex: none;
+  margin-top: 2px;
+}
+.hl-insight-list li.worse .icon {
+  color: var(--hl-pink);
+}
+.hl-insight-list li.better .icon {
+  color: var(--hl-green);
+}
