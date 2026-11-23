@@ -1,5 +1,8 @@
 # Bloom: project notes
 
+> Start here, then read `docs/HISTORY.md` (full summary: features, owner's
+> past choices, pitfalls, QA tools in `qa/`). Don't re-read old chats.
+
 A pastel desktop calendar for Windows, made for the owner's girlfriend.
 Used daily by two people (owner: English Windows; she: **Hebrew Windows**).
 Keep this file updated whenever something important changes.
