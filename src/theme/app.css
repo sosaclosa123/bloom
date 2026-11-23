@@ -5499,3 +5499,238 @@ input[type='time'] {
     display: none;
   }
 }
+/* lists inside health cards */
+.w-card-head h3 .icon {
+  vertical-align: -3px;
+  color: var(--hl-pink);
+  margin-inline-end: 2px;
+}
+.hl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hl-dose {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 0;
+  min-height: 36px;
+}
+.hl-dose.done .hl-dose-name > span:first-child {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  color: var(--text-muted);
+}
+.hl-dose.paused {
+  opacity: 0.6;
+}
+.hl-dose-time {
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  min-width: calc(42px * var(--fs-scale, 1));
+  color: var(--text-muted);
+}
+.hl-dose-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  text-align: start;
+  color: var(--text);
+  font-weight: 600;
+}
+.hl-dose-name:hover > span:first-child {
+  color: var(--accent-text);
+}
+.hl-dose-name .muted {
+  font-weight: 500;
+  font-size: var(--fs-sm);
+}
+.hl-dose-bell {
+  color: var(--text-faint, var(--text-muted));
+  flex: none;
+}
+.hl-check {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.6px solid var(--border-strong, var(--border));
+  background: var(--surface);
+  color: transparent;
+  display: grid;
+  place-items: center;
+  transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast);
+}
+.hl-check:hover {
+  border-color: var(--accent);
+}
+.hl-check.on {
+  background: var(--hl-green);
+  border-color: var(--hl-green);
+  color: #fff;
+  animation: hl-pop 300ms var(--spring, ease);
+}
+.hl-tag {
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.hl-tag.ibd {
+  background: var(--hl-pink-soft);
+  color: var(--hl-pink);
+}
+.hl-item {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 8px;
+  margin-inline: -8px;
+  width: calc(100% + 16px);
+  text-align: start;
+  color: var(--text);
+}
+.hl-item:hover {
+  background: var(--surface-hover);
+}
+.hl-item-title {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.hl-item-value {
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
+  margin-inline-start: auto;
+}
+.hl-item-date {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.hl-item-value + .hl-item-date {
+  margin-inline-start: 0;
+}
+.hl-item-title + .icon + .hl-item-date,
+.hl-item-title + .hl-item-date {
+  margin-inline-start: auto;
+}
+.hl-item-note {
+  flex-basis: 100%;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.hl-sub {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: -6px;
+}
+/* body card */
+.hl-body-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.hl-mini-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hl-mini-field .hl-num input:not([type='checkbox']):not([type='radio']):not([type='range']) {
+  width: calc(84px * var(--fs-scale, 1));
+  font-size: var(--fs-md);
+}
+/* editors */
+.hl-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.hl-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+}
+.hl-times {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.hl-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.hl-time input:not([type='checkbox']):not([type='radio']):not([type='range']) {
+  width: calc(120px * var(--fs-scale, 1));
+}
+.hl-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.hl-hist {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--surface-hover);
+}
+.hl-hist.all {
+  background: var(--hl-green);
+}
+.hl-hist.some {
+  background: color-mix(in srgb, var(--hl-green) 45%, var(--surface-hover));
+}
+.hl-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: -6px;
+}
+.hl-tag-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.hl-tag-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.hl-tag-btn.ibd {
+  border-color: var(--hl-pink-line);
+  color: var(--hl-pink);
+}

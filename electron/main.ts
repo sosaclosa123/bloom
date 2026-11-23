@@ -18,7 +18,7 @@ import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 
 import { basename, extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { COLLECTIONS, merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert, uuid } from '../src/shared/db';
-import type { CollectionName, Collections, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../src/shared/types';
+import type { CollectionName, Collections, FiredAlert, HealthMedTaken, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../src/shared/types';
 import { gameDetectionStatus, isGaming, setOwnWindowCheck } from './gameMode';
 import { Scheduler, type DeliveryReason } from './scheduler';
 import { FileStore, StateFile } from './store';
@@ -299,7 +299,9 @@ function showToasts(alerts: FiredAlert[]) {
           : `Starts at ${time}`
         : time;
     try {
-      const n = new Notification({ title: a.title || 'Bloom', body, silent: true, icon: join(DIST, 'icon.png') });
+      // Medication reminders stay generic ("Medication") unless names were turned on.
+      const title = a.title || (a.kind === 'med' ? (he ? 'תרופה' : 'Medication') : 'Bloom');
+      const n = new Notification({ title, body, silent: true, icon: join(DIST, 'icon.png') });
       liveToasts.add(n);
       const done = () => liveToasts.delete(n);
       n.on('click', () => {
@@ -616,6 +618,15 @@ function registerIpc() {
   ipcMain.on('popup:snooze', (_e, key: string, minutes: number) => {
     const a = popupAlerts.find((x) => x.key === key);
     if (a && a.sourceId !== 'test') scheduler.snooze(a, minutes);
+    popupAlerts = popupAlerts.filter((x) => x.key !== key);
+    sendPopup();
+  });
+  ipcMain.on('popup:taken', (_e, key: string) => {
+    const a = popupAlerts.find((x) => x.key === key);
+    if (a?.kind === 'med') {
+      const taken: HealthMedTaken = { ...newMeta(), kind: 'taken', medId: a.sourceId, date: a.when.slice(0, 10), time: a.when.slice(11, 16) };
+      store.set(upsert(store.get(), 'health', taken));
+    }
     popupAlerts = popupAlerts.filter((x) => x.key !== key);
     sendPopup();
   });

@@ -59,6 +59,8 @@ export interface DesktopBridge {
     snooze(key: string, minutes: number): void;
     dismiss(key: string): void;
     dismissAll(): void;
+    /** Medication reminder: mark the dose as taken. */
+    taken(key: string): void;
     open(date: string): void;
     resize(height: number): void;
   };

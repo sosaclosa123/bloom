@@ -81,7 +81,7 @@ Detailed, one question per screen, skippable, editable later in the tab.
 - [x] 3. Profile questionnaire + `src/shared/health.ts` formulas (water goal,
       BMI, HBI) with tests.
 - [x] 4. Daily check-in card (water goal progress, mood, sleep, energy, stress).
-- [ ] 5. Medications (+ private reminders) and Body/Tests/Doctor cards.
+- [x] 5. Medications (+ private reminders) and Body/Tests/Doctor cards.
 - [ ] 6. IBD: bathroom log, symptoms, HBI, flare marking (hidden when IBD off).
 - [ ] 7. Trends charts (+ 30-day flare timeline) and food insights.
 - [ ] 8. Startup window rules + full QA (EN/HE, light/dark, sizes, large

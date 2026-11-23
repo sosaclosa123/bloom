@@ -6,6 +6,7 @@ import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { bathroomStats, forDate, healthOf, latestWeight, waterGoal } from '../shared/health';
 import { Button, Icon, IconButton, Toggle } from './common';
 import { useHealth } from './healthUi';
+import { BodyCard, MedsCard, TestsCard, VisitsCard } from './HealthCards';
 import { CheckinCard } from './HealthCheckin';
 import { ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
 import { useBloom } from './store';
@@ -25,6 +26,8 @@ export function HealthSettings() {
         <div className="hl-set-sub">
           <Toggle checked={settings.healthIbd} label={t('hlIbd')} onChange={(healthIbd) => setSettings({ healthIbd })} />
           <p className="muted small">{t('hlIbdHint')}</p>
+          <Toggle checked={settings.healthMedNames} label={t('hlMedNames')} onChange={(healthMedNames) => setSettings({ healthMedNames })} />
+          <p className="muted small">{t('hlMedNamesHint')}</p>
         </div>
       )}
       <p className="muted small">{t('hlDeviceOnly')}</p>
@@ -98,9 +101,13 @@ function HealthOn() {
         <div className="wl-main">
           {!profile?.done && <SetupCard onStart={() => setWizard(true)} />}
           <CheckinCard date={date} isToday={isToday} goal={goal} />
+          <MedsCard date={date} />
         </div>
         <div className="wl-side">
           <ProfileCard goal={goal} date={date} onEdit={() => setWizard(true)} />
+          <BodyCard date={date} />
+          <TestsCard />
+          <VisitsCard />
           <p className="hl-note">
             <Icon name="heartPulse" size={14} /> {t('hlNotAdvice')}
           </p>

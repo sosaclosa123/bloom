@@ -14,9 +14,11 @@ interface Props {
   onDismiss: (key: string) => void;
   onDismissAll: () => void;
   onOpen: (date: string) => void;
+  /** Medication reminders: mark the dose as taken. */
+  onTaken?: (key: string) => void;
 }
 
-export function AlertCards({ alerts, reason, lang, snoozeOptions, onSnooze, onDismiss, onDismissAll, onOpen }: Props) {
+export function AlertCards({ alerts, reason, lang, snoozeOptions, onSnooze, onDismiss, onDismissAll, onOpen, onTaken }: Props) {
   const t = (k: Parameters<typeof translate>[1], v?: Record<string, string | number>) => translate(lang, k, v);
   const locale = lang === 'he' ? 'he-IL' : 'en-GB';
   return (
@@ -38,26 +40,41 @@ export function AlertCards({ alerts, reason, lang, snoozeOptions, onSnooze, onDi
         return (
           <div className="alert-card" key={a.key}>
             <div className="alert-icon" aria-hidden="true">
-              {a.kind === 'event' ? '📅' : '🔔'}
+              {a.kind === 'event' ? '📅' : a.kind === 'med' ? '💊' : '🔔'}
             </div>
             <div className="alert-main">
               <div className="alert-meta">
                 <span>{whenLabel}</span>
                 {lead && <span className="alert-lead">{lead}</span>}
               </div>
-              <div className="alert-title">{a.title || t('reminder')}</div>
+              <div className="alert-title">{a.title || (a.kind === 'med' ? t('hlMedication') : t('reminder'))}</div>
               <div className="alert-actions">
                 {snoozeOptions.map((m) => (
                   <button type="button" key={m} onClick={() => onSnooze(a.key, m)}>
                     {t('snooze', { t: formatDuration(lang, m) })}
                   </button>
                 ))}
-                <button type="button" onClick={() => onOpen(dateOf(a.when))}>
-                  {t('open')}
-                </button>
-                <button type="button" className="primary" onClick={() => onDismiss(a.key)}>
-                  {t('dismiss')}
-                </button>
+                {a.kind === 'med' ? (
+                  <>
+                    <button type="button" onClick={() => onDismiss(a.key)}>
+                      {t('dismiss')}
+                    </button>
+                    {onTaken && (
+                      <button type="button" className="primary" onClick={() => onTaken(a.key)}>
+                        ✓ {t('hlTaken')}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => onOpen(dateOf(a.when))}>
+                      {t('open')}
+                    </button>
+                    <button type="button" className="primary" onClick={() => onDismiss(a.key)}>
+                      {t('dismiss')}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

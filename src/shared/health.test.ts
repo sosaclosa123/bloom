@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { alertsDueBetween } from './alerts';
 import { newMeta } from './db';
 import { bathroomStats, bleedingFromLog, bmi, dosesOn, emptyProfile, forDate, hbi, ibdDayScore, isFlareDay, latestWeight, profileOf, ucScore, waterGoal } from './health';
-import type { HealthBathroom, HealthItem, HealthMed, HealthMedTaken, HealthProfile } from './types';
+import { DEFAULT_SETTINGS, type HealthBathroom, type HealthItem, type HealthMed, type HealthMedTaken, type HealthProfile } from './types';
 
 const prof = (p: Partial<HealthProfile>): HealthProfile => ({ ...newMeta(), ...emptyProfile(), ...p });
 const bath = (date: string, bristol: number, extra: Partial<HealthBathroom> = {}): HealthBathroom => ({
@@ -130,5 +131,29 @@ describe('records', () => {
       ['08:00', true],
       ['20:00', false],
     ]);
+  });
+});
+
+describe('medication reminders', () => {
+  const med: HealthMed = { ...newMeta(), kind: 'med', name: 'Humira', dose: '40 mg', times: ['08:00', '20:00'], remind: true, active: true, supplement: false };
+  const at = (h: number, m = 0) => new Date(2026, 0, 10, h, m).getTime();
+  const base = { events: [], reminders: [], settings: { ...DEFAULT_SETTINGS, healthEnabled: true } };
+  it('fires at each time with a generic title by default', () => {
+    const a = alertsDueBetween({ ...base, health: [med] }, at(7, 59), at(8, 0));
+    expect(a).toHaveLength(1);
+    expect(a[0]).toMatchObject({ kind: 'med', title: '', when: '2026-01-10T08:00', sourceId: med.id });
+    const named = alertsDueBetween({ ...base, settings: { ...base.settings, healthMedNames: true }, health: [med] }, at(7, 59), at(8, 0));
+    expect(named[0].title).toBe('Humira · 40 mg');
+  });
+  it('stays quiet when Health is off, the dose was taken, or reminders are off', () => {
+    expect(alertsDueBetween({ ...base, settings: DEFAULT_SETTINGS, health: [med] }, at(7, 59), at(8, 0))).toHaveLength(0);
+    const taken: HealthMedTaken = { ...newMeta(), kind: 'taken', medId: med.id, date: '2026-01-10', time: '08:00' };
+    expect(alertsDueBetween({ ...base, health: [med, taken] }, at(7, 59), at(8, 0))).toHaveLength(0);
+    expect(alertsDueBetween({ ...base, health: [{ ...med, remind: false }] }, at(7, 59), at(8, 0))).toHaveLength(0);
+    expect(alertsDueBetween({ ...base, health: [{ ...med, active: false }] }, at(7, 59), at(8, 0))).toHaveLength(0);
+  });
+  it('catches up over midnight', () => {
+    const a = alertsDueBetween({ ...base, health: [med] }, at(19), at(32));
+    expect(a.map((x) => x.when)).toEqual(['2026-01-10T20:00', '2026-01-11T08:00']);
   });
 });

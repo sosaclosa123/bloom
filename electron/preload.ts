@@ -60,6 +60,7 @@ const bridge: DesktopBridge = {
     snooze: (key, minutes) => ipcRenderer.send('popup:snooze', key, minutes),
     dismiss: (key) => ipcRenderer.send('popup:dismiss', key),
     dismissAll: () => ipcRenderer.send('popup:dismiss-all'),
+    taken: (key) => ipcRenderer.send('popup:taken', key),
     open: (date) => ipcRenderer.send('popup:open', date),
     resize: (height) => ipcRenderer.send('popup:resize', height),
   },

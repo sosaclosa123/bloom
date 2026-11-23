@@ -38,6 +38,7 @@ function Popup() {
         onSnooze={(k, m) => bridge.snooze(k, m)}
         onDismiss={(k) => bridge.dismiss(k)}
         onDismissAll={() => bridge.dismissAll()}
+        onTaken={(k) => bridge.taken(k)}
         onOpen={(d) => bridge.open(d)}
       />
     </div>
