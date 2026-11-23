@@ -34,3 +34,10 @@ Owner's choices (2026-11-23):
 ## Notes / gotchas
 - Local container has no Android SDK (dl.google.com blocked): the APK is
   only built in CI. Trigger CI on the work branch with workflow_dispatch.
+- QA: `qa/run.sh phone.cjs` (shots `qa/shots/phone-*`; ONLY/LANGS/THEMES/SIZES
+  env vars narrow it). Android logic tests: `src/platform/android.test.ts`.
+- Release key was generated in the session scratchpad (NOT in the repo); the
+  owner pastes it into GitHub secrets ANDROID_KEYSTORE_BASE64 +
+  ANDROID_KEYSTORE_PASSWORD. Without them CI builds a debug test APK only.
+- Known limit: Health doctor report "Print" needs a share/PDF path on Android
+  (WebView has no print dialog) - check / do next.
