@@ -504,6 +504,7 @@ function FoodAdd({ date, isToday, kind }: { date: ISODate; isToday: boolean; kin
           {t('hlScan')}
         </Button>
       </div>
+      {pick && <NutritionLabel p={pick} grams={useGrams} drink={drink} pieces={mode === 'pieces' && piece ? pieces : null} />}
       {pick && !drink && (
         <Segmented
           label={t('hlPortion')}
@@ -569,12 +570,6 @@ function FoodAdd({ date, isToday, kind }: { date: ISODate; isToday: boolean; kin
               </button>
             </Tip>
           )}
-          {n && (
-            <span className="hl-portion-kcal">
-              {useGrams && mode !== 'grams' ? `${t('hlGrams', { n: Math.round(useGrams).toLocaleString(locale) })} · ` : ''}
-              {t('hlKcal', { n: n.kcal.toLocaleString(locale) })} · {t('hlMacroShort', { p: n.protein, c: n.carbs, f: n.fat })}
-            </span>
-          )}
         </div>
       ) : (
         text.trim() && (
@@ -611,6 +606,66 @@ function FoodAdd({ date, isToday, kind }: { date: ISODate; isToday: boolean; kin
       />
     )}
     </>
+  );
+}
+
+// ---------------------------------------------------------------- the picked product, like the label on a package
+
+function NutritionLabel({ p, grams, drink, pieces }: { p: FoodProduct; grams: number | null; drink: boolean; pieces: number | null }) {
+  const { t, locale } = useBloom();
+  const n = grams ? forGrams(p, grams) : null;
+  const num = (x: number) => (Math.round(x * 10) / 10).toLocaleString(locale);
+  const scaled = (v?: number) => (v != null && grams ? num((v * grams) / 100) : null);
+  const g = t('hlGramsUnit');
+  const amount = !grams
+    ? null
+    : pieces
+      ? t('hlPiecesAmount', { n: pieces.toLocaleString(locale), g: Math.round(grams).toLocaleString(locale) })
+      : drink
+        ? t('hlMl', { n: Math.round(grams).toLocaleString(locale) })
+        : t('hlGrams', { n: num(grams) });
+  const rows: [string, string | null, boolean?][] = [
+    [t('hlLblProtein'), n ? num(n.protein) : null],
+    [t('hlLblCarbs'), n ? num(n.carbs) : null],
+    ...(p.sugars ? [[t('hlLblSugars'), scaled(p.sugars), true] as [string, string | null, boolean]] : []),
+    [t('hlLblFat'), n ? num(n.fat) : null],
+    ...(p.fiber ? [[t('hlLblFiber'), scaled(p.fiber)] as [string, string | null]] : []),
+  ];
+  return (
+    <div className="hl-label">
+      <div className="hl-label-head">
+        <div>
+          <b className="hl-label-name" dir="auto">
+            {p.name}
+          </b>
+          {p.brand && (
+            <span className="hl-label-sub" dir="auto">
+              {p.brand}
+            </span>
+          )}
+        </div>
+        {amount && <span className="hl-label-amt">{amount}</span>}
+      </div>
+      <div className="hl-label-cal">
+        <span>{t('hlLblCalories')}</span>
+        <b>{n ? n.kcal.toLocaleString(locale) : '–'}</b>
+      </div>
+      <dl className="hl-label-rows">
+        {rows.map(([label, v, sub]) => (
+          <div key={label} className={sub ? 'sub' : ''}>
+            <dt>{label}</dt>
+            <dd>{v != null ? `${v} ${g}` : '–'}</dd>
+          </div>
+        ))}
+        <div className="per">
+          <dt>{t(drink ? 'hlLblPer100ml' : 'hlLblPer100')}</dt>
+          <dd>
+            {Math.round(p.kcal).toLocaleString(locale)} {t('hlKcalUnit')}
+          </dd>
+        </div>
+      </dl>
+      <span className="hl-label-src">{t(p.source === 'il' ? 'hlLblFromMoH' : 'hlLblFromOFF')}</span>
+    </div>
   );
 }
 

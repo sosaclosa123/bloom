@@ -171,6 +171,9 @@ installed apps auto-update. Commit messages: clear "what + why".
   Facts serving like "3 biscuits (30 g)") > typical weight (shown "≈",
   "typical estimate"). Box weight: yours > MoH package portion > OFF
   `product_quantity`. Logic: `pieceWeight`/`packWeight` in `src/shared/food.ts`.
+- Picked food/drink shows as a **nutrition label** (owner chose design C):
+  name + brand, amount pill, big Calories line, protein / carbs (sugars) /
+  fat / fiber for the amount, per-100 g line, source (`NutritionLabel`).
 - IBD "Other problems today" has a "Something else…" box for any custom
   problem (shown in the report; not counted in HBI).
 - Medicines tab: "Taken / not taken" graph at the bottom for a chosen medicine

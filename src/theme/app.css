@@ -7877,3 +7877,108 @@ button.hl-line-dot.at-l:not(:hover):not(:focus-visible) .hl-dot-label {
 .hl-mybox .hl-piece-info {
   align-self: center;
 }
+/* Food: the picked product as a nutrition label */
+.hl-label {
+  width: 100%;
+  max-width: calc(420px * var(--fs-scale, 1));
+  border: 2px solid var(--text);
+  border-radius: 14px;
+  padding: 12px 14px 10px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.hl-label-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.hl-label-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.hl-label-name {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.hl-label-sub,
+.hl-label-amt {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.hl-label-amt {
+  flex: none;
+  color: var(--text);
+  font-weight: 600;
+  background: var(--surface-2);
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+.hl-label-cal {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 6px;
+  padding-bottom: 4px;
+  border-bottom: 5px solid var(--text);
+}
+.hl-label-cal span {
+  font-weight: 700;
+  font-size: var(--fs-md);
+}
+.hl-label-cal b {
+  font-family: 'Outfit', var(--font-sans);
+  font-size: calc(30px * var(--fs-scale, 1));
+  line-height: 1.1;
+}
+.hl-label-rows {
+  margin: 0;
+}
+.hl-label-rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+.hl-label-rows dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.hl-label-rows dd {
+  margin: 0;
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.hl-label-rows > div.sub dt {
+  padding-inline-start: 14px;
+  color: var(--text-muted);
+}
+.hl-label-rows > div.sub dd {
+  font-weight: 400;
+}
+.hl-label-rows > div.per {
+  border-bottom: 0;
+  color: var(--text-muted);
+}
+.hl-label-rows > div.per dd {
+  font-weight: 500;
+}
+.hl-label-src {
+  align-self: flex-end;
+  font-size: calc(10px * var(--fs-scale, 1));
+  color: var(--text-muted);
+}

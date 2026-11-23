@@ -968,6 +968,17 @@ const en = {
   hlBoxUnknown: "How much does the whole box weigh? It's printed on the package.",
   hlWholeBox: "Whole box",
   hlOfBox: "{g} g box",
+  hlLblCalories: "Calories",
+  hlLblProtein: "Protein",
+  hlLblCarbs: "Carbohydrates",
+  hlLblSugars: "of which sugars",
+  hlLblFat: "Fat",
+  hlLblFiber: "Dietary fiber",
+  hlLblPer100: "Per 100 g",
+  hlLblPer100ml: "Per 100 ml",
+  hlLblFromMoH: "Ministry of Health database",
+  hlLblFromOFF: "Open Food Facts",
+  hlGramsUnit: "g",
 };
 
 export type StringKey = keyof typeof en;
@@ -1938,6 +1949,17 @@ const he: Record<StringKey, string> = {
   hlBoxUnknown: "כמה שוקלת כל האריזה? זה מודפס על האריזה.",
   hlWholeBox: "כל האריזה",
   hlOfBox: "אריזה של {g} גרם",
+  hlLblCalories: "קלוריות",
+  hlLblProtein: "חלבון",
+  hlLblCarbs: "פחמימות",
+  hlLblSugars: "מתוכן סוכרים",
+  hlLblFat: "שומן",
+  hlLblFiber: "סיבים תזונתיים",
+  hlLblPer100: "ל-100 גרם",
+  hlLblPer100ml: "ל-100 מ״ל",
+  hlLblFromMoH: "מאגר משרד הבריאות",
+  hlLblFromOFF: "Open Food Facts",
+  hlGramsUnit: "ג׳",
 };
 
 const dict: Record<Language, Record<StringKey, string>> = { en, he };
