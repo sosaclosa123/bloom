@@ -176,8 +176,17 @@ installed apps auto-update. Commit messages: clear "what + why".
   fat / fiber for the amount, per-100 g line, source (`NutritionLabel`).
 - IBD "Other problems today" has a "Something else…" box for any custom
   problem (shown in the report; not counted in HBI).
-- Medicines tab: "Taken / not taken" graph at the bottom for a chosen medicine
-  (30 / 90 days / year / from the start).
+- Medicines tab: under the list, **one "Taken / not taken" card per medicine**
+  (no picker), headline = medicine name, own range (30 / 90 days / year /
+  from the start) and a "Mark taken today" button for the chosen day only
+  (marks all its planned doses; click again = undo). Same `taken` records as
+  the Today ticks, so both stay in sync.
+- **Today = the lobby** for the chosen day: "Quick add" side-scrolling row
+  (mouse wheel scrolls it) at the top: Meal, Snack, Drink, Steps, Exercise,
+  Weight, Bathroom (IBD only), Medicine, Test result, Doctor visit. Each opens
+  the same editor as its tab (no leaving Today) and saves the same records
+  (`src/ui/HealthQuick.tsx`). Steps/exercise add to the day; no steps goal
+  (owner's choice).
 - **Doctor visits = full history**, never filtered by the chosen day, scrolls
   when long; each visit can hold documents (PDF/images): sticker icon + count
   when attached, plus icon when not. Big PDFs (> ~700 KB) stay on this PC +

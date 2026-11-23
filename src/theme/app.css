@@ -7982,3 +7982,79 @@ button.hl-line-dot.at-l:not(:hover):not(:focus-visible) .hl-dot-label {
   font-size: calc(10px * var(--fs-scale, 1));
   color: var(--text-muted);
 }
+/* Medicines: one history card per medicine, "taken" button for the chosen day */
+.hl-take-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1.6px solid var(--border-strong, var(--border));
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast);
+}
+.hl-take-btn:hover {
+  border-color: var(--hl-green);
+}
+.hl-take-btn.on {
+  background: var(--hl-green);
+  border-color: var(--hl-green);
+  color: #fff;
+  animation: hl-pop 300ms var(--spring, ease);
+}
+.hl-medhist-top .segmented {
+  margin-inline-start: auto;
+}
+/* Today: quick add (side-scrolling) */
+.hl-quick {
+  padding-bottom: 10px;
+}
+.hl-quick-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding: 2px 2px 8px;
+  scrollbar-width: thin;
+  mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+.hl-quick-btn {
+  flex: none;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: calc(78px * var(--fs-scale, 1));
+  padding: 9px 10px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast), transform var(--dur-fast);
+}
+.hl-quick-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+/* In the pop-up the results push the content down (no clipping at the bottom). */
+.hl-quick-food .hl-food-results {
+  position: static;
+  margin-top: 6px;
+  box-shadow: none;
+}
+.hl-quick-body .hl-pills button {
+  font-size: var(--fs-xs);
+}

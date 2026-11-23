@@ -8,9 +8,10 @@ import { Button, Icon, IconButton, Toggle } from './common';
 import { onHealthRedo, requestHealthRedo, takeHealthRedo, useHealth } from './healthUi';
 import { FoodSummaryCard, FoodTab } from './HealthFood';
 import { StickerArt } from './Stickers';
-import { BodyCard, MedHistoryCard, MedsCard, TestsCard, VisitsCard } from './HealthCards';
+import { BodyCard, MedHistoryCards, MedsCard, TestsCard, VisitsCard } from './HealthCards';
 import { CheckinCard } from './HealthCheckin';
 import { IbdCard } from './HealthIbd';
+import { QuickAddCard } from './HealthQuick';
 import { ChallengesCard, DoctorReport, GoalsCard, MonthSummaryCard, StickerBookButton } from './HealthExtras';
 import { FlareTimelineCard, InsightsCard, TrendsCard } from './HealthTrends';
 import { profileComplete, ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
@@ -180,6 +181,8 @@ function HealthOn() {
               <div className="wl-main">
                 {/* Stays until the questionnaire is filled in to the end. */}
                 {!profileComplete(profile, ibd) && <SetupCard onStart={() => setWizard('resume')} />}
+                {/* The lobby: add anything for this day; it shows in the other tabs too. */}
+                <QuickAddCard date={date} isToday={isToday} />
                 <CheckinCard date={date} isToday={isToday} goal={goal} />
                 <MedsCard date={date} todayOnly />
               </div>
@@ -196,8 +199,8 @@ function HealthOn() {
             <>
               <div className="wl-main">
                 <MedsCard date={date} />
-                {/* Always at the bottom: when a chosen medicine was taken or not. */}
-                <MedHistoryCard date={date} />
+                {/* One "taken / not taken" card per medicine, each with its own range and a taken button. */}
+                <MedHistoryCards date={date} />
               </div>
               <div className="wl-side">
                 <VisitsCard />

@@ -138,7 +138,7 @@ function repeatText(m: Pick<HealthMed, 'every' | 'unit'>, t: ReturnType<typeof u
   return n === 1 ? t(`hlEvery1_${u}` as StringKey) : t(`hlEveryN_${u}` as StringKey, { n });
 }
 
-function MedEditor({ init, isNew, onClose }: { init: HealthMed; isNew: boolean; onClose: () => void }) {
+export function MedEditor({ init, isNew, onClose }: { init: HealthMed; isNew: boolean; onClose: () => void }) {
   const { t, save, del, locale } = useBloom();
   const { all } = useHealth();
   const [m, setM] = useState(init);
@@ -446,7 +446,7 @@ export function TestsCard() {
   );
 }
 
-function TestEditor({ init, isNew, onClose }: { init: HealthTest; isNew: boolean; onClose: () => void }) {
+export function TestEditor({ init, isNew, onClose }: { init: HealthTest; isNew: boolean; onClose: () => void }) {
   const { t, save, del } = useBloom();
   const { ibd } = useHealth();
   const [x, setX] = useState(init);
@@ -651,7 +651,7 @@ function DocsModal({ visit, onClose }: { visit: HealthVisit; onClose: () => void
   );
 }
 
-function VisitEditor({ init, isNew, onClose }: { init: HealthVisit; isNew: boolean; onClose: () => void }) {
+export function VisitEditor({ init, isNew, onClose }: { init: HealthVisit; isNew: boolean; onClose: () => void }) {
   const { t, save, del, snap, settings } = useBloom();
   const [v, setV] = useState(init);
   const linked = init.eventId ? snap.events.find((e) => e.id === init.eventId && !e.deletedAt) : undefined;
@@ -785,14 +785,24 @@ function VisitEditor({ init, isNew, onClose }: { init: HealthVisit; isNew: boole
 
 // ---------------------------------------------------------------- medication history graph
 
-/** Pick a medicine: one bar per day — taken (green), partly (light), missed (pink), not due (grey). */
-export function MedHistoryCard({ date }: { date: ISODate }) {
-  const { t, locale } = useBloom();
+/** One "Taken / not taken" card per medicine (active first), stacked. */
+export function MedHistoryCards({ date }: { date: ISODate }) {
   const { all } = useHealth();
   const meds = healthOf(all, 'med').sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name));
-  const [id, setId] = useState<string | null>(null);
+  return (
+    <>
+      {meds.map((m) => (
+        <MedHistoryCard key={m.id} date={date} med={m} />
+      ))}
+    </>
+  );
+}
+
+/** One medicine: one bar per day — taken (green), partly (light), missed (pink), not due (grey). */
+function MedHistoryCard({ date, med }: { date: ISODate; med: HealthMed }) {
+  const { t, locale, save } = useBloom();
+  const { all } = useHealth();
   const [range, setRange] = useState<30 | 90 | 365 | 0>(30);
-  const med = meds.find((m) => m.id === id) ?? meds[0];
   const taken = healthOf(all, 'taken');
   const days = useMemo(() => {
     if (!med) return [];
@@ -809,7 +819,17 @@ export function MedHistoryCard({ date }: { date: ISODate }) {
       return { d, due, got, state };
     });
   }, [med, range, date, taken]);
-  if (!meds.length) return null;
+  // The chosen day (top of the Health page) only: mark every planned dose taken, or undo.
+  const isToday = date === toISODate(new Date());
+  const doses = dosesOn([med], taken, date);
+  const dayTaken = taken.filter((x) => x.medId === med.id && x.date === date);
+  const done = doses.length ? doses.every((d) => d.taken) : dayTaken.length > 0;
+  const dayName = parseISODate(date).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
+  const markDay = () => {
+    if (done) for (const x of dayTaken) void platform.remove('health', x.id);
+    else if (doses.length) for (const d of doses) if (!d.taken) save('health', { ...newMeta(), kind: 'taken', medId: med.id, date, time: d.time } satisfies HealthMedTaken);
+    else save('health', { ...newMeta(), kind: 'taken', medId: med.id, date, time: '' } satisfies HealthMedTaken);
+  };
   const dueDays = days.filter((x) => x.due > 0 && x.d <= toISODate(new Date()));
   const okDays = dueDays.filter((x) => x.state === 'all').length;
   const label = (d: ISODate, i: number) => {
@@ -820,19 +840,20 @@ export function MedHistoryCard({ date }: { date: ISODate }) {
   };
   return (
     <section className="w-card hl-medhist">
-      <CardHead sticker={med?.sticker || 'pill'} title={t('hlMedHistory')}>
+      <CardHead
+        sticker={med.sticker || (med.supplement ? 'plants' : 'pill')}
+        title={<span dir="auto">{med.name || t('hlMedication')}</span>}
+        sub={[med.dose, !med.active ? t('hlMedPaused') : null, t('hlMedHistory')].filter(Boolean).join(' · ')}
+      >
         {dueDays.length > 0 && <span className="hl-score lvl-remission">{t('hlTakenDays', { a: okDays, b: dueDays.length })}</span>}
       </CardHead>
       <div className="hl-medhist-top">
-        <select value={med?.id} aria-label={t('hlMeds')} onChange={(e) => setId(e.target.value)}>
-          {meds.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-              {m.dose ? ` · ${m.dose}` : ''}
-              {!m.active ? ` (${t('hlMedPaused')})` : ''}
-            </option>
-          ))}
-        </select>
+        {med.active && (
+          <button type="button" className={`hl-take-btn ${done ? 'on' : ''}`} aria-pressed={done} title={done ? t('hlTapToUndo') : undefined} onClick={markDay}>
+            <Icon name="check" size={14} />
+            {done ? (isToday ? t('hlTakenToday') : t('hlTakenOn', { d: dayName })) : isToday ? t('hlMarkTakenToday') : t('hlMarkTakenOn', { d: dayName })}
+          </button>
+        )}
         <Segmented
           value={range}
           onChange={setRange}
@@ -845,7 +866,7 @@ export function MedHistoryCard({ date }: { date: ISODate }) {
           ]}
         />
       </div>
-      <div className={`hl-chart r-month timeline hl-adh ${days.length > 120 ? 'dense' : ''}`} role="img" aria-label={t('hlMedHistory')}>
+      <div className={`hl-chart r-month timeline hl-adh ${days.length > 120 ? 'dense' : ''}`} role="img" aria-label={`${med.name} · ${t('hlMedHistory')}`}>
         {days.map((x, i) => (
           <span key={x.d} className="hl-col" title={`${parseISODate(x.d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })} · ${x.due ? `${x.got}/${x.due}` : t('hlNotDue')}`}>
             <span className="hl-bar-wrap">

@@ -226,7 +226,7 @@ export function IbdCard({ date, isToday }: { date: ISODate; isToday: boolean }) 
   );
 }
 
-function BathroomEditor({ init, isNew, onClose }: { init: HealthBathroom; isNew: boolean; onClose: () => void }) {
+export function BathroomEditor({ init, isNew, onClose }: { init: HealthBathroom; isNew: boolean; onClose: () => void }) {
   const { t, save, del } = useBloom();
   const [b, setB] = useState(init);
   const commit = () => {

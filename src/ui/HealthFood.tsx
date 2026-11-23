@@ -53,7 +53,7 @@ const nowTime = () => {
 
 // ---------------------------------------------------------------- the Food tab
 
-type Kind = 'meal' | 'snack' | 'drink';
+export type Kind = 'meal' | 'snack' | 'drink';
 const kindOf = (f: HealthFood): Kind => (f.meal === 'drink' ? 'drink' : f.snack || f.meal === 'snack' ? 'snack' : 'meal');
 
 export function FoodTab({ date, isToday, goalMl }: { date: ISODate; isToday: boolean; goalMl: number }) {
@@ -343,7 +343,7 @@ function TagPicker({ tags, open, onOpen, onChange }: { tags: string[]; open: boo
 
 const offCache = new Map<string, FoodProduct[]>();
 
-function FoodAdd({ date, isToday, kind }: { date: ISODate; isToday: boolean; kind: Kind }) {
+export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isToday: boolean; kind: Kind; onAdded?: () => void }) {
   const { t, locale, save, settings } = useBloom();
   const lang = settings.language;
   const drink = kind === 'drink';
@@ -443,6 +443,7 @@ function FoodAdd({ date, isToday, kind }: { date: ISODate; isToday: boolean; kin
     };
     save('health', item);
     reset();
+    onAdded?.();
   };
   // Real products (online, with a brand) first, then the general database entries.
   const results = [...(Array.isArray(online) ? online.slice(0, 6) : []), ...local];

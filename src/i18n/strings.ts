@@ -985,6 +985,21 @@ const en = {
   hlIbdHigherWorse: "higher = worse",
   hlFlareFrom: "Flare from {n}",
   hlOutOf10: "{v} / 10",
+  hlTakenOn: "Taken · {d}",
+  hlMarkTakenOn: "Mark taken · {d}",
+  hlTakenToday: "Taken today",
+  hlMarkTakenToday: "Mark taken today",
+  hlTapToUndo: "Click again to undo",
+  hlQuickAdd: "Quick add",
+  hlQA_meal: "Meal",
+  hlQA_snack: "Snack",
+  hlQA_drink: "Drink",
+  hlQA_med: "Medicine",
+  hlQA_test: "Test result",
+  hlQA_visit: "Doctor visit",
+  hlQA_bath: "Bathroom",
+  hlQA_saved: "Saved",
+  hlQA_now: "Today so far: {v}",
 };
 
 export type StringKey = keyof typeof en;
@@ -1972,6 +1987,21 @@ const he: Record<StringKey, string> = {
   hlIbdHigherWorse: "גבוה יותר = פחות טוב",
   hlFlareFrom: "התלקחות מ-{n}",
   hlOutOf10: "{v} מתוך 10",
+  hlTakenOn: "נלקח · {d}",
+  hlMarkTakenOn: "סימון שנלקח · {d}",
+  hlTakenToday: "נלקח היום",
+  hlMarkTakenToday: "סימון שנלקח היום",
+  hlTapToUndo: "לחיצה נוספת מבטלת",
+  hlQuickAdd: "הוספה מהירה",
+  hlQA_meal: "ארוחה",
+  hlQA_snack: "נשנוש",
+  hlQA_drink: "משקה",
+  hlQA_med: "תרופה",
+  hlQA_test: "תוצאת בדיקה",
+  hlQA_visit: "ביקור רופא",
+  hlQA_bath: "שירותים",
+  hlQA_saved: "נשמר",
+  hlQA_now: "עד עכשיו היום: {v}",
 };
 
 const dict: Record<Language, Record<StringKey, string>> = { en, he };
