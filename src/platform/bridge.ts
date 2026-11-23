@@ -1,6 +1,7 @@
 // The contract between the UI and the desktop shell (Electron preload).
 // A phone build later implements the same PlatformAPI (see api.ts) with
 // phone storage and native notifications instead.
+import type { AutoBackupState } from '../shared/backup';
 import type { CollectionName, Collections, FiredAlert, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../shared/types';
 
 export type DeliveryReason = 'now' | 'afterGame' | 'whileClosed';
@@ -29,6 +30,14 @@ export interface DesktopBridge {
 
   exportBackup(): Promise<boolean>;
   importBackup(): Promise<'merged' | 'cancelled' | 'invalid'>;
+  /** Automatic weekly backups to a chosen folder. */
+  autoBackup: {
+    get(): Promise<AutoBackupState>;
+    choose(): Promise<AutoBackupState>;
+    run(): Promise<AutoBackupState>;
+    off(): Promise<AutoBackupState>;
+    onChange(cb: (s: AutoBackupState) => void): () => void;
+  };
 
   getMissed(): Promise<FiredAlert[]>;
   clearMissed(): Promise<void>;

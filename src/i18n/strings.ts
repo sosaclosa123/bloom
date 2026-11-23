@@ -664,6 +664,18 @@ const en = {
   hlInsightBetter: "On days with {tag}, symptoms were milder ({a} vs {b}).",
   hlInsightNone: "Log food and symptoms for a few weeks to see patterns here.",
   hlInsightNote: "Simple counts from the last 60 days. Not proof of a cause.",
+  abTitle: "Automatic backups",
+  abIntro: "Once a week Bloom saves a copy of everything (Health too) to a folder you choose, for example OneDrive. The last 8 copies are kept.",
+  abChoose: "Choose a folder",
+  abChange: "Change folder",
+  abNow: "Back up now",
+  abOff: "Turn off",
+  abLast: "Last backup: {d}",
+  abNever: "No backup yet",
+  abErrMissing: "The folder can't be reached (is the drive connected?).",
+  abErrWrite: "The last backup couldn't be saved.",
+  abSaved: "Backup saved",
+  abManual: "Save or restore a file yourself",
 };
 
 export type StringKey = keyof typeof en;
@@ -1330,6 +1342,18 @@ const he: Record<StringKey, string> = {
   hlInsightBetter: "בימים עם {tag} התסמינים היו קלים יותר ({a} לעומת {b}).",
   hlInsightNone: "כדאי לרשום אוכל ותסמינים כמה שבועות כדי לראות כאן דפוסים.",
   hlInsightNote: "ספירה פשוטה מ-60 הימים האחרונים. לא הוכחה לסיבה.",
+  abTitle: "גיבוי אוטומטי",
+  abIntro: "פעם בשבוע Bloom שומר עותק של הכול (גם בריאות) בתיקייה שבוחרים, למשל OneDrive. נשמרים 8 העותקים האחרונים.",
+  abChoose: "בחירת תיקייה",
+  abChange: "החלפת תיקייה",
+  abNow: "גיבוי עכשיו",
+  abOff: "כיבוי",
+  abLast: "גיבוי אחרון: {d}",
+  abNever: "עדיין אין גיבוי",
+  abErrMissing: "אין גישה לתיקייה (האם הכונן מחובר?).",
+  abErrWrite: "לא הצלחנו לשמור את הגיבוי האחרון.",
+  abSaved: "הגיבוי נשמר",
+  abManual: "שמירה או שחזור של קובץ ידנית",
 };
 
 const dict: Record<Language, Record<StringKey, string>> = { en, he };

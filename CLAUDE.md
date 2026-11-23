@@ -102,14 +102,19 @@ installed apps auto-update. Commit messages: clear "what + why".
   is just "Medication" unless "Show medicine names" is on; popup has "Taken".
 - Startup window: shows today's remaining medication doses only when Health is
   on; never any IBD item.
+- **Automatic backups** (Settings > Backup, desktop only): per-computer
+  `backupFolder` (e.g. OneDrive); weekly (checked at start-up, every 3 h and on
+  wake) the current data file (everything, Health too) is copied there as
+  `bloom-backup-YYYY-MM-DD.json`; keeps the newest 8 of those files and never
+  touches other files; shows "Last backup" or a clear error. Logic:
+  `src/shared/backup.ts` (tested), `electron/autoBackup.ts`.
 - Health formulas live in `src/shared/health.ts` with sources in comments
   (water ~35 ml/kg + extras, doctor's fluid limit wins; BMI neutral WHO wording;
   HBI for Crohn's, partial-Mayo style for UC). Always "Not medical advice".
 
 ## In progress
-- **Health tab: done** (steps 1-8 in `HEALTH_PLAN.md`).
-- **Automatic backups** (last box in `HEALTH_PLAN.md`): any session continues
-  from the first unticked box. Keep `HEALTH_PLAN.md` and this file accurate.
+- Nothing right now. Health tab + automatic backups are done (all boxes in
+  `HEALTH_PLAN.md` ticked).
 
 ## Open ideas
 - **Android app** (owner wants Android only, free install via APK, no Play

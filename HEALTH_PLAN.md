@@ -88,7 +88,7 @@ Detailed, one question per screen, skippable, editable later in the tab.
       text, privacy tests, desktop). Update `CLAUDE.md` rules.
 
 ## Also requested: automatic backups
-- [ ] Settings → "Backups": choose a folder (e.g. OneDrive). Bloom already
+- [x] Settings → "Backups": choose a folder (e.g. OneDrive). Bloom already
       keeps daily copies in its data folder (`electron/store.ts`); also copy
       the newest one to the chosen folder weekly (keep the last 8). Include
       `health`. Show "Last backup: …".

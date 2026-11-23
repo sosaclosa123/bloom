@@ -6105,3 +6105,39 @@ input[type='time'] {
   font-size: 22px;
   background: var(--hl-pink-soft);
 }
+/* automatic backups (Settings > Backup) */
+.ab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.ab p {
+  margin: 0;
+}
+.ab-folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.ab-folder .icon {
+  flex: none;
+  color: var(--text-muted);
+}
+.ab-status {
+  color: var(--text-muted);
+}
+.ab-status.err {
+  color: var(--danger);
+  font-weight: 600;
+}
+.ab:first-child > .settings-h {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}

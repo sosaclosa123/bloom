@@ -347,6 +347,8 @@ export interface Settings {
   healthIbd: boolean;
   /** Medication reminders show the medicine's name (off = just "Medication"). */
   healthMedNames: boolean;
+  /** Automatic weekly backups go to this folder (this computer only); null = off. */
+  backupFolder: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -371,6 +373,7 @@ export const DEFAULT_SETTINGS: Settings = {
   healthEnabled: false,
   healthIbd: false,
   healthMedNames: false,
+  backupFolder: null,
 };
 
 export interface Collections {

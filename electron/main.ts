@@ -20,6 +20,7 @@ import { pathToFileURL } from 'node:url';
 import { COLLECTIONS, merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert, uuid } from '../src/shared/db';
 import type { CollectionName, Collections, FiredAlert, HealthMedTaken, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../src/shared/types';
 import { gameDetectionStatus, isGaming, setOwnWindowCheck } from './gameMode';
+import { AutoBackup } from './autoBackup';
 import { Scheduler, type DeliveryReason } from './scheduler';
 import { FileStore, StateFile } from './store';
 import { checkNow, initUpdater, installNow, updateState } from './updater';
@@ -45,6 +46,7 @@ if (!app.requestSingleInstanceLock()) {
 
 let store: FileStore;
 let scheduler: Scheduler;
+let autoBackup: AutoBackup;
 let mainWin: BrowserWindow | null = null;
 let popupWin: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -548,6 +550,19 @@ function registerIpc() {
     }
   });
 
+  // Automatic weekly backups to a folder (e.g. OneDrive).
+  ipcMain.handle('autobackup:get', () => autoBackup.get());
+  ipcMain.handle('autobackup:choose', async () => {
+    const res = await dialog.showOpenDialog(mainWin!, { title: 'Bloom backups', properties: ['openDirectory', 'createDirectory'] });
+    if (res.canceled || !res.filePaths[0]) return autoBackup.get();
+    applySettings({ backupFolder: res.filePaths[0] });
+    return autoBackup.run();
+  });
+  ipcMain.handle('autobackup:run', () => autoBackup.run());
+  ipcMain.handle('autobackup:off', () => {
+    applySettings({ backupFolder: null });
+    return autoBackup.get();
+  });
   ipcMain.handle('app:version', () => app.getVersion());
   ipcMain.handle('update:get', () => updateState());
   ipcMain.handle('update:check', () => checkNow());
@@ -643,6 +658,7 @@ app.on('second-instance', () => showMain());
 
 app.whenReady().then(() => {
   store = new FileStore();
+  autoBackup = new AutoBackup(store, (s) => mainWin?.webContents.send('autobackup:changed', s));
   protocol.handle('bloom-photo', (req) => {
     const name = decodeURIComponent(new URL(req.url).pathname.replace(/^\//, ''));
     const file = join(store.photosDir, name);
@@ -675,8 +691,12 @@ app.whenReady().then(() => {
   // "Coming up" when the PC starts (Bloom launched with Windows), unless turned off.
   if ((startHidden || process.argv.includes('--glance')) && store.get().settings.startupGlance !== false) showGlance();
   scheduler.start();
+  autoBackup.start();
 
-  powerMonitor.on('resume', () => scheduler.tick());
+  powerMonitor.on('resume', () => {
+    scheduler.tick();
+    autoBackup.check();
+  });
   nativeTheme.on('updated', () => {
     try {
       mainWin?.setTitleBarOverlay(titleBarColors(isDark()));

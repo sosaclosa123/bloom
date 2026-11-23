@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
+import type { AutoBackupState } from '../shared/backup';
 import type { FontSize, GameModeSetting, HolidaySet, ThemeMode } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented, Toggle } from './common';
 import { RemindersPicker, SoundSelect } from './editors';
@@ -204,26 +205,87 @@ export function SettingsPanel({ onClose, initialTab }: { onClose: () => void; in
 
           {tab === 'backup' && (
             <>
-              <p className="muted">{t('backupIntro')}</p>
-              <div className="row">
-                <Button icon="note" onClick={async () => (await platform.exportBackup()) && toast(t('backupSaved'))}>
-                  {t('exportBackup')}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={async () => {
-                    const r = await platform.importBackup();
-                    if (r === 'merged') toast(t('backupMerged'));
-                    if (r === 'invalid') toast(t('backupInvalid'));
-                  }}
-                >
-                  {t('importBackup')}
-                </Button>
+              {platform.autoBackup && <AutoBackupSettings />}
+              <div className="ab">
+                {platform.autoBackup && <h4 className="settings-h">{t('abManual')}</h4>}
+                <p className="muted">{t('backupIntro')}</p>
+                <div className="row">
+                  <Button icon="note" onClick={async () => (await platform.exportBackup()) && toast(t('backupSaved'))}>
+                    {t('exportBackup')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={async () => {
+                      const r = await platform.importBackup();
+                      if (r === 'merged') toast(t('backupMerged'));
+                      if (r === 'invalid') toast(t('backupInvalid'));
+                    }}
+                  >
+                    {t('importBackup')}
+                  </Button>
+                </div>
               </div>
             </>
           )}
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** Weekly copy of everything to a folder the person chose (desktop only). */
+function AutoBackupSettings() {
+  const { t, locale, toast } = useBloom();
+  const ab = platform.autoBackup!;
+  const [st, setSt] = useState<AutoBackupState | null>(null);
+  useEffect(() => {
+    void ab.get().then(setSt);
+    return ab.onChange(setSt);
+  }, [ab]);
+  if (!st) return null;
+  const last = st.last
+    ? t('abLast', { d: new Date(st.last).toLocaleString(locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }) })
+    : t('abNever');
+  return (
+    <div className="ab">
+      <h4 className="settings-h">{t('abTitle')}</h4>
+      <p className="muted">{t('abIntro')}</p>
+      {st.folder ? (
+        <>
+          <div className="ab-folder">
+            <Icon name="note" size={16} />
+            <span dir="ltr">{st.folder}</span>
+          </div>
+          <p className={`small ab-status ${st.error ? 'err' : ''}`}>
+            {st.error ? (st.error === 'folder-missing' ? t('abErrMissing') : t('abErrWrite')) + ' · ' : ''}
+            {last}
+          </p>
+          <div className="row">
+            <Button
+              icon="note"
+              onClick={async () => {
+                const s = await ab.run();
+                setSt(s);
+                if (!s.error) toast(t('abSaved'));
+              }}
+            >
+              {t('abNow')}
+            </Button>
+            <Button variant="ghost" onClick={async () => setSt(await ab.choose())}>
+              {t('abChange')}
+            </Button>
+            <Button variant="ghost" onClick={async () => setSt(await ab.off())}>
+              {t('abOff')}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <div className="row">
+          <Button variant="primary" icon="plus" onClick={async () => setSt(await ab.choose())}>
+            {t('abChoose')}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -43,6 +43,13 @@ const bridge: DesktopBridge = {
   gameStatus: () => ipcRenderer.invoke('game:status'),
   setTitleBarTheme: (dark) => ipcRenderer.send('window:titlebar', dark),
 
+  autoBackup: {
+    get: () => ipcRenderer.invoke('autobackup:get'),
+    choose: () => ipcRenderer.invoke('autobackup:choose'),
+    run: () => ipcRenderer.invoke('autobackup:run'),
+    off: () => ipcRenderer.invoke('autobackup:off'),
+    onChange: (cb) => on('autobackup:changed', cb),
+  },
   appVersion: () => ipcRenderer.invoke('app:version'),
   getUpdateState: () => ipcRenderer.invoke('update:get'),
   onUpdateState: (cb) => on('update:state', cb),

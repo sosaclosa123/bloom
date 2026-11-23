@@ -30,6 +30,8 @@ export interface PlatformAPI {
   applyRemote(c: Partial<Collections>): Promise<void>;
   exportBackup(): Promise<boolean>;
   importBackup(): Promise<'merged' | 'cancelled' | 'invalid'>;
+  /** Automatic weekly backups (desktop only; null = not available here). */
+  autoBackup: DesktopBridge['autoBackup'] | null;
   getMissed(): Promise<FiredAlert[]>;
   clearMissed(): Promise<void>;
   onMissed(cb: (m: FiredAlert[]) => void): () => void;
@@ -67,6 +69,7 @@ function desktop(b: DesktopBridge): PlatformAPI {
     photoUrl: async (p) => `bloom-photo://p/${encodeURIComponent(p.fileName)}`,
     exportBackup: () => b.exportBackup(),
     importBackup: () => b.importBackup(),
+    autoBackup: b.autoBackup,
     getMissed: () => b.getMissed(),
     clearMissed: () => b.clearMissed(),
     onMissed: (cb) => b.onMissed(cb),
@@ -276,6 +279,7 @@ function web(): PlatformAPI {
         return 'invalid';
       }
     },
+    autoBackup: null,
     getMissed: async () => [],
     clearMissed: async () => {},
     onMissed: () => () => {},
