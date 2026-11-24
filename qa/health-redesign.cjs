@@ -14,7 +14,7 @@ const RUNS = [
   ['phone', 'he', 'light', 'large', 320, 680],
 ].filter((r) => !process.env.ONLY || r[0] === process.env.ONLY);
 // Side-scrolling rows (tabs) are allowed to go off screen.
-const ok = (x) => !/hl-subtabs|OFFSCREEN button\. "(Body|Medicines|Goals|IBD|Trends|גוף|תרופות|מטרות|IBD)|pill-title|settings-tabs/.test(x);
+const ok = (x) => !/hl-subtabs|OFFSCREEN button\. "(Today|Body|Medicines|Goals|IBD|Trends|היום|גוף|תרופות|מטרות|IBD)|pill-title|settings-tabs/.test(x);
 (async () => {
   const b = await chromium.launch();
   const problems = [];
