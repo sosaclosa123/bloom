@@ -298,9 +298,9 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   folder backups, custom reminder sounds). Backup "Save" = share sheet.
 
 ## In progress
-- Android app released (first APK with v0.2.x on main, Nov 2026). Waiting
-  for the owner's first real-phone feedback (install, sync, reminders,
-  update notice); fix what they report.
+- Android app: first phone feedback fixed (menus off screen, update check,
+  stutter, settings sync). Owner installs the fixed APK by hand once (the
+  first APK couldn't see updates); waiting for their next feedback.
 
 ## Open ideas
 - (none right now)
