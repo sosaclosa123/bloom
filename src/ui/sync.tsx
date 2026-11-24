@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 // Starts sync (when a Firebase project is configured) and exposes its state.
 import { useEffect, useState } from 'react';
 import { platform } from '../platform/api';
