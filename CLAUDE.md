@@ -39,6 +39,12 @@ Auto-update: electron-updater from GitHub Releases.
   `HealthCheckin.tsx`, `HealthCards.tsx` (meds/body/tests/visits),
   `HealthIbd.tsx`, `HealthTrends.tsx` (trends/flares/food), `HealthExtras.tsx`
   (goals, challenges, sticker book, monthly summary, doctor report), `healthUi.tsx`.
+- **Android app** (Capacitor 8, `android/`, `capacitor.config.json`): same
+  `src/` web code. `src/platform/android.ts` = phone storage (files),
+  notifications, share sheet, updates; `src/ui/phone.tsx` + `src/theme/phone.css`
+  = phone layout (everything scoped to `.phone`). Native helper:
+  `android/app/src/main/java/app/bloom/calendar/BloomNativePlugin.java`.
+  Plan/notes: `ANDROID_PLAN.md`.
 - `src/glance.tsx` startup "Coming up" window. `src/popup.tsx` reminder popup.
 - `electron/` main process: windows, tray, scheduler (fires reminders),
   game-mode detection, file store, updater.
@@ -50,6 +56,8 @@ Auto-update: electron-updater from GitHub Releases.
 ## Commands
 - `npm run build` (typecheck + web + electron), `npx vitest run`
 - Preview for browser tests: `npx vite preview --port 4173`
+- Phone layout check: `qa/run.sh phone.cjs` (browser with `?phone`; EN/HE,
+  light/dark, 360/412 wide; shots in `qa/shots/phone-*`).
 - Electron tests: Playwright `_electron`, `xvfb-run`, env `BLOOM_USER_DATA`
   for a temp data folder; `--hidden` = launched at login, `--glance` forces
   the startup window.
@@ -57,7 +65,11 @@ Auto-update: electron-updater from GitHub Releases.
 ## Release
 Push to `main` = new release. CI (`.github/workflows/build.yml`) builds
 `Bloom-Setup-X.Y.<run>.exe` + `latest.yml` and publishes the GitHub release;
-installed apps auto-update. Commit messages: clear "what + why".
+installed apps auto-update. The `android` job builds `Bloom-X.Y.<run>.apk`
+(signed with the key in GitHub secrets `ANDROID_KEYSTORE_BASE64` +
+`ANDROID_KEYSTORE_PASSWORD`; never change the key or phones can't update)
+and `android-release` attaches it to the same release. No Android SDK in the
+cloud container: test APK builds with workflow_dispatch on the work branch. Commit messages: clear "what + why".
 
 ## Rules decided with the owner (don't break these)
 - **Private by default.** Sharing is opt-in per item.
@@ -259,16 +271,26 @@ installed apps auto-update. Commit messages: clear "what + why".
   - Red-flag note (blood, severe pain, fever, dehydration -> doctor today).
     Sleep line = 7 h (adults 7+). Always "Not medical advice".
 
+- **Android app (owner's choices):** both of them install it (she in Hebrew).
+  Everything from the PC app, same icons/stickers/colors, phone layout:
+  bottom tabs (Calendar, Scheduled, Countdowns, Wallet, Health), gear + search
+  on top, Month/Week/Year + Hebrew-date + Today on a 2nd row. Calendar
+  "combo": full month with short event names; tap a day -> month shrinks to
+  small squares with color dots and the day panel shows underneath (not a
+  popup); close with X, the same day again, or swipe the panel down; smooth
+  animation. Swipe sideways = next/previous month. "+" button = new event.
+  Windows open as bottom sheets. Android back button closes the top thing.
+  Reminders = Android notifications scheduled a month ahead (water nudges 2
+  days), rescheduled on every change; "Taken" / "Snooze" buttons. Update =
+  "Update available" banner -> downloads the APK, Android asks "Install?" (no
+  silent updates, no Play Store). Same account = same data. PC-only parts are
+  hidden on the phone (game mode, tray, start with Windows, startup window,
+  folder backups, custom reminder sounds). Backup "Save" = share sheet.
+
 ## In progress
-- Nothing right now. Health tab + automatic backups are done (all boxes in
-  `HEALTH_PLAN.md` ticked).
+- Android app: built + tested in the browser and CI (see `ANDROID_PLAN.md`).
+  Next: owner adds the 2 GitHub secrets, a signed test APK on the branch,
+  owner installs it on a phone, then merge to `main` (= first release with APK).
 
 ## Open ideas
-- **Android app** (owner wants Android only, free install via APK, no Play
-  Store): Capacitor wrapper reusing the web code, same Firebase sync, local
-  notifications, APK built in CI and attached to releases, in-app "Update
-  available". Do it in a fresh session with enough usage.
-  Owner's choices: **update = "Update available" button** (downloads the APK,
-  Android asks "Install?"; no silent updates). Same account = same data (email
-  + password sign-in already works on phones). PC-only parts stay off on the
-  phone (game mode, tray, startup window, folder backups).
+- (none right now)

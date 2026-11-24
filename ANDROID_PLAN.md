@@ -21,15 +21,15 @@ Owner's choices (2026-11-23):
       photos/docs as files, open PDF / share backup (native plugin),
       notifications (LocalNotifications, rescheduled on every change),
       update check (GitHub releases), back button
-- [~] 3. Phone layout (calendar combo, tabs, header, sheets done; next: QA all screens EN/HE light/dark 360/412) (`.phone` class): bottom tabs, header, combo month,
+- [x] 3. Phone layout (QA done: all screens EN/HE light/dark 360/412) (`.phone` class): bottom tabs, header, combo month,
       day panel with swipe, full-screen modals, all pages. QA with
       `?phone=1` in browser (EN/HE, light/dark, 360/412/480 widths)
 - [~] 4. Native bits (plugin, manifest, icons done; check in CI): Java plugin (open file / install APK / share), manifest
       permissions (notifications, exact alarm, install packages), icons
-- [~] 5. CI: Android job (written; test with workflow_dispatch on the branch) (APK signed with keystore from GitHub secrets),
+- [x] 5. CI: Android job (debug APK built OK on the branch, run 63) (APK signed with keystore from GitHub secrets),
       attach `Bloom-X.Y.Z.apk` to the release
 - [ ] 6. Owner: add the 2 GitHub secrets (simple steps), first install
-- [ ] 7. Update CLAUDE.md + docs/HISTORY.md
+- [x] 7. Update CLAUDE.md + docs/HISTORY.md
 
 ## Notes / gotchas
 - Local container has no Android SDK (dl.google.com blocked): the APK is
@@ -39,5 +39,5 @@ Owner's choices (2026-11-23):
 - Release key was generated in the session scratchpad (NOT in the repo); the
   owner pastes it into GitHub secrets ANDROID_KEYSTORE_BASE64 +
   ANDROID_KEYSTORE_PASSWORD. Without them CI builds a debug test APK only.
-- Known limit: Health doctor report "Print" needs a share/PDF path on Android
-  (WebView has no print dialog) - check / do next.
+- Doctor report "Print" on the phone: native printHtml (Android print screen,
+  "Save as PDF"); WebView itself has no print dialog.

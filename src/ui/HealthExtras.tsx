@@ -396,15 +396,30 @@ export function MonthSummaryCard({ always }: { always?: boolean }) {
  * styles) into a hidden frame and printed from there. In the print dialog,
  * "Microsoft Print to PDF" saves it as a PDF.
  */
-function printReport() {
+async function printReport() {
   const report = document.getElementById('hl-report');
   if (!report) return;
+  const html = document.documentElement;
+  if (platform.printHtml) {
+    // Phone: the page is printed by Android ("Save as PDF" is in its printer list),
+    // so the app's styles go inside the page itself.
+    const css = await Promise.all(
+      [...document.querySelectorAll<HTMLLinkElement | HTMLStyleElement>('link[rel="stylesheet"], style')].map(async (n) =>
+        n instanceof HTMLLinkElement ? await fetch(n.href).then((r) => r.text()).catch(() => '') : n.textContent ?? '',
+      ),
+    );
+    await platform.printHtml(
+      `<!doctype html><html lang="${html.lang}" dir="${html.dir}" data-theme="light" data-font-size="medium"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Bloom</title><style>${css.join('\n')}</style>` +
+        `<style>body{background:#fff;margin:0;padding:18px 22px}#hl-report{position:static!important;visibility:visible!important}@page{margin:14mm}</style></head><body>${report.outerHTML}</body></html>`,
+      'Bloom',
+    );
+    return;
+  }
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
   Object.assign(frame.style, { position: 'fixed', width: '0', height: '0', border: '0', right: '0', bottom: '0' });
   document.body.appendChild(frame);
   const doc = frame.contentDocument!;
-  const html = document.documentElement;
   const styles = [...document.querySelectorAll('link[rel="stylesheet"], style')].map((n) => n.outerHTML).join('');
   doc.open();
   doc.write(

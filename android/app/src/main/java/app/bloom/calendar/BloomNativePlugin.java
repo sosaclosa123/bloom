@@ -3,6 +3,10 @@ package app.bloom.calendar;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
+import android.print.PrintAttributes;
+import android.print.PrintManager;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -15,6 +19,7 @@ import java.io.File;
  *  - openFile: show a file (PDF / image) in the phone's viewer, or start
  *    installing a downloaded update (.apk) — Android then asks "Install?".
  *  - shareFile: the Android share sheet (save a backup to Drive, Files, ...).
+ *  - printHtml: Android's print screen for a page (doctor report; "Save as PDF").
  * Paths are file:// URIs from @capacitor/filesystem (app files or cache).
  */
 @CapacitorPlugin(name = "BloomNative")
@@ -68,5 +73,38 @@ public class BloomNativePlugin extends Plugin {
         } catch (Exception e) {
             call.reject(e.getMessage());
         }
+    }
+
+    /** Kept until printing is done (Android needs the page alive). */
+    private WebView printView;
+
+    @PluginMethod
+    public void printHtml(PluginCall call) {
+        String html = call.getString("html");
+        String title = call.getString("title", "Bloom");
+        if (html == null) {
+            call.reject("no html");
+            return;
+        }
+        getActivity().runOnUiThread(() -> {
+            try {
+                WebView view = new WebView(getActivity());
+                final boolean[] done = { false };
+                view.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageFinished(WebView v, String url) {
+                        if (done[0]) return;
+                        done[0] = true;
+                        PrintManager pm = (PrintManager) getActivity().getSystemService(android.content.Context.PRINT_SERVICE);
+                        pm.print(title, v.createPrintDocumentAdapter(title), new PrintAttributes.Builder().build());
+                        call.resolve();
+                    }
+                });
+                printView = view;
+                view.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
+            } catch (Exception e) {
+                call.reject(e.getMessage());
+            }
+        });
     }
 }

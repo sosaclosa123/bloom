@@ -491,3 +491,7 @@
   padding: var(--space-4);
   gap: var(--space-4);
 }
+/* To-do / note chips don't fit the narrow week columns (they show in the day panel). */
+.phone .week-day-head .day-chips {
+  display: none;
+}

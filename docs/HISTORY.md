@@ -72,7 +72,9 @@ up to date when something important changes.
   rejected heavy gaps; chose thin darker lines (option A, shade of the day).
 - Wallet: removed accounts/budgets/transactions; layout C; cancel button
   "Cancel subscription" / "בטל מנוי" (non-subscription: "Stop payment").
-- Android app: Android only, free APK (no Play Store). Not built yet.
+- Android app: Android only, free APK (no Play Store). Built Nov 2026:
+  phone layout "combo" calendar (owner picked from demos A/B/C: B by
+  default, turning into A when a day is tapped; swipe down to close).
 
 ## Pitfalls already hit (and fixed)
 - Hebrew Windows puts min/max/close at top-LEFT -> measured live
@@ -106,4 +108,4 @@ v0.1-0.2.x: core calendar, reminders + game mode, sync, auto-update, journal
 stickers + repeating stickers, notes popover, Wallet v2 (limit, payments,
 goals, history), Scheduled redesign, countdown stickers, startup window,
 window-buttons fix, privacy fix for day info, Health tab + IBD, automatic
-backups (v0.2.47 at the time of writing).
+backups (v0.2.47 at the time of writing), Android app (Capacitor, Nov 2026).

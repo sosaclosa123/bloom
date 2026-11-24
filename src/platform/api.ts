@@ -54,6 +54,8 @@ export interface PlatformAPI {
   onBackButton(cb: () => void): () => void;
   /** Phone: leave the app (back on the main screen). */
   exitApp(): void;
+  /** Phone: Android's print screen for a whole HTML page (no browser print dialog there). */
+  printHtml?(html: string, title: string): Promise<void>;
   testPopup(): Promise<void>;
   gameStatus(): Promise<{ available: boolean; gamingNow: boolean; error: string | null }>;
   setTitleBarTheme(dark: boolean): void;

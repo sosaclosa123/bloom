@@ -15,6 +15,7 @@ import type { KV, PhotoStore, PlatformAPI, UpdateState, WebOptions } from './api
 interface BloomNativePlugin {
   openFile(o: { path: string; mime: string }): Promise<void>;
   shareFile(o: { path: string; mime: string; title?: string }): Promise<void>;
+  printHtml(o: { html: string; title: string }): Promise<void>;
 }
 const Native = registerPlugin<BloomNativePlugin>('BloomNative');
 
@@ -375,6 +376,7 @@ export async function createAndroid(makeWeb: (o: WebOptions) => PlatformAPI): Pr
       return () => void h.then((x) => x.remove());
     },
     exitApp: () => void App.minimizeApp(),
+    printHtml: (html, title) => Native.printHtml({ html, title }),
     testPopup: async () => {
       if (!allowed) {
         const p = await LocalNotifications.requestPermissions().catch(() => null);
