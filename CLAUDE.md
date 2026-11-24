@@ -56,6 +56,8 @@ Auto-update: electron-updater from GitHub Releases.
 ## Commands
 - `npm run build` (typecheck + web + electron), `npx vitest run`
 - Preview for browser tests: `npx vite preview --port 4173`
+- Health redesign check: `qa/run.sh health-redesign.cjs` (Today, Food, Body,
+  pills, Add food, Create meal + Eat; PC + phone, EN/HE, light/dark).
 - Phone layout check: `qa/run.sh phone.cjs` (browser with `?phone`; EN/HE,
   light/dark, 360/412 wide; shots in `qa/shots/phone-*`),
   `phone-menus.cjs` (opens every menu/pop-up/window at 320/360/412 wide and
@@ -172,10 +174,16 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   7-day challenges, Achievements book ("הישגים"; dimmed book button in the Health top bar;
   22 families / 120+ badges from day 1 to 5+ years; IBD ones only with IBD).
   Logic in `src/shared/healthExtras.ts` (tested).
-- **Health layout = tabs inside Health** (owner chose option A): Today
-  (check-in, meds today, IBD card, food summary) | Food | Medicines | Body &
-  tests (About you, Body, Tests, Visits) | Trends | IBD (only with IBD) |
-  Goals (only if goals/challenges on). Last tab remembered per computer.
+- **Health layout = tabs inside Health** (redesign, owner Nov 2026): Today |
+  Food | Medicines (+ Visits) | Body (Body, Trends, Tests, About you, month
+  summary) | IBD (only with IBD) | Goals (only if goals/challenges on). Last
+  tab remembered per computer (old "trends" opens Body).
+- **Today = layout A** (owner): `TodayTiles` (kcal / protein / water / meds
+  vs goals), check-in, medicines today, `TodayFoodCard` (one list of the day,
+  "+ Add food" window = Add box + My meals chips), `TodayBodyCard` (steps,
+  exercise, weight + that day's tests/visits); side: monthly summary, IBD
+  card. **No Quick add row, no Today's log, no Food today card** (removed
+  at the owner's request: they overlapped).
 - Trends = line chart, a dot per logged day joined by a line, dashed trend
   line, goal line; Week / Month / Year / From the start.
 - Body is pre-filled from the health questions / last weight; the
@@ -190,8 +198,18 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   lookup (webcam / typed number / photo, @zxing/browser); only the search
   word or barcode is sent; free, no AI. OFF search is rate-limited (~10/min):
   the app shows "busy, try again" instead of failing.
-- **Food v5**: Meals / Snacks / **Drinks** (no water; water stays on Today, a
-  small water card sits under the calories). Search shows real products first
+- **Food tab** (redesign, owner Nov 2026): ONE "Add food" box; the food's
+  **pill** is picked in it: Meal / Snack / Drink / Healthy / Treat / Fast food
+  (`label`; old items get one from meal/snack, `labelOf`). ONE list of the
+  day with the pill on every line (tap = change). Drink pill = ml amounts,
+  no water (water stays on Today). Time of day (breakfast/lunch/dinner) is
+  kept automatically from the clock, not asked.
+- **My meals** (owner): fixed meals = `recipe` health records (name, pill,
+  foods + amounts). "Create meal" window: search/add foods, change amounts,
+  totals (kcal, protein, grams, carbs, sugars, fat). "+ Eat" / the chips add
+  it as ONE food line with its name (`recipe`: foods inside, portions x0.5-3
+  in its editor). Logic: `recipeTotals`/`recipeFood` in food.ts (tested).
+- Food v5 (older, still true where not replaced above): Search shows real products first
   ("coke" -> Coca-Cola), general foods below (`ALIASES` in `src/shared/food.ts`).
   Tags (fried, sugary…) are auto-picked and editable in a foldable list; every
   logged item opens an editor (amount re-calculates calories).
@@ -207,10 +225,10 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   (`text`); the full title is kept in `product` and shown in the editor.
   The last "show as" name for that product comes back next time.
 - **Food rows = table "C"** (owner, Nov 2026; `FoodTable` in HealthFood.tsx):
-  meal | food + amount | kcal | protein | edit, units once in the header,
-  rows share columns (subgrid). Narrow (card < 360px, phone): no meal column,
-  "Breakfast · 200 g" under the name. Used by Food tab meals, Today's log, day
-  pop-up. Snack/drink chips keep "kcal · N g protein" on one line.
+  pill | food + amount | kcal | protein | edit, units once in the header,
+  rows share columns (subgrid). Narrow (card < 360px, phone): the amount goes
+  under the name, the pill stays. Rows you tap are divs (not buttons: the
+  pill inside is a button). Used by the Food tab, Today, the day pop-up.
 - **Protein shown like calories** (owner, Nov 2026): every food line shows
   its protein; day totals (Today's log tile, Food today card,
   Food tab total, day pop-up). Filled in from the product; the food editor
@@ -226,15 +244,7 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   from the start) and a "Mark taken today" button for the chosen day only
   (marks all its planned doses; click again = undo). Same `taken` records as
   the Today ticks, so both stay in sync.
-- **Today = the lobby** for the chosen day: "Quick add" side-scrolling row
-  (mouse wheel scrolls it) at the top: Meal, Snack, Drink, Steps, Exercise,
-  Weight, Bathroom (IBD only), Medicine, Test result, Doctor visit. Each opens
-  the same editor as its tab (no leaving Today) and saves the same records
-  (`src/ui/HealthQuick.tsx`). Steps/exercise add to the day; no steps goal
-  (owner's choice).
-  Under the medicines: **"Today's log"** (owner chose A, grouped): totals
-  (kcal, water, steps, medicines taken/due), then Food & drinks, Body, Tests &
-  visits for that day; click any line = its editor (same records).
+- No steps goal (owner's choice).
 - **Calorie goal lives in the Food tab only** (owner's choice): the History
   card shows goal + protein goal (with "Change"), a dashed goal line and a
   dotted "keep weight" line on the Calories chart (protein chart: protein
@@ -327,7 +337,8 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
 
 ## In progress
 - Calorie + protein goal: built + tested on the work branch, NOT released.
-- Health redesign (owner chose, Nov 2026) - built, QA NOT done yet:
+- Health redesign (owner chose, Nov 2026) - built AND tested (qa/health-redesign.cjs,
+  PC + phone, EN/HE, light/dark), NOT released:
   - [x] Tabs: Today | Food | Medicines | Body (Body & tests + Trends) | IBD | Goals
   - [x] Today = layout A: TodayTiles (kcal / protein / water / meds vs goals),
         check-in, medicines, TodayFoodCard (one list, "+ Add food" window
@@ -339,9 +350,8 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   - [x] My meals: `recipe` health records (fixed foods + amounts), Create /
         Edit meal window, "+ Eat" adds ONE food line with `recipe` (foods
         inside, portions x0.5-3). Logic + tests: food.ts / recipe.test.ts.
-  - [ ] NEXT: QA screenshots PC + phone, EN/HE, light/dark; phone-menus.cjs
-        (adds new windows), clip check; then show owner; release together
-        with the calorie goal when the owner says.
+  - [x] QA done. NEXT: show the owner, release together with the calorie
+        goal when the owner says.
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas

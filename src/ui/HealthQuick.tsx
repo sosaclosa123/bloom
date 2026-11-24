@@ -24,18 +24,18 @@ export function TodayTiles({ date, water }: { date: ISODate; water: WaterGoal })
   const doses = dosesOn(healthOf(all, 'med'), healthOf(all, 'taken'), date);
   const taken = doses.filter((d) => d.taken).length;
   const g = energyGoal(profile, latestWeight(all, date), { ibd });
-  const tiles: { v: string; of: string | null; label: string; part: number | null }[] = [
+  const tiles: { v: string; of: string | null; label: string; part: number | null; ltr?: boolean }[] = [
     { v: kcal.toLocaleString(locale), of: g ? g.target.toLocaleString(locale) : null, label: t('hlKcalUnit'), part: g ? kcal / g.target : null },
     { v: proteinNum(protein, locale), of: g ? g.protein.toLocaleString(locale) : null, label: t('hlTilesProtein'), part: g ? protein / g.protein : null },
     { v: fmtWater(ml), of: fmtWater(water.ml), label: t('hlWater'), part: water.ml ? ml / water.ml : null },
-    { v: doses.length ? `${taken}/${doses.length}` : '–', of: null, label: t('hlTabMeds'), part: doses.length ? taken / doses.length : null },
+    { v: doses.length ? `${taken}/${doses.length}` : '–', of: null, label: t('hlTabMeds'), part: doses.length ? taken / doses.length : null, ltr: true },
   ];
   return (
     <section className="w-card hl-tiles-card">
       <div className="hl-today-tiles">
         {tiles.map((x) => (
           <span key={x.label} className="hl-today-tile">
-            <b dir="ltr">{x.v}</b>
+            <b dir={x.ltr ? 'ltr' : undefined}>{x.v}</b>
             <small>{x.of ? `${t('hlOfGoal', { v: x.of })} ${x.label}` : x.label}</small>
             {x.part != null && (
               <i className={x.part > 1.05 ? 'over' : ''}>

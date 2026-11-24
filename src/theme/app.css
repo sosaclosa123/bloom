@@ -8222,11 +8222,11 @@ button.hl-line-dot.at-l:not(:hover):not(:focus-visible) .hl-dot-label {
 .hl-ft-row:last-child {
   border-bottom: 0;
 }
-button.hl-ft-row {
+.hl-ft-row.hl-ft-click {
   cursor: pointer;
   border-radius: 8px;
 }
-button.hl-ft-row:hover {
+.hl-ft-row.hl-ft-click:hover {
   background: var(--surface-hover);
 }
 .hl-ft-head {
@@ -8293,7 +8293,7 @@ button.hl-ft-row:hover {
 .hl-ft-act:empty {
   display: none;
 }
-/* Narrow (phone): no meal column; "Breakfast · 200 g" goes under the name. */
+/* Narrow (phone): the pill stays in its spot; the amount goes under the name. */
 .hl-ftable-wrap {
   container-type: inline-size;
 }
@@ -8305,11 +8305,8 @@ button.hl-ft-row:hover {
 }
 @container (max-width: 360px) {
   .hl-ftable {
-    grid-template-columns: minmax(0, 1fr) max-content max-content max-content;
-    column-gap: 12px;
+    column-gap: 8px;
   }
-  .hl-ft-meal,
-  .hl-ft-head > span:first-child,
   .hl-ft-amount {
     display: none;
   }
@@ -8317,7 +8314,11 @@ button.hl-ft-row:hover {
     display: block;
   }
   .hl-ft-row {
-    padding-inline: 4px;
+    padding-inline: 2px;
+  }
+  .hl-ft-meal .hl-pill {
+    min-width: 0;
+    padding-inline: 6px;
   }
 }
 
@@ -8640,4 +8641,31 @@ button.hl-pill:hover {
 }
 .hl-meal-inside b {
   font-family: 'Outfit', var(--font-sans);
+}
+
+/* Narrow cards (phone): keep names on one line instead of stacking letters. */
+.hl-today-tiles {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(86px * var(--fs-scale, 1))), 1fr));
+}
+.hl-dose-list {
+  container-type: inline-size;
+}
+@container (max-width: 380px) {
+  .hl-dose .hl-tag {
+    display: none;
+  }
+}
+.hl-meals-list li {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.hl-meals-name {
+  flex: 1 1 calc(170px * var(--fs-scale, 1));
+}
+.hl-recipe-items li {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.hl-recipe-name {
+  flex: 1 1 calc(150px * var(--fs-scale, 1));
 }

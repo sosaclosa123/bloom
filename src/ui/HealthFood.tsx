@@ -399,9 +399,18 @@ export function FoodTable({
       </div>
       {items.map((f) =>
         onRow ? (
-          <button type="button" key={f.id} role="row" className="hl-ft-row" title={t('hlEditFood')} onClick={() => onRow(f)}>
+          // A row you can tap (not a <button>: the pill inside is its own button).
+          <div
+            key={f.id}
+            role="row"
+            tabIndex={0}
+            className="hl-ft-row hl-ft-click"
+            title={t('hlEditFood')}
+            onClick={() => onRow(f)}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget && (e.preventDefault(), onRow(f))}
+          >
             {cells(f)}
-          </button>
+          </div>
         ) : (
           <div key={f.id} role="row" className="hl-ft-row">
             {cells(f)}
