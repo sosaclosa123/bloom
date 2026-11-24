@@ -350,8 +350,8 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   - [x] My meals: `recipe` health records (fixed foods + amounts), Create /
         Edit meal window, "+ Eat" adds ONE food line with `recipe` (foods
         inside, portions x0.5-3). Logic + tests: food.ts / recipe.test.ts.
-  - [x] QA done. NEXT: show the owner, release together with the calorie
-        goal when the owner says.
+  - [x] QA done, shown to the owner. Owner: "more features first" -> wait
+        for the next features, then release everything together.
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas
