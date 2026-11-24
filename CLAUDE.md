@@ -336,9 +336,18 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   folder backups, custom reminder sounds). Backup "Save" = share sheet.
 
 ## In progress
-- Nothing. Released (Nov 2026): calorie + protein goal, Health redesign
-  (Today A, food pills, one Add food box, My meals, Body tab), Wallet phone
-  row fix. Waiting for the owner's next feedback.
+Phone feedback round 3 (owner, Nov 2026). Done = committed on the work branch:
+- [x] Sync: refresh on coming back from background, push on hide (delete bug)
+- [x] Look per device (text size, light/dark, Hebrew dates); ask "All my
+      devices / Only this device" before account settings change (SettingsAsk.tsx)
+- [ ] Phone weekly auto backup (default ON, can turn off) - Documents/Bloom,
+      newest 8 kept (reuse src/shared/backup.ts)
+- [ ] Stickers on the phone: scaled to the phone's day squares
+- [ ] Day panel open/close: root cause of stutter -> compositor-only animation
+      (transforms), not layout; month swipe follows the finger (drag) + snap
+- [ ] Phone Wallet = layout A (owner chose): tabs This month | Year | Savings |
+      Payments, "+ Purchase" button opens the add form. PC Wallet unchanged.
+- Then QA (phone + PC, EN/HE, light/dark), show owner, release.
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas
