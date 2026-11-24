@@ -303,9 +303,15 @@ export interface HealthFood extends SyncMeta {
   fat?: number | null;
   carbs?: number | null;
   /** Per 100 g / 100 ml (so the amount can be changed later). */
-  per100?: { kcal: number; protein: number; fat: number; carbs: number } | null;
+  per100?: { kcal: number; protein: number; fat: number; carbs: number; sugars?: number | null } | null;
+  /** Sugars for the amount (when the product data has them). */
+  sugars?: number | null;
+  /** The pill on the food's line (owner, Nov 2026). Old items: from meal / snack. */
+  label?: FoodLabel | null;
+  /** Eaten from "My meals": the meal's foods (for 1 portion) and how many portions. */
+  recipe?: { id: string; portions: number; items: RecipeItem[] } | null;
   /** Where the numbers came from: Israeli MoH database, Open Food Facts, or typed in. */
-  source?: 'il' | 'off' | 'manual';
+  source?: 'il' | 'off' | 'manual' | 'recipe';
   productId?: string;
   /** The full product name it was picked from (text = your own "show as" name). */
   product?: string;
@@ -315,6 +321,32 @@ export interface HealthFood extends SyncMeta {
 }
 
 /** "My box" for a product: its weight and how many pieces were in it (asked once, remembered). */
+export type FoodLabel = 'meal' | 'snack' | 'drink' | 'healthy' | 'treat' | 'fast';
+
+/** One food inside a saved meal ("My meals"), with its fixed amount. */
+export interface RecipeItem {
+  text: string;
+  product?: string;
+  productId?: string;
+  grams: number | null;
+  kcal: number | null;
+  protein: number | null;
+  fat: number | null;
+  carbs: number | null;
+  sugars: number | null;
+  per100: HealthFood['per100'];
+  source?: HealthFood['source'];
+  drink?: boolean;
+}
+
+/** A saved meal: fixed foods + amounts, added in one tap ("My meals"). */
+export interface HealthRecipe extends SyncMeta {
+  kind: 'recipe';
+  name: string;
+  label: FoodLabel;
+  items: RecipeItem[];
+}
+
 export interface HealthFoodPack extends SyncMeta {
   kind: 'foodpack';
   productId: string;
@@ -394,6 +426,7 @@ export type HealthItem =
   | HealthMedTaken
   | HealthFood
   | HealthFoodPack
+  | HealthRecipe
   | HealthBody
   | HealthTest
   | HealthVisit

@@ -6,12 +6,12 @@ import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { bathroomStats, forDate, healthOf, waterGoal } from '../shared/health';
 import { Button, Icon, IconButton, Toggle } from './common';
 import { onHealthRedo, requestHealthRedo, takeHealthRedo, useHealth } from './healthUi';
-import { FoodSummaryCard, FoodTab } from './HealthFood';
+import { FoodTab } from './HealthFood';
 import { StickerArt } from './Stickers';
 import { BodyCard, MedHistoryCards, MedsCard, TestsCard, VisitsCard } from './HealthCards';
 import { CheckinCard } from './HealthCheckin';
 import { IbdCard } from './HealthIbd';
-import { QuickAddCard, TodayLogCard } from './HealthQuick';
+import { TodayBodyCard, TodayFoodCard, TodayTiles } from './HealthQuick';
 import { ChallengesCard, DoctorReport, GoalsCard, MonthSummaryCard, StickerBookButton } from './HealthExtras';
 import { FlareTimelineCard, InsightsCard, TrendsCard } from './HealthTrends';
 import { profileComplete, ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
@@ -122,17 +122,17 @@ function HealthOn() {
   const body = forDate(all, 'body', date);
   const goal = waterGoal(profile, { date, ibd, liquidStools: stats.liquid, exerciseMin: body?.exerciseMin ?? null });
 
-  type Sub = 'today' | 'food' | 'meds' | 'body' | 'trends' | 'ibd' | 'goals';
+  // Owner (Nov 2026): fewer tabs; Body & tests and Trends are one "Body" tab.
+  type Sub = 'today' | 'food' | 'meds' | 'body' | 'ibd' | 'goals';
   const subs: { id: Sub; label: string; sticker?: string; icon?: 'calendar' }[] = [
     { id: 'today', label: t('hlTabToday'), icon: 'calendar' },
     { id: 'food', label: t('hlFood'), sticker: 'cooking' },
     { id: 'meds', label: t('hlTabMeds'), sticker: 'pill' },
     { id: 'body', label: t('hlTabBody'), sticker: 'gym' },
-    { id: 'trends', label: t('hlTrends'), sticker: 'idea' },
     ...(ibd ? [{ id: 'ibd' as Sub, label: 'IBD' }] : []),
     ...(settings.healthGoals || settings.healthChallenges ? [{ id: 'goals' as Sub, label: t('hlTabGoals'), sticker: 'gift' }] : []),
   ];
-  const sub: Sub = subs.some((x) => x.id === tab) ? (tab as Sub) : 'today';
+  const sub: Sub = tab === 'trends' ? 'body' : subs.some((x) => x.id === tab) ? (tab as Sub) : 'today';
   const pickTab = (x: Sub) => {
     setTab(x);
     try {
@@ -181,18 +181,17 @@ function HealthOn() {
               <div className="wl-main">
                 {/* Stays until the questionnaire is filled in to the end. */}
                 {!profileComplete(profile, ibd) && <SetupCard onStart={() => setWizard('resume')} />}
-                {/* The lobby: add anything for this day; it shows in the other tabs too. */}
-                <QuickAddCard date={date} isToday={isToday} />
+                {/* Layout A (owner, Nov 2026): tiles, check-in, medicines, one food list, body. */}
+                <TodayTiles date={date} water={goal} />
                 <CheckinCard date={date} isToday={isToday} goal={goal} />
                 <MedsCard date={date} todayOnly />
-                {/* Everything added this day, click to edit (same records as the other tabs). */}
-                <TodayLogCard date={date} isToday={isToday} />
+                <TodayFoodCard date={date} isToday={isToday} />
+                <TodayBodyCard date={date} />
               </div>
               <div className="wl-side">
                 {isToday && <MonthSummaryCard />}
                 {/* IBD parts exist only while IBD is on for this computer. */}
                 {ibd && <IbdCard date={date} isToday={isToday} />}
-                <FoodSummaryCard date={date} onOpen={() => pickTab('food')} />
                 <Note />
               </div>
             </>
@@ -214,20 +213,11 @@ function HealthOn() {
             <>
               <div className="wl-main">
                 <BodyCard date={date} />
+                <TrendsCard date={date} goal={goal} />
                 <TestsCard />
               </div>
               <div className="wl-side">
                 <ProfileCard goal={goal} date={date} onEdit={() => setWizard('restart')} />
-                <Note />
-              </div>
-            </>
-          )}
-          {sub === 'trends' && (
-            <>
-              <div className="wl-main">
-                <TrendsCard date={date} goal={goal} />
-              </div>
-              <div className="wl-side">
                 <MonthSummaryCard always />
                 <Note />
               </div>

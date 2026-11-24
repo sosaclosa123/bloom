@@ -4,6 +4,7 @@
 //  - Online (if turned on): Open Food Facts products, also by barcode.
 // Values are per 100 g; a logged item stores its own grams and totals.
 
+import type { FoodLabel, HealthFood, HealthRecipe, RecipeItem } from './types';
 export interface FoodProduct {
   id: string; // 'il:<code>' or 'off:<barcode>'
   source: 'il' | 'off';
@@ -301,3 +302,65 @@ export function validBarcode(code: string): boolean {
 }
 
 export const OFF_FIELDS = 'code,product_name,product_name_he,product_name_en,brands,nutriments,serving_quantity,serving_size,product_quantity,product_quantity_unit';
+
+// ---------------------------------------------------------------- food pills + "My meals" (owner, Nov 2026)
+
+export const FOOD_LABELS: FoodLabel[] = ['meal', 'snack', 'drink', 'healthy', 'treat', 'fast'];
+
+/** The pill on a food's line; older items get one from what they were logged as. */
+export function labelOf(f: Pick<HealthFood, 'label' | 'meal' | 'snack'>): FoodLabel {
+  return f.label ?? (f.meal === 'drink' ? 'drink' : f.snack || f.meal === 'snack' ? 'snack' : 'meal');
+}
+
+const r1 = (n: number) => Math.round(n * 10) / 10;
+const sumOf = (xs: (number | null | undefined)[]) => (xs.some((x) => x != null) ? r1(xs.reduce<number>((a, x) => a + (x ?? 0), 0)) : null);
+
+/** The whole meal: calories, protein, carbs, sugars, fat and weight added up. */
+export function recipeTotals(items: RecipeItem[], portions = 1) {
+  const m = (x: number | null) => (x == null ? null : r1(x * portions));
+  const kcal = sumOf(items.map((i) => i.kcal));
+  return {
+    kcal: kcal == null ? null : Math.round(kcal * portions),
+    protein: m(sumOf(items.map((i) => i.protein))),
+    fat: m(sumOf(items.map((i) => i.fat))),
+    carbs: m(sumOf(items.map((i) => i.carbs))),
+    sugars: m(sumOf(items.map((i) => i.sugars))),
+    grams: m(sumOf(items.map((i) => i.grams))),
+  };
+}
+
+/** A different amount of one food in a meal: numbers follow its per-100 g values (or scale with the old amount). */
+export function itemForGrams(i: RecipeItem, grams: number): RecipeItem {
+  if (i.per100) {
+    const f = grams / 100;
+    return { ...i, grams, kcal: Math.round(i.per100.kcal * f), protein: r1(i.per100.protein * f), fat: r1(i.per100.fat * f), carbs: r1(i.per100.carbs * f), sugars: i.per100.sugars != null ? r1(i.per100.sugars * f) : null };
+  }
+  if (!i.grams) return { ...i, grams };
+  const k = grams / i.grams;
+  const sc = (x: number | null) => (x == null ? null : r1(x * k));
+  return { ...i, grams, kcal: i.kcal == null ? null : Math.round(i.kcal * k), protein: sc(i.protein), fat: sc(i.fat), carbs: sc(i.carbs), sugars: sc(i.sugars) };
+}
+
+/** A logged food turned into a meal's ingredient (same amount and numbers). */
+export function itemOf(f: HealthFood): RecipeItem {
+  return {
+    text: f.text,
+    product: f.product,
+    productId: f.productId,
+    grams: f.grams ?? null,
+    kcal: f.kcal ?? null,
+    protein: f.protein ?? null,
+    fat: f.fat ?? null,
+    carbs: f.carbs ?? null,
+    sugars: f.sugars ?? null,
+    per100: f.per100 ?? null,
+    source: f.source,
+    drink: f.meal === 'drink',
+  };
+}
+
+/** The numbers of a meal eaten as N portions (for the food's line). */
+export function recipeFood(r: Pick<HealthRecipe, 'id' | 'name' | 'label' | 'items'>, portions: number): Pick<HealthFood, 'text' | 'label' | 'grams' | 'kcal' | 'protein' | 'fat' | 'carbs' | 'sugars' | 'per100' | 'source' | 'recipe'> {
+  const tot = recipeTotals(r.items, portions);
+  return { text: r.name, label: r.label, grams: tot.grams, kcal: tot.kcal, protein: tot.protein, fat: tot.fat, carbs: tot.carbs, sugars: tot.sugars, per100: null, source: 'recipe', recipe: { id: r.id, portions, items: r.items } };
+}

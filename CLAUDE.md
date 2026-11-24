@@ -326,8 +326,23 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   folder backups, custom reminder sounds). Backup "Save" = share sheet.
 
 ## In progress
-- Calorie + protein goal: built and tested on the work branch, NOT released
-  (owner has more features to add first; release them together).
+- Calorie + protein goal: built + tested on the work branch, NOT released.
+- Health redesign (owner chose, Nov 2026) - built, QA NOT done yet:
+  - [x] Tabs: Today | Food | Medicines | Body (Body & tests + Trends) | IBD | Goals
+  - [x] Today = layout A: TodayTiles (kcal / protein / water / meds vs goals),
+        check-in, medicines, TodayFoodCard (one list, "+ Add food" window
+        with My meals chips), TodayBodyCard. Quick add + Today's log + Food
+        today card removed (HealthQuick.tsx).
+  - [x] Food: ONE "Add food" box with pill choice (Meal / Snack / Drink /
+        Healthy / Treat / Fast food), one list of the day with a pill per line
+        (tap = change), My meals chips + My meals card.
+  - [x] My meals: `recipe` health records (fixed foods + amounts), Create /
+        Edit meal window, "+ Eat" adds ONE food line with `recipe` (foods
+        inside, portions x0.5-3). Logic + tests: food.ts / recipe.test.ts.
+  - [ ] NEXT: QA screenshots PC + phone, EN/HE, light/dark; phone-menus.cjs
+        (adds new windows), clip check; then show owner; release together
+        with the calorie goal when the owner says.
+- Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas
 - (none right now)

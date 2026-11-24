@@ -5,18 +5,17 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
-import { autoTags, forGrams, OFF_FIELDS, packWeight, parseOff, piecesToGrams, pieceWeight, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
+import { autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, packWeight, parseOff, piecesToGrams, pieceWeight, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { energyGoal, energySummary, FOOD_TAGS, forDate, healthOf, latestWeight } from '../shared/health';
 import { foodSeries, type FoodMetric } from '../shared/healthExtras';
-import type { CalorieGoal, CaloriePace, HealthFood, HealthFoodPack, ISODate } from '../shared/types';
+import type { CalorieGoal, CaloriePace, FoodLabel, HealthFood, HealthFoodPack, HealthRecipe, ISODate, RecipeItem } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented } from './common';
-import { CardHead, LineChart, NumBox, Pills, requestHealthRedo, Tip, useHealth, useWaterFmt } from './healthUi';
+import { CardHead, LineChart, NumBox, Pills, Popover, requestHealthRedo, Tip, useHealth, useWaterFmt } from './healthUi';
 import { EnergyNotes } from './HealthProfile';
 import { DaySummary } from './HealthDay';
 import { useBloom } from './store';
 
-const MEALS: HealthFood['meal'][] = ['breakfast', 'lunch', 'dinner'];
 const mealFor = (h: number): HealthFood['meal'] => (h < 11 ? 'breakfast' : h < 16 ? 'lunch' : 'dinner');
 const OFF = 'https://world.openfoodfacts.org';
 
@@ -64,33 +63,29 @@ export function FoodTab({ date, isToday, goalMl }: { date: ISODate; isToday: boo
   const { t } = useBloom();
   const { all } = useHealth();
   const [editing, setEditing] = useState<HealthFood | null>(null);
-  const items = healthOf(all, 'food').filter((f) => f.date === date);
-  const by = (k: Kind) => items.filter((f) => kindOf(f) === k).sort((a, b) => (k === 'meal' ? MEALS.indexOf(a.meal) - MEALS.indexOf(b.meal) : 0) || a.time.localeCompare(b.time));
-  const meals = by('meal');
-  const snacks = by('snack');
-  const drinks = by('drink');
+  const items = healthOf(all, 'food')
+    .filter((f) => f.date === date)
+    .sort((a, b) => a.time.localeCompare(b.time) || a.createdAt - b.createdAt);
+  const by = (k: Kind) => items.filter((f) => kindOf(f) === k);
   return (
     <div className="wallet-body wl-two hl-two">
       <div className="wl-main">
+        {/* One box to add any food; the pill (meal, snack, drink, healthy...) is picked in it. */}
         <section className="w-card hl-food">
-          <CardHead sticker="restaurant" title={t('hlMeals')} />
-          <FoodAdd date={date} isToday={isToday} kind="meal" />
-          {meals.length === 0 ? <EmptyFood /> : <FoodList list={meals} onEdit={setEditing} />}
+          <CardHead sticker="restaurant" title={t('hlAddFoodTitle')} />
+          <FoodAdd date={date} isToday={isToday} />
+          <MyMealsChips date={date} isToday={isToday} />
         </section>
-        <section className="w-card hl-food hl-snacks">
-          <CardHead sticker="coffee" title={t('hlSnacks')} tip={t('hlSnacksSub')} />
-          <FoodAdd date={date} isToday={isToday} kind="snack" />
-          {snacks.length > 0 && <FoodList list={snacks} chips onEdit={setEditing} />}
-        </section>
-        <section className="w-card hl-food hl-drinks">
-          <CardHead sticker="party" title={t('hlDrinks')} tip={t('hlDrinksSub')} />
-          <FoodAdd date={date} isToday={isToday} kind="drink" />
-          {drinks.length > 0 && <FoodList list={drinks} chips onEdit={setEditing} />}
+        {/* All food of the day in one list, a pill on every line. */}
+        <section className="w-card hl-food">
+          <CardHead sticker="cooking" title={isToday ? t('hlTodayFood') : t('hlDayFood')} />
+          {items.length === 0 ? <EmptyFood /> : <FoodList list={items} onEdit={setEditing} />}
         </section>
       </div>
       <div className="wl-side">
-        <TotalsCard meals={meals} snacks={snacks} drinks={drinks} />
+        <TotalsCard meals={by('meal')} snacks={by('snack')} drinks={by('drink')} />
         <WaterTodayCard date={date} goalMl={goalMl} />
+        <MyMealsCard date={date} isToday={isToday} />
         <FoodHistoryCard date={date} />
       </div>
       {editing && <FoodEditor init={editing} onClose={() => setEditing(null)} />}
@@ -289,6 +284,64 @@ export function proteinText(g: number, t: ReturnType<typeof useBloom>['t'], loca
   return t('hlProtein', { n: proteinNum(g, locale) });
 }
 
+/** The colored pill on a food's line (Meal, Snack, Drink, Healthy, Treat, Fast food); tap to change it. */
+export function FoodPill({ food, editable = true }: { food: HealthFood; editable?: boolean }) {
+  const { t, save } = useBloom();
+  const [open, setOpen] = useState(false);
+  const l = labelOf(food);
+  if (!editable) return <span className={`hl-pill lbl-${l}`}>{t(`hlLbl_${l}` as StringKey)}</span>;
+  return (
+    <span className="hl-pill-wrap">
+      <button
+        type="button"
+        className={`hl-pill lbl-${l}`}
+        data-pop-anchor
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title={t('hlLblPick')}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
+      >
+        {t(`hlLbl_${l}` as StringKey)}
+      </button>
+      {open && (
+        <Popover onClose={() => setOpen(false)} className="hl-pill-pop">
+          <span className="hl-goal-label">{t('hlLblPick')}</span>
+          <LabelPills
+            value={l}
+            onChange={(label) => {
+              save('health', withLabel(food, label));
+              setOpen(false);
+            }}
+          />
+        </Popover>
+      )}
+    </span>
+  );
+}
+
+/** A food with a new pill (Drink / Snack also set what kind of eating it was). */
+function withLabel(f: HealthFood, label: FoodLabel): HealthFood {
+  const meal: HealthFood['meal'] = label === 'drink' ? 'drink' : label === 'snack' ? 'snack' : f.meal === 'drink' || f.meal === 'snack' ? mealFor(Number(f.time.slice(0, 2)) || 12) : f.meal;
+  return { ...f, label, meal, snack: label === 'snack' };
+}
+
+/** The 6 pills to pick from. */
+export function LabelPills({ value, onChange }: { value: FoodLabel; onChange: (l: FoodLabel) => void }) {
+  const { t } = useBloom();
+  return (
+    <div className="hl-pill-picks" role="radiogroup" aria-label={t('hlLblPick')}>
+      {FOOD_LABELS.map((x) => (
+        <button type="button" key={x} role="radio" aria-checked={value === x} className={`hl-pill lbl-${x} ${value === x ? 'on' : ''}`} onClick={(e) => (e.stopPropagation(), onChange(x))}>
+          {t(`hlLbl_${x}` as StringKey)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Food rows as neat columns (owner chose "C"): meal | food + amount | kcal |
  * protein | edit/delete. Units once in the header, so nothing stacks.
@@ -296,36 +349,38 @@ export function proteinText(g: number, t: ReturnType<typeof useBloom>['t'], loca
  */
 export function FoodTable({
   items,
-  label,
   onRow,
   name,
   action,
+  pillEdit = true,
 }: {
   items: HealthFood[];
-  /** Left column: meal / snack / drink. */
-  label: (f: HealthFood) => string;
-  /** The whole row is a button (Today's log). */
+  /** The whole row is a button (Today's food). */
   onRow?: (f: HealthFood) => void;
+  /** The pill can be tapped to change it. */
+  pillEdit?: boolean;
   /** Custom food cell (e.g. a button with tags); default = name + amount. */
   name?: (f: HealthFood) => ReactNode;
   action?: (f: HealthFood) => ReactNode;
 }) {
   const { t, locale } = useBloom();
-  const amount = (f: HealthFood) => foodAmount(f, t, locale);
+  const amount = (f: HealthFood) => (f.recipe ? `${t('hlMyMealTag')}${f.recipe.portions !== 1 ? ` · ×${f.recipe.portions.toLocaleString(locale)}` : ''}` : foodAmount(f, t, locale));
   const cells = (f: HealthFood) => (
     <>
-      <span className="hl-ft-meal">{label(f)}</span>
+      <span className="hl-ft-meal">
+        <FoodPill food={f} editable={pillEdit} />
+      </span>
       <span className="hl-ft-name">
         {name ? (
           name(f)
         ) : (
           <>
             <bdi>{f.text}</bdi>
-            {f.grams ? <small className="hl-ft-amount"> {amount(f)}</small> : null}
+            {amount(f) ? <small className="hl-ft-amount"> {amount(f)}</small> : null}
           </>
         )}
-        {/* Narrow screens: the meal moves here, under the name. */}
-        <small className="hl-ft-sub">{[label(f), amount(f)].filter(Boolean).join(' · ')}</small>
+        {/* Narrow screens: the amount goes under the name. */}
+        {amount(f) ? <small className="hl-ft-sub">{amount(f)}</small> : null}
       </span>
       <span className="hl-ft-num hl-ft-kcal">{f.kcal != null ? Math.round(f.kcal).toLocaleString(locale) : '–'}</span>
       <span className="hl-ft-num hl-ft-protein">{f.protein != null ? t('hlGrams', { n: proteinNum(f.protein, locale) }) : '–'}</span>
@@ -396,11 +451,10 @@ function FoodList({ list, chips, onEdit }: { list: HealthFood[]; chips?: boolean
   return (
     <FoodTable
       items={list}
-      label={(f) => t(`hlMeal_${f.meal}` as StringKey)}
       name={(f) => (
         <button type="button" className="hl-food-text" title={t('hlEditFood')} onClick={() => onEdit(f)}>
           <bdi>{f.text}</bdi>
-          {f.grams ? <small className="hl-ft-amount"> {amount(f)}</small> : null}
+          {f.recipe ? <small className="hl-ft-amount"> {t('hlMyMealTag')}</small> : f.grams ? <small className="hl-ft-amount"> {amount(f)}</small> : null}
           {f.tags.map((x) => (
             <span key={x} className="hl-tag">
               {tagName(x, t)}
@@ -479,28 +533,6 @@ function WaterTodayCard({ date, goalMl }: { date: ISODate; goalMl: number }) {
   );
 }
 
-/** Small "Food today" card for the Today tab (opens the Food tab). */
-export function FoodSummaryCard({ date, onOpen }: { date: ISODate; onOpen: () => void }) {
-  const { t, locale } = useBloom();
-  const { all } = useHealth();
-  const items = healthOf(all, 'food').filter((f) => f.date === date);
-  const snacks = items.filter((f) => kindOf(f) === 'snack').length;
-  const drinks = items.filter((f) => kindOf(f) === 'drink').length;
-  const kcal = items.reduce((a, f) => a + (f.kcal ?? 0), 0);
-  const protein = items.reduce((a, f) => a + (f.protein ?? 0), 0);
-  return (
-    <button type="button" className="w-card hl-food-sum" onClick={onOpen}>
-      <CardHead sticker="cooking" title={t('hlFoodToday')}>
-        <span className="hl-food-sum-kcal">
-          {t('hlKcal', { n: Math.round(kcal).toLocaleString(locale) })}
-          <small className="hl-protein">{proteinText(protein, t, locale)}</small>
-        </span>
-      </CardHead>
-      <span className="w-card-sub">{items.length ? t('hlFoodCounts3', { m: items.length - snacks - drinks, s: snacks, d: drinks }) : t('hlNoFood')}</span>
-    </button>
-  );
-}
-
 // ---------------------------------------------------------------- edit a logged item
 
 export function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () => void }) {
@@ -566,10 +598,33 @@ export function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () =>
             {t('hlProductIs', { p: f.product })}
           </p>
         )}
-        {kind === 'meal' && (
-          <Pills label={t('hlMeals')} value={f.meal} onChange={(v) => v && setF({ ...f, meal: v })} options={MEALS.map((x) => ({ value: x, label: t(`hlMeal_${x}` as StringKey) }))} />
+        <div className="field">
+          <span className="field-label">{t('hlLblPick')}</span>
+          <LabelPills value={labelOf(f)} onChange={(l) => setF(withLabel(f, l))} />
+        </div>
+        {f.recipe && (
+          <>
+            <Pills
+              label={t('hlPortionsN')}
+              value={f.recipe.portions}
+              onChange={(v) => v && setF({ ...f, ...recipeFood({ id: f.recipe!.id, name: f.text, label: labelOf(f), items: f.recipe!.items }, v) })}
+              options={[0.5, 1, 1.5, 2, 3].map((x) => ({ value: x, label: `×${x.toLocaleString(locale)}` }))}
+            />
+            <div className="field">
+              <span className="field-label">{t('hlInside')}</span>
+              <ul className="hl-meal-inside">
+                {f.recipe.items.map((i, k) => (
+                  <li key={k}>
+                    <bdi>{i.text}</bdi>
+                    <small>{i.grams ? t(i.drink ? 'hlMl' : 'hlGrams', { n: Math.round(i.grams * f.recipe!.portions) }) : ''}</small>
+                    <b>{i.kcal != null ? t('hlKcal', { n: Math.round(i.kcal * f.recipe!.portions).toLocaleString(locale) }) : '–'}</b>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
         )}
-        <div className="hl-form-row">
+        {!f.recipe && <div className="hl-form-row">
           {f.pieceG ? (
             <Field label={t('hlByPieces')}>
               <NumBox value={f.pieces ?? null} onChange={setPieces} min={0.5} max={500} step={0.5} unit={t('hlUnitPcs')} label={t('hlByPieces')} />
@@ -584,7 +639,7 @@ export function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () =>
           <Field label={<Tip text={t('hlProteinFixHint')}>{t('hlProteinFix')}</Tip>}>
             <NumBox value={f.protein ?? null} onChange={setProtein} min={0} max={1000} step={0.5} unit={t('hlUnitG')} label={t('hlProteinFix')} />
           </Field>
-        </div>
+        </div>}
         {f.kcal != null && f.protein != null && (
           <span className="hl-portion-kcal">{t('hlMacroShort', { p: (f.protein ?? 0).toLocaleString(locale), c: (f.carbs ?? 0).toLocaleString(locale), f: (f.fat ?? 0).toLocaleString(locale) })}</span>
         )}
@@ -626,9 +681,16 @@ function TagPicker({ tags, open, onOpen, onChange }: { tags: string[]; open: boo
 
 const offCache = new Map<string, FoodProduct[]>();
 
-export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isToday: boolean; kind: Kind; onAdded?: () => void }) {
+/**
+ * Search / barcode / type a food and its amount. Normally saves it to the day
+ * with the chosen pill; with `onItem` it hands it over instead (building a
+ * meal in "My meals").
+ */
+export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isToday: boolean; onAdded?: () => void; onItem?: (i: RecipeItem) => void }) {
   const { t, locale, save, settings } = useBloom();
   const lang = settings.language;
+  const [label, setLabel] = useState<FoodLabel>('meal');
+  const kind: Kind = onItem ? 'meal' : label === 'drink' ? 'drink' : label === 'snack' ? 'snack' : 'meal';
   const drink = kind === 'drink';
   const [text, setText] = useState('');
   // Your own short name for the picked product ("XL"); the search box keeps the full title.
@@ -639,7 +701,6 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
   const [grams, setGrams] = useState<number | null>(drink ? 250 : 100);
   const [manualKcal, setManualKcal] = useState<number | null>(null);
   const [manualProtein, setManualProtein] = useState<number | null>(null);
-  const [meal, setMeal] = useState<HealthFood['meal']>(() => mealFor(new Date().getHours()));
   const [tags, setTags] = useState<string[]>([]);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [scan, setScan] = useState(false);
@@ -719,8 +780,9 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
       kind: 'food',
       date,
       time: isToday ? nowTime() : '',
-      meal: kind === 'drink' ? 'drink' : kind === 'snack' ? 'snack' : meal,
+      meal: kind === 'drink' ? 'drink' : kind === 'snack' ? 'snack' : isToday ? mealFor(new Date().getHours()) : 'lunch',
       snack: kind === 'snack',
+      label,
       text: (pick && title.trim()) || text.trim(),
       product: pick ? text.trim() : undefined,
       tags,
@@ -729,13 +791,15 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
       protein: n ? n.protein : manualProtein,
       fat: n?.fat ?? null,
       carbs: n?.carbs ?? null,
-      per100: pick ? { kcal: pick.kcal, protein: pick.protein, fat: pick.fat, carbs: pick.carbs } : null,
+      sugars: pick && useGrams && pick.sugars != null ? Math.round(pick.sugars * useGrams) / 100 : null,
+      per100: pick ? { kcal: pick.kcal, protein: pick.protein, fat: pick.fat, carbs: pick.carbs, sugars: pick.sugars ?? null } : null,
       source: pick ? pick.source : manualKcal != null || manualProtein != null ? 'manual' : undefined,
       productId: pick?.id,
       pieces: pick && mode === 'pieces' && piece ? pieces : null,
       pieceG: pick && mode === 'pieces' && piece ? piece.grams : null,
     };
-    save('health', item);
+    if (onItem) onItem({ ...itemOf(item), drink });
+    else save('health', item);
     reset();
     onAdded?.();
   };
@@ -753,7 +817,7 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
         add();
       }}
     >
-      {kind === 'meal' && <Pills label={t('hlMeals')} value={meal} onChange={(v) => v && setMeal(v)} options={MEALS.map((x) => ({ value: x, label: t(`hlMeal_${x}` as StringKey) }))} />}
+      {!onItem && <LabelPills value={label} onChange={setLabel} />}
       <div className="hl-food-row">
         <div className="hl-food-search">
           <input
@@ -897,7 +961,7 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
           </Button>
         )}
         <Button variant="primary" icon="plus" disabled={!ok} onClick={add}>
-          {kind === 'drink' ? t('hlAddDrink') : kind === 'snack' ? t('hlAddSnack') : t('hlAddFood')}
+          {onItem ? t('hlAddToMeal') : kind === 'drink' ? t('hlAddDrink') : kind === 'snack' ? t('hlAddSnack') : t('hlAddFood')}
         </Button>
       </div>
       <button type="submit" hidden />
@@ -1141,6 +1205,217 @@ function BarcodeModal({ onClose, onFound }: { onClose: () => void; onFound: (p: 
           </p>
         </div>
       )}
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------- "My meals": fixed meals added in one tap (owner, Nov 2026)
+
+/** Adds a saved meal to the day as one food line (its name, the foods inside, N portions). */
+function useEatMeal(date: ISODate, isToday: boolean) {
+  const { t, save, toast } = useBloom();
+  return (r: HealthRecipe, portions = 1) => {
+    const kind = r.label === 'drink' ? 'drink' : r.label === 'snack' ? 'snack' : null;
+    save('health', {
+      ...newMeta(),
+      kind: 'food',
+      date,
+      time: isToday ? nowTime() : '',
+      meal: kind ?? (isToday ? mealFor(new Date().getHours()) : 'lunch'),
+      snack: kind === 'snack',
+      tags: [],
+      ...recipeFood(r, portions),
+    });
+    toast(t('hlMealAdded', { n: r.name }));
+  };
+}
+
+/** One-tap chips under "Add food". */
+export function MyMealsChips({ date, isToday, onAdded }: { date: ISODate; isToday: boolean; onAdded?: () => void }) {
+  const { t, locale } = useBloom();
+  const { all } = useHealth();
+  const meals = healthOf(all, 'recipe').sort((a, b) => a.name.localeCompare(b.name));
+  const eat = useEatMeal(date, isToday);
+  const [create, setCreate] = useState(false);
+  return (
+    <div className="hl-meal-chips">
+      <span className="hl-goal-label">{t('hlMyMeals')}</span>
+      {meals.map((r) => (
+        <button
+          type="button"
+          key={r.id}
+          className={`hl-meal-chip lbl-${r.label}`}
+          title={`${t('hlEat')}: ${r.name}`}
+          onClick={() => {
+            eat(r);
+            onAdded?.();
+          }}
+        >
+          <Icon name="plus" size={12} />
+          <bdi>{r.name}</bdi>
+          <b>{(recipeTotals(r.items).kcal ?? 0).toLocaleString(locale)}</b>
+        </button>
+      ))}
+      <button type="button" className="hl-meal-chip new" onClick={() => setCreate(true)}>
+        {t('hlCreateMeal')}
+      </button>
+      {create && <RecipeEditor onClose={() => setCreate(false)} />}
+    </div>
+  );
+}
+
+/** The list of saved meals: eat, edit, create. */
+export function MyMealsCard({ date, isToday }: { date: ISODate; isToday: boolean }) {
+  const { t, locale } = useBloom();
+  const { all } = useHealth();
+  const meals = healthOf(all, 'recipe').sort((a, b) => a.name.localeCompare(b.name));
+  const eat = useEatMeal(date, isToday);
+  const [edit, setEdit] = useState<HealthRecipe | 'new' | null>(null);
+  return (
+    <section className="w-card hl-meals-card">
+      <CardHead sticker="restaurant" title={t('hlMyMeals')}>
+        <button type="button" className="link-btn" onClick={() => setEdit('new')}>
+          + {t('hlCreateMeal')}
+        </button>
+      </CardHead>
+      {meals.length === 0 && <p className="empty-note">{t('hlNoMeals')}</p>}
+      <ul className="hl-meals-list">
+        {meals.map((r) => {
+          const tot = recipeTotals(r.items);
+          return (
+            <li key={r.id}>
+              <button type="button" className="hl-meals-name" title={t('hlEditMeal')} onClick={() => setEdit(r)}>
+                <span className={`hl-pill lbl-${r.label}`}>{t(`hlLbl_${r.label}` as StringKey)}</span>
+                <span>
+                  <bdi>{r.name}</bdi>
+                  <small>
+                    {t('hlMealFoods', { n: r.items.length })}
+                    {tot.grams ? ` · ${t('hlGrams', { n: Math.round(tot.grams).toLocaleString(locale) })}` : ''}
+                    {tot.protein != null ? ` · ${proteinText(tot.protein, t, locale)}` : ''}
+                  </small>
+                </span>
+              </button>
+              <b className="hl-meals-kcal">{(tot.kcal ?? 0).toLocaleString(locale)}</b>
+              <Button size="sm" variant="primary" icon="plus" onClick={() => eat(r)}>
+                {t('hlEat')}
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
+      {edit && <RecipeEditor init={edit === 'new' ? undefined : edit} onClose={() => setEdit(null)} />}
+    </section>
+  );
+}
+
+/** Create / edit a fixed meal: name, pill, foods with amounts; everything is added up. */
+function RecipeEditor({ init, onClose }: { init?: HealthRecipe; onClose: () => void }) {
+  const { t, locale, save, del } = useBloom();
+  const [name, setName] = useState(init?.name ?? '');
+  const [label, setLabel] = useState<FoodLabel>(init?.label ?? 'meal');
+  const [items, setItems] = useState<RecipeItem[]>(init?.items ?? []);
+  const tot = recipeTotals(items);
+  const ok = !!name.trim() && items.length > 0;
+  const g = (v: number | null) => (v == null ? '–' : t('hlGrams', { n: (Math.round(v * 10) / 10).toLocaleString(locale) }));
+  return (
+    <Modal
+      title={init ? t('hlEditMeal') : t('hlCreateMeal')}
+      onClose={onClose}
+      width={560}
+      className="hl-recipe"
+      footer={
+        <>
+          {init && (
+            <Button
+              variant="ghost"
+              icon="trash"
+              onClick={() => {
+                del('health', init);
+                onClose();
+              }}
+            >
+              {t('hlDeleteMeal')}
+            </Button>
+          )}
+          <span className="spacer" />
+          <Button variant="ghost" onClick={onClose}>
+            {t('cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!ok}
+            onClick={() => {
+              save('health', { ...(init ?? { ...newMeta(), kind: 'recipe' as const }), name: name.trim(), label, items });
+              onClose();
+            }}
+          >
+            {t('save')}
+          </Button>
+        </>
+      }
+    >
+      <div className="hl-form">
+        <Field label={t('hlMealName')}>
+          <input dir="auto" value={name} maxLength={60} placeholder={t('hlMealNamePh')} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <FoodAdd date={toISODate(new Date())} isToday onItem={(i) => setItems((xs) => [...xs, i])} />
+        {items.length === 0 ? (
+          <p className="empty-note">{t('hlMealEmpty')}</p>
+        ) : (
+          <ul className="hl-recipe-items">
+            {items.map((i, k) => (
+              <li key={k}>
+                <bdi className="hl-recipe-name">{i.text}</bdi>
+                <NumBox
+                  value={i.grams}
+                  onChange={(v) => v && setItems((xs) => xs.map((x, j) => (j === k ? itemForGrams(x, v) : x)))}
+                  min={1}
+                  max={5000}
+                  unit={i.drink ? t('hlUnitMl') : t('hlUnitG')}
+                  label={i.text}
+                />
+                <b className="hl-recipe-kcal">{i.kcal != null ? i.kcal.toLocaleString(locale) : '–'}</b>
+                <IconButton icon="close" label={t('delete')} onClick={() => setItems((xs) => xs.filter((_, j) => j !== k))} />
+              </li>
+            ))}
+          </ul>
+        )}
+        {items.length > 0 && (
+          <div className="field">
+            <span className="field-label">{t('hlWholeMeal')}</span>
+            <div className="hl-cal-sum hl-recipe-tot">
+              <span>
+                <b>{(tot.kcal ?? 0).toLocaleString(locale)}</b>
+                {t('hlKcalUnit')}
+              </span>
+              <span>
+                <b>{g(tot.protein)}</b>
+                {t('hlMacro_protein')}
+              </span>
+              <span>
+                <b>{g(tot.grams)}</b>
+                {t('hlTotalG')}
+              </span>
+              <span>
+                <b>{g(tot.carbs)}</b>
+                {t('hlMacro_carbs')}
+              </span>
+              <span>
+                <b>{g(tot.sugars)}</b>
+                {t('hlSugarsL')}
+              </span>
+              <span>
+                <b>{g(tot.fat)}</b>
+                {t('hlMacro_fat')}
+              </span>
+            </div>
+          </div>
+        )}
+        <div className="field">
+          <span className="field-label">{t('hlLblPick')}</span>
+          <LabelPills value={label} onChange={setLabel} />
+        </div>
+      </div>
     </Modal>
   );
 }

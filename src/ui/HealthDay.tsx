@@ -30,7 +30,6 @@ export function DaySummary({ date, onClose }: { date: ISODate; onClose: () => vo
   const score = ibd ? ibdOn(all, date) : null;
   const stats = bathroomStats(healthOf(all, 'bathroom'), date);
   const day = forDate(all, 'ibdday', date);
-  const kind = (m: string) => (m === 'drink' ? t('hlDrinks') : m === 'snack' ? t('hlSnacks') : t(`hlMeal_${m}` as StringKey));
   const lvl = (prefix: string, v: number | null | undefined) => (v == null ? null : t(`${prefix}_${v}` as StringKey));
 
   return (
@@ -98,7 +97,7 @@ export function DaySummary({ date, onClose }: { date: ISODate; onClose: () => vo
               {kcal > 0 && <> · {t('hlKcal', { n: Math.round(kcal).toLocaleString(locale) })}</>}
               {protein > 0 && <> · {proteinText(protein, t, locale)}</>}
             </h4>
-            <FoodTable items={food} label={(x) => kind(x.meal)} />
+            <FoodTable items={food} pillEdit={false} />
           </section>
         )}
 
