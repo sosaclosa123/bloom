@@ -4,6 +4,8 @@ import { dirFor, localeFor, translate, type StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { alive, asPrivateDay, asPrivateHealth, personalDays } from '../shared/db';
 import { setCustomMonthColors } from './season';
+import { syncSignedIn } from './sync';
+import { ACCOUNT_SETTINGS } from '../sync/engine';
 import type { CollectionName, DayEntry, HealthItem, RecordOf, Settings, Snapshot } from '../shared/types';
 
 export interface Toast {
@@ -23,6 +25,9 @@ interface Ctx {
   /** Deletes with an "Undo" toast. */
   del: <C extends CollectionName>(coll: C, item: RecordOf<C>, label?: string) => void;
   setSettings: (patch: Partial<Settings>) => void;
+  /** A setting change waiting for "Only this device / All my devices". */
+  settingsAsk: { patch: Partial<Settings>; keys: string[] } | null;
+  answerSettingsAsk: (choice: 'all' | 'local' | 'cancel', remember: boolean) => void;
   toast: (text: string, action?: Toast['action']) => void;
   toasts: Toast[];
   dismissToast: (id: number) => void;
@@ -108,10 +113,58 @@ export function BloomProvider({ initial, children }: { initial: Snapshot; childr
     [toast, settings.language],
   );
 
-  const setSettings = useCallback((patch: Partial<Settings>) => {
+  const applySettings = useCallback((patch: Partial<Settings>) => {
     setSnap((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
     platform.updateSettings(patch);
   }, []);
+  // Owner (Nov 2026): before an account setting changes (signed in), ask
+  // whether it changes on all devices or only this one. The look (text size,
+  // light/dark, Hebrew dates) is always per device and never asks.
+  const settingsRef = useRef(snap.settings);
+  settingsRef.current = snap.settings;
+  const [settingsAsk, setSettingsAsk] = useState<Ctx['settingsAsk']>(null);
+  const recent = useRef(new Map<string, { choice: 'all' | 'local'; at: number }>());
+  const decide = useCallback(
+    (patch: Partial<Settings>, keys: string[], choice: 'all' | 'local', remember: boolean) => {
+      const cur = settingsRef.current;
+      const local = new Set(cur.localKeys ?? []);
+      for (const k of keys) {
+        if (choice === 'local') local.add(k);
+        else local.delete(k);
+        recent.current.set(k, { choice, at: Date.now() });
+      }
+      const askOff = remember ? [...new Set([...(cur.askOff ?? []), ...keys])] : cur.askOff;
+      // Same change: which keys are local travels with the new values.
+      applySettings({ ...patch, localKeys: [...local], ...(askOff ? { askOff } : {}) });
+    },
+    [applySettings],
+  );
+  const setSettings = useCallback(
+    (patch: Partial<Settings>) => {
+      const keys = Object.keys(patch).filter((k) => (ACCOUNT_SETTINGS as readonly string[]).includes(k));
+      if (!keys.length || !syncSignedIn()) return applySettings(patch);
+      const cur = settingsRef.current;
+      // Already decided: "don't ask again", or answered a moment ago (dragging a color, typing).
+      const known = keys.map((k) => {
+        if (cur.askOff?.includes(k)) return cur.localKeys?.includes(k) ? 'local' : 'all';
+        const r = recent.current.get(k);
+        return r && Date.now() - r.at < 60_000 ? r.choice : null;
+      });
+      if (known.every((c) => c !== null) && new Set(known).size === 1) return decide(patch, keys, known[0]!, false);
+      setSettingsAsk({ patch, keys });
+    },
+    [applySettings, decide],
+  );
+  const askRef = useRef(settingsAsk);
+  askRef.current = settingsAsk;
+  const answerSettingsAsk = useCallback(
+    (choice: 'all' | 'local' | 'cancel', remember: boolean) => {
+      const a = askRef.current;
+      setSettingsAsk(null);
+      if (a && choice !== 'cancel') decide(a.patch, a.keys, choice, remember);
+    },
+    [decide],
+  );
 
   const value = useMemo<Ctx>(
     () => ({
@@ -124,11 +177,13 @@ export function BloomProvider({ initial, children }: { initial: Snapshot; childr
       save,
       del,
       setSettings,
+      settingsAsk,
+      answerSettingsAsk,
       toast,
       toasts,
       dismissToast,
     }),
-    [snap, settings, t, dir, dark, save, del, setSettings, toast, toasts, dismissToast],
+    [snap, settings, t, dir, dark, save, del, setSettings, settingsAsk, answerSettingsAsk, toast, toasts, dismissToast],
   );
   return <BloomCtx.Provider value={value}>{children}</BloomCtx.Provider>;
 }

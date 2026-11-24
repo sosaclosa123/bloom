@@ -21,16 +21,16 @@ export const ALWAYS_PRIVATE: CollectionName[] = ['health'];
 /**
  * Settings that follow the account to every PC and phone (owner's choice,
  * Nov 2026), kept in one private document. Everything else stays per device:
- * text size, start with Windows, tray, startup window, game mode, volume,
- * reminder sound and the backup folder.
+ * the look (text size, light/dark, Hebrew dates shown), start with Windows,
+ * tray, startup window, game mode, volume, reminder sound and the backup
+ * folder. Any account setting can also be kept on one device only (the
+ * person picks "Only this device" when changing it: `settings.localKeys`).
  */
 export const ACCOUNT_SETTINGS = [
   'language',
-  'theme',
   'weekStart',
   'holidays',
   'holidaysIsrael',
-  'showHebrewDate',
   'defaultRemindBefore',
   'snoozeOptions',
   'currency',
@@ -234,6 +234,21 @@ export class SyncEngine {
 
   /** Push now (e.g. "Sync now" button). */
   syncNow() {
+    this.schedulePush(0);
+  }
+
+  /**
+   * Listen again from scratch (fresh copy of everything online). Used when the
+   * app comes back from the background: a phone can quietly lose the live
+   * connection while it's hidden, and changes made on the PC meanwhile (or
+   * deletions) would otherwise only show after a restart.
+   */
+  refresh() {
+    const { user, profile } = this.state;
+    if (!user || !profile) return;
+    this.stopScopes();
+    this.watchScope({ kind: 'user', uid: user.uid });
+    if (profile.spaceId) this.watchScope({ kind: 'space', sid: profile.spaceId });
     this.schedulePush(0);
   }
 
@@ -483,6 +498,7 @@ export class SyncEngine {
       const v = JSON.stringify(s[k] ?? null);
       if (v === this.prefsLocal[k]) continue;
       this.prefsLocal[k] = v;
+      if (s.localKeys?.includes(k)) continue; // kept on this device only
       if (this.prefs[k]?.v === v) continue; // it came from another device
       this.prefs[k] = { v, t: Math.max(Date.now(), (this.prefs[k]?.t ?? 0) + 1) };
       changed = true;
@@ -498,7 +514,9 @@ export class SyncEngine {
     const remote = (doc?.data ?? {}) as PrefVersions;
     const patch: Partial<Record<AccountKey, unknown>> = {};
     let ours = false;
+    const localKeys = this.port.snapshot().settings.localKeys ?? [];
     for (const k of ACCOUNT_SETTINGS) {
+      if (localKeys.includes(k)) continue; // this device keeps its own value
       const r = remote[k];
       const l = this.prefs[k];
       if (r && typeof r.t === 'number' && typeof r.v === 'string' && (!l || r.t >= l.t)) {

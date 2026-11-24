@@ -8684,3 +8684,16 @@ button.hl-pill:hover {
 .wl-row-main .wl-row-title {
   flex: 1 1 calc(7.5em * var(--fs-scale, 1));
 }
+
+/* "Change it on all your devices?" */
+.set-ask-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.set-ask .modal {
+  z-index: 60;
+}

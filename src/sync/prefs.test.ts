@@ -90,12 +90,37 @@ describe('account settings', () => {
     await wait();
     expect(pc.snap.settings.healthEnabled).toBe(true);
     expect(pc.snap.settings.healthWaterNudge).toBe(true);
-    expect(pc.snap.settings.theme).toBe('dark');
+    expect(pc.snap.settings.theme).toBe('system'); // the look is per device (owner, Nov 2026)
     pc.change({ language: 'he', fontSize: 'small' });
     await wait();
     expect(phone.snap.settings.language).toBe('he');
     expect(phone.snap.settings.fontSize).toBe('medium'); // text size is per device
     expect(phone.snap.settings.theme).toBe('dark');
+  });
+
+  it('"Only this device": that setting stays local both ways; switching back to "All devices" syncs it again', async () => {
+    const cloud = new FakeCloud();
+    const pc = new Device(cloud, PC, { language: 'he' });
+    await pc.engine.signUp('Noa', 'noa@example.com', 'pw123456');
+    const phone = new Device(cloud, PHONE);
+    await phone.engine.signIn('noa@example.com', 'pw123456');
+    await wait();
+    expect(phone.snap.settings.language).toBe('he');
+    // Phone: English, only on this device.
+    phone.change({ language: 'en', localKeys: ['language'] });
+    await wait();
+    expect(pc.snap.settings.language).toBe('he');
+    // PC changes its currency (shared) and language (the phone keeps its own).
+    pc.change({ currency: 'EUR', language: 'he' });
+    await wait();
+    expect(phone.snap.settings.currency).toBe('EUR');
+    expect(phone.snap.settings.language).toBe('en');
+    // Phone: Hebrew on all devices again.
+    phone.change({ language: 'he', localKeys: [] });
+    await wait();
+    phone.change({ language: 'en' });
+    await wait();
+    expect(pc.snap.settings.language).toBe('en');
   });
 
   it("partners' settings never mix", async () => {

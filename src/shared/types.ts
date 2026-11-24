@@ -478,6 +478,12 @@ export interface Settings {
   healthFoodOnline: boolean;
   /** Automatic weekly backups go to this folder (this computer only); null = off. */
   backupFolder: string | null;
+  /** Account settings kept only on this device (the person chose "Only this device"). */
+  localKeys?: string[];
+  /** Account settings changed without asking "this device / all devices" again. */
+  askOff?: string[];
+  /** Phone: weekly automatic backup (on by default). */
+  phoneBackup?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

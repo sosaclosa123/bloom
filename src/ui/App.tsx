@@ -21,6 +21,7 @@ import { playSound } from './sound';
 import { startSync } from './sync';
 import { useBloom } from './store';
 import { UpdateBanner } from './Updates';
+import { SettingsAskModal } from './SettingsAsk';
 import { WalletPage } from './Wallet';
 import { HealthPage } from './Health';
 import { SeasonBackdrop } from './season';
@@ -475,6 +476,7 @@ export function App() {
           <Icon name="plus" size={24} />
         </button>
       )}
+      <SettingsAskModal />
       <UpdateBanner />
       <Toasts />
     </div>

@@ -75,7 +75,7 @@ async function fileKV(): Promise<KV & { flush(): Promise<void> }> {
     return chain;
   };
   const later = () => {
-    if (!timer) timer = setTimeout(() => void flush(), 400);
+    if (!timer) timer = setTimeout(() => void flush(), 150);
   };
   return {
     getItem: (k) => cache.get(k) ?? null,

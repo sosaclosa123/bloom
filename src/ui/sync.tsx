@@ -69,9 +69,31 @@ export function startSync(): Promise<SyncEngine | null> {
     // A PC's settings win over a brand-new phone's defaults the first time (see engine.ts).
     engine = new SyncEngine(createFirebaseBackend(firebaseConfig!), port, { prefsFirstWeight: platform.kind === 'desktop' ? 2 : 1 });
     engine.start();
+    // Hidden (phone in the background, PC minimized): send everything now, so a
+    // change or deletion isn't lost if the app is closed right after. Back after
+    // a while: listen again from scratch so changes from other devices show.
+    let hiddenAt = 0;
+    const onVisibility = (hidden: boolean) => {
+      if (!engine) return;
+      if (hidden) {
+        hiddenAt = Date.now();
+        engine.syncNow();
+      } else if (hiddenAt && Date.now() - hiddenAt > 15_000) {
+        hiddenAt = 0;
+        engine.refresh();
+      }
+    };
+    document.addEventListener('visibilitychange', () => onVisibility(document.visibilityState === 'hidden'));
+    platform.onHidden(onVisibility);
+    window.addEventListener('online', () => engine?.refresh());
     return engine;
   })();
   return starting;
+}
+
+/** Signed in to an account right now (settings can then sync to other devices). */
+export function syncSignedIn(): boolean {
+  return !!engine?.get().user;
 }
 
 const OFF: SyncState = { user: null, profile: null, space: null, status: 'off', error: null, lastSync: null };
