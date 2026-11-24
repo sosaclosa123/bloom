@@ -9,7 +9,7 @@ import { dosesOn, forDate, healthOf, latestWeight } from '../shared/health';
 import type { HealthBody, HealthFood, HealthTest, HealthVisit, ISODate } from '../shared/types';
 import { Button, Field, Icon, Modal } from './common';
 import { MedEditor, TestEditor, VisitEditor } from './HealthCards';
-import { FoodAdd, FoodEditor } from './HealthFood';
+import { FoodAdd, FoodEditor, proteinNum, proteinText } from './HealthFood';
 import { BathroomEditor } from './HealthIbd';
 import { CardHead, NumBox, useHealth, useWaterFmt } from './healthUi';
 import { StickerArt } from './Stickers';
@@ -180,6 +180,7 @@ export function TodayLogCard({ date, isToday }: { date: ISODate; isToday: boolea
   const water = forDate(all, 'checkin', date)?.waterMl ?? 0;
   const doses = dosesOn(healthOf(all, 'med'), healthOf(all, 'taken'), date);
   const kcal = foods.reduce((a, f) => a + (f.kcal ?? 0), 0);
+  const protein = foods.reduce((a, f) => a + (f.protein ?? 0), 0);
   const bodyBits = [
     b?.steps ? `${t('hlSteps')} ${b.steps.toLocaleString(locale)}` : null,
     b?.exerciseMin ? `${t('hlExercise')} ${b.exerciseMin} ${t('hlUnitMin')}` : null,
@@ -195,6 +196,10 @@ export function TodayLogCard({ date, isToday }: { date: ISODate; isToday: boolea
         <span>
           <b>{Math.round(kcal).toLocaleString(locale)}</b>
           {t('hlKcalUnit')}
+        </span>
+        <span>
+          <b>{proteinNum(protein, locale)}</b>
+          {t('hlProteinUnit')}
         </span>
         <span>
           <b>{fmtWater(water)}</b>
@@ -222,7 +227,12 @@ export function TodayLogCard({ date, isToday }: { date: ISODate; isToday: boolea
                     <bdi>{f.text}</bdi>
                     {f.grams ? <small> {amount(f)}</small> : null}
                   </span>
-                  {f.kcal != null && <b>{t('hlKcal', { n: Math.round(f.kcal).toLocaleString(locale) })}</b>}
+                  {(f.kcal != null || f.protein != null) && (
+                    <b>
+                      {f.kcal != null && t('hlKcal', { n: Math.round(f.kcal).toLocaleString(locale) })}
+                      {f.protein != null && <small className="hl-protein">{proteinText(f.protein, t, locale)}</small>}
+                    </b>
+                  )}
                   {edit}
                 </button>
               </li>

@@ -8166,3 +8166,42 @@ button.hl-line-dot.at-l:not(:hover):not(:focus-visible) .hl-dot-label {
   margin: -4px 0 0;
   overflow-wrap: anywhere;
 }
+
+/* Protein next to calories (owner, Nov 2026): day totals and each food. */
+.hl-protein {
+  color: var(--text-muted);
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.hl-food-kcal,
+.hl-log-list button > b,
+.hl-daysum-list b {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+  text-align: end;
+}
+.hl-food-sum-kcal {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+}
+.hl-total-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 14px;
+}
+.hl-total-protein {
+  font-family: 'Outfit', var(--font-sans);
+  font-weight: 600;
+  font-size: var(--fs-lg);
+  color: var(--accent-text);
+}
+.hl-snack .hl-protein {
+  margin-inline-start: 2px;
+}

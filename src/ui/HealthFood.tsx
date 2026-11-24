@@ -159,6 +159,14 @@ function EmptyFood() {
   return <p className="empty-note">{t('hlNoFood')}</p>;
 }
 
+/** Protein grams as shown everywhere: one decimal at most ("78.5", "20"). */
+export const proteinNum = (g: number, locale: string) => (Math.round(g * 10) / 10).toLocaleString(locale);
+
+/** "12.5 g protein" */
+export function proteinText(g: number, t: ReturnType<typeof useBloom>['t'], locale: string) {
+  return t('hlProtein', { n: proteinNum(g, locale) });
+}
+
 const tagName = (x: string, t: ReturnType<typeof useBloom>['t']) => ((FOOD_TAGS as readonly string[]).includes(x) ? t(`hlTag_${x}` as StringKey) : x);
 
 function FoodList({ list, chips, onEdit }: { list: HealthFood[]; chips?: boolean; onEdit: (f: HealthFood) => void }) {
@@ -181,6 +189,7 @@ function FoodList({ list, chips, onEdit }: { list: HealthFood[]; chips?: boolean
               <span dir="auto">{f.text}</span>
               {f.grams ? <span className="muted">{amount(f)}</span> : null}
               {f.kcal != null && <b>{kcal(f)}</b>}
+              {f.protein != null && <span className="hl-protein">{proteinText(f.protein, t, locale)}</span>}
             </button>
             <button type="button" aria-label={t('delete')} title={t('delete')} onClick={() => void platform.remove('health', f.id)}>
               ×
@@ -203,7 +212,12 @@ function FoodList({ list, chips, onEdit }: { list: HealthFood[]; chips?: boolean
               </span>
             ))}
           </button>
-          {f.kcal != null && <span className="hl-food-kcal">{kcal(f)}</span>}
+          {(f.kcal != null || f.protein != null) && (
+            <span className="hl-food-kcal">
+              {f.kcal != null && kcal(f)}
+              {f.protein != null && <small className="hl-protein">{proteinText(f.protein, t, locale)}</small>}
+            </span>
+          )}
           <IconButton icon="close" label={t('delete')} onClick={() => void platform.remove('health', f.id)} />
         </li>
       ))}
@@ -221,7 +235,10 @@ function TotalsCard({ meals, snacks, drinks }: { meals: HealthFood[]; snacks: He
   return (
     <section className="w-card hl-totals">
       <CardHead title={t('hlFoodTotal')} tip={settings.healthFoodOnline ? t('hlFoodSourceOnline') : t('hlFoodSourceOffline')} />
-      <span className="hl-total-kcal">{t('hlKcal', { n: kcal.toLocaleString(locale) })}</span>
+      <div className="hl-total-line">
+        <span className="hl-total-kcal">{t('hlKcal', { n: kcal.toLocaleString(locale) })}</span>
+        <span className="hl-total-protein">{proteinText(sum(allItems, 'protein'), t, locale)}</span>
+      </div>
       {kcal > 0 && (
         <div className="hl-kcal-bar" aria-hidden="true">
           <span className="meals" style={{ width: `${part(meals)}%` }} />
@@ -282,10 +299,14 @@ export function FoodSummaryCard({ date, onOpen }: { date: ISODate; onOpen: () =>
   const snacks = items.filter((f) => kindOf(f) === 'snack').length;
   const drinks = items.filter((f) => kindOf(f) === 'drink').length;
   const kcal = items.reduce((a, f) => a + (f.kcal ?? 0), 0);
+  const protein = items.reduce((a, f) => a + (f.protein ?? 0), 0);
   return (
     <button type="button" className="w-card hl-food-sum" onClick={onOpen}>
       <CardHead sticker="cooking" title={t('hlFoodToday')}>
-        <span className="hl-food-sum-kcal">{t('hlKcal', { n: Math.round(kcal).toLocaleString(locale) })}</span>
+        <span className="hl-food-sum-kcal">
+          {t('hlKcal', { n: Math.round(kcal).toLocaleString(locale) })}
+          <small className="hl-protein">{proteinText(protein, t, locale)}</small>
+        </span>
       </CardHead>
       <span className="w-card-sub">{items.length ? t('hlFoodCounts3', { m: items.length - snacks - drinks, s: snacks, d: drinks }) : t('hlNoFood')}</span>
     </button>
@@ -302,6 +323,11 @@ export function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () =>
   const setGrams = (grams: number | null) => {
     if (f.per100 && grams) setF({ ...f, grams, pieces: null, pieceG: null, ...forGrams(f.per100, grams) });
     else setF({ ...f, grams, pieces: null, pieceG: null });
+  };
+  // A corrected protein amount is kept per 100 g too, so changing the portion keeps it.
+  const setProtein = (protein: number | null) => {
+    if (protein != null && f.per100 && f.grams) setF({ ...f, protein, per100: { ...f.per100, protein: Math.round((protein / f.grams) * 1000) / 10 } });
+    else setF({ ...f, protein });
   };
   const setPieces = (pieces: number | null) => {
     if (!pieces || !f.pieceG) return setF({ ...f, pieces });
@@ -367,6 +393,9 @@ export function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () =>
           <Field label={t('hlKcalManual')}>
             <NumBox value={f.kcal ?? null} onChange={(kcal) => setF({ ...f, kcal, per100: null })} min={0} max={10000} unit={t('hlKcalUnit')} label={t('hlKcalManual')} />
           </Field>
+          <Field label={<Tip text={t('hlProteinFixHint')}>{t('hlProteinFix')}</Tip>}>
+            <NumBox value={f.protein ?? null} onChange={setProtein} min={0} max={1000} step={0.5} unit={t('hlUnitG')} label={t('hlProteinFix')} />
+          </Field>
         </div>
         {f.kcal != null && f.protein != null && (
           <span className="hl-portion-kcal">{t('hlMacroShort', { p: (f.protein ?? 0).toLocaleString(locale), c: (f.carbs ?? 0).toLocaleString(locale), f: (f.fat ?? 0).toLocaleString(locale) })}</span>
@@ -421,6 +450,7 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
   const [pick, setPick] = useState<FoodProduct | null>(null);
   const [grams, setGrams] = useState<number | null>(drink ? 250 : 100);
   const [manualKcal, setManualKcal] = useState<number | null>(null);
+  const [manualProtein, setManualProtein] = useState<number | null>(null);
   const [meal, setMeal] = useState<HealthFood['meal']>(() => mealFor(new Date().getHours()));
   const [tags, setTags] = useState<string[]>([]);
   const [tagsOpen, setTagsOpen] = useState(false);
@@ -482,6 +512,7 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
     setPick(null);
     setGrams(drink ? 250 : 100);
     setManualKcal(null);
+    setManualProtein(null);
     setTags([]);
     setOnline(null);
     setTagsOpen(false);
@@ -507,11 +538,11 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
       tags,
       grams: pick ? useGrams : null,
       kcal: n ? n.kcal : manualKcal,
-      protein: n?.protein ?? null,
+      protein: n ? n.protein : manualProtein,
       fat: n?.fat ?? null,
       carbs: n?.carbs ?? null,
       per100: pick ? { kcal: pick.kcal, protein: pick.protein, fat: pick.fat, carbs: pick.carbs } : null,
-      source: pick ? pick.source : manualKcal != null ? 'manual' : undefined,
+      source: pick ? pick.source : manualKcal != null || manualProtein != null ? 'manual' : undefined,
       productId: pick?.id,
       pieces: pick && mode === 'pieces' && piece ? pieces : null,
       pieceG: pick && mode === 'pieces' && piece ? piece.grams : null,
@@ -660,6 +691,9 @@ export function FoodAdd({ date, isToday, kind, onAdded }: { date: ISODate; isTod
           <div className="hl-portion">
             <Tip text={t('hlKcalManualHint')}>
               <NumBox value={manualKcal} onChange={setManualKcal} min={0} max={10000} unit={t('hlKcalUnit')} label={t('hlKcalManual')} />
+            </Tip>
+            <Tip text={t('hlKcalManualHint')}>
+              <NumBox value={manualProtein} onChange={setManualProtein} min={0} max={1000} step={0.5} unit={t('hlProteinUnit')} label={t('hlProteinFix')} />
             </Tip>
           </div>
         )

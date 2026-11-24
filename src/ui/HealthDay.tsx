@@ -11,6 +11,7 @@ import { DocsList } from './HealthCards';
 import { MoodFace } from './HealthCheckin';
 import { useHealth, useWaterFmt } from './healthUi';
 import { StickerArt } from './Stickers';
+import { proteinText } from './HealthFood';
 import { useBloom } from './store';
 
 export function DaySummary({ date, onClose }: { date: ISODate; onClose: () => void }) {
@@ -22,6 +23,7 @@ export function DaySummary({ date, onClose }: { date: ISODate; onClose: () => vo
   const body = forDate(all, 'body', date);
   const food = healthOf(all, 'food').filter((x) => x.date === date);
   const kcal = food.reduce((a, x) => a + (x.kcal ?? 0), 0);
+  const protein = food.reduce((a, x) => a + (x.protein ?? 0), 0);
   const doses = dosesOn(healthOf(all, 'med'), healthOf(all, 'taken'), date);
   const tests = healthOf(all, 'test').filter((x) => x.date === date && (ibd || !x.ibd));
   const visits = healthOf(all, 'visit').filter((v) => v.date === date && (v.docs?.length ?? 0) > 0);
@@ -94,13 +96,19 @@ export function DaySummary({ date, onClose }: { date: ISODate; onClose: () => vo
             <h4>
               {t('hlFood')}
               {kcal > 0 && <> · {t('hlKcal', { n: Math.round(kcal).toLocaleString(locale) })}</>}
+              {protein > 0 && <> · {proteinText(protein, t, locale)}</>}
             </h4>
             <ul className="hl-daysum-list">
               {food.map((x) => (
                 <li key={x.id}>
                   <span className="muted">{kind(x.meal)}</span>
                   <span dir="auto">{x.text}</span>
-                  {x.kcal != null && <b>{t('hlKcal', { n: x.kcal.toLocaleString(locale) })}</b>}
+                  {(x.kcal != null || x.protein != null) && (
+                    <b>
+                      {x.kcal != null && t('hlKcal', { n: x.kcal.toLocaleString(locale) })}
+                      {x.protein != null && <small className="hl-protein">{proteinText(x.protein, t, locale)}</small>}
+                    </b>
+                  )}
                 </li>
               ))}
             </ul>

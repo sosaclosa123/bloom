@@ -206,6 +206,11 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   picking, a "Show as" box (e.g. "XL") sets the name shown in the day
   (`text`); the full title is kept in `product` and shown in the editor.
   The last "show as" name for that product comes back next time.
+- **Protein shown like calories** (owner, Nov 2026): every food line shows
+  "N g protein" under its kcal; day totals (Today's log tile, Food today card,
+  Food tab total, day pop-up). Filled in from the product; the food editor
+  has a "Protein (g)" box to correct it (saved per 100 g too, so changing the
+  portion keeps the correction); typed-in foods can get protein when added.
 - Picked food/drink shows as a **nutrition label** (owner chose design C):
   name + brand, amount pill, big Calories line, protein / carbs (sugars) /
   fat / fiber for the amount, per-100 g line, source (`NutritionLabel`).
