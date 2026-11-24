@@ -68,7 +68,12 @@ export function startSync(): Promise<SyncEngine | null> {
       },
     };
     // A PC's settings win over a brand-new phone's defaults the first time (see engine.ts).
-    engine = new SyncEngine(createFirebaseBackend(firebaseConfig!), port, { prefsFirstWeight: platform.kind === 'desktop' ? 2 : 1 });
+    // QA only (dev server, never in a release build): the local Firebase emulator.
+    const emu = import.meta.env.DEV ? localStorage.getItem('qa-emulator') : null;
+    const backend = emu
+      ? createFirebaseBackend({ projectId: 'demo-bloom', apiKey: 'demo-key', authDomain: 'demo-bloom.firebaseapp.com' }, { host: emu.split(':')[0], firestorePort: Number(emu.split(':')[1]), authPort: 9099 })
+      : createFirebaseBackend(firebaseConfig!);
+    engine = new SyncEngine(backend, port, { prefsFirstWeight: platform.kind === 'desktop' ? 2 : 1 });
     engine.start();
     // Hidden (phone in the background, PC minimized): send everything now, so a
     // change or deletion isn't lost if the app is closed right after. Back after
@@ -78,7 +83,7 @@ export function startSync(): Promise<SyncEngine | null> {
       if (!engine) return;
       if (hidden) {
         hiddenAt = Date.now();
-        engine.syncNow();
+        void engine.flush(); // right away: Android may stop the app any moment now
       } else if (hiddenAt && Date.now() - hiddenAt > 15_000) {
         hiddenAt = 0;
         engine.refresh();
@@ -87,6 +92,21 @@ export function startSync(): Promise<SyncEngine | null> {
     document.addEventListener('visibilitychange', () => onVisibility(document.visibilityState === 'hidden'));
     platform.onHidden(onVisibility);
     window.addEventListener('online', () => engine?.refresh());
+    // A live connection can also go quiet without any error (sleep, Wi-Fi
+    // changes, a PC left in the tray for days): listen again every 10 minutes.
+    // Cheap: only what changed is downloaded.
+    // Also right after the PC wakes from sleep (or the phone un-freezes): the
+    // clock jumps between two ticks.
+    let lastTick = Date.now();
+    let lastRefresh = Date.now();
+    setInterval(() => {
+      const now = Date.now();
+      if (now - lastTick > 90_000 || now - lastRefresh > 10 * 60_000) {
+        lastRefresh = now;
+        engine?.refresh();
+      }
+      lastTick = now;
+    }, 30_000);
     return engine;
   })();
   return starting;

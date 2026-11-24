@@ -20,7 +20,7 @@ function errorKey(e: unknown): StringKey {
 }
 
 export function AccountSettings() {
-  const { t } = useBloom();
+  const { t, locale } = useBloom();
   const { state, engine, available } = useSync();
   const [mode, setMode] = useState<'signin' | 'signup'>('signup');
   const [name, setName] = useState('');
@@ -140,9 +140,22 @@ export function AccountSettings() {
           {t('signOut')}
         </Button>
       </div>
-      <p className={`sync-status ${state.status}`}>
-        <span className="sync-dot" /> {statusText}
-      </p>
+      <div className="sync-row">
+        <p className={`sync-status ${state.status}`}>
+          <span className="sync-dot" /> {statusText}
+          {state.lastSync && <span className="muted small"> · {t('syncLast', { t: new Date(state.lastSync).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) })}</span>}
+        </p>
+        <span className="spacer" />
+        {/* Download everything again and send anything not sent yet. */}
+        <Button size="sm" variant="soft" icon="repeat" disabled={busy} onClick={() => run(async () => engine!.refresh(true))}>
+          {t('syncNowBtn')}
+        </Button>
+      </div>
+      {state.error && (
+        <p className="muted small sync-error" dir="ltr">
+          {state.error}
+        </p>
+      )}
       <p className="muted small">{t('accountDataNote')}</p>
       {offlineCount > 0 && (
         <div className="row">

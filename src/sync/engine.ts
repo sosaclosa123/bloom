@@ -10,7 +10,7 @@
 // Platform-independent: the desktop app and a future phone app both use it.
 import { COLLECTIONS, normalizeSnapshot } from '../shared/db';
 import type { CollectionName, Collections, HealthItem, JournalEntry, PhotoRef, Settings, Snapshot, SyncMeta } from '../shared/types';
-import type { AuthUser, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } from './backend';
+import type { AuthUser, FeedInfo, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } from './backend';
 
 /** Sounds are audio files on this PC, so they don't sync. */
 export const SYNCED: CollectionName[] = COLLECTIONS.filter((c) => c !== 'sounds');
@@ -91,6 +91,20 @@ export const formatCode = (c: string) => `${c.slice(0, 4)}-${c.slice(4)}`;
 export const normalizeCode = (c: string) => c.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
 const scopeKey = (s: Scope) => (s.kind === 'user' ? `u:${s.uid}` : `s:${s.sid}`);
+/**
+ * Listening downloads only what changed since the last time (Firebase bills
+ * every downloaded item, ~50,000 a day free). A full download now and then
+ * also catches anything an older app version saved without a server time.
+ */
+const FULL_EVERY_MS = 12 * 3600_000;
+/** Wait before listening again after the live feed stopped (doubles up to 10 min). */
+const RELISTEN_MS = [5_000, 30_000, 60_000, 120_000, 300_000, 600_000];
+/** Short error text for the status line (Firebase codes like "resource-exhausted"). */
+export function errorText(e: unknown): string {
+  const code = (e as { code?: unknown })?.code;
+  const msg = e instanceof Error ? e.message : String(e);
+  return typeof code === 'string' && !msg.includes(code) ? `${code}: ${msg}` : msg;
+}
 const MAX_PHOTO_CHARS = 950_000; // Firestore documents max out at ~1 MB
 
 interface Known {
@@ -109,8 +123,14 @@ export class SyncEngine {
   private pushAgain = false;
   private pendingName: string | null = null;
   private loaded = new Set<string>(); // scopes whose first snapshot arrived
+  /** Per scope: newest server save time received, and when everything was last downloaded. */
+  private marks: Record<string, { mark: number; full: number }> = {};
+  private relisten = new Map<string, { timer: ReturnType<typeof setTimeout>; tries: number }>();
+  /** Records the server refused (bad data): skipped until they change again, so they never block the rest. */
+  private refused = new Map<string, number>();
 
   private pushDelay: number;
+  private relistenMs: number[];
   /**
    * Weight of this device's settings the first time an account syncs them:
    * a PC (2) beats a new phone (1), so installing the phone app never resets
@@ -124,9 +144,10 @@ export class SyncEngine {
   constructor(
     private backend: SyncBackend,
     private port: LocalPort,
-    opts: { pushDelay?: number; prefsFirstWeight?: number } = {},
+    opts: { pushDelay?: number; prefsFirstWeight?: number; relistenMs?: number[] } = {},
   ) {
     this.pushDelay = opts.pushDelay ?? 800;
+    this.relistenMs = opts.relistenMs ?? RELISTEN_MS;
     this.prefsFirstWeight = opts.prefsFirstWeight ?? 1;
   }
 
@@ -243,12 +264,13 @@ export class SyncEngine {
    * connection while it's hidden, and changes made on the PC meanwhile (or
    * deletions) would otherwise only show after a restart.
    */
-  refresh() {
+  refresh(full = false) {
     const { user, profile } = this.state;
     if (!user || !profile) return;
     this.stopScopes();
-    this.watchScope({ kind: 'user', uid: user.uid });
-    if (profile.spaceId) this.watchScope({ kind: 'space', sid: profile.spaceId });
+    if (full) this.refused.clear();
+    this.watchScope({ kind: 'user', uid: user.uid }, full);
+    if (profile.spaceId) this.watchScope({ kind: 'space', sid: profile.spaceId }, full);
     this.schedulePush(0);
   }
 
@@ -263,8 +285,10 @@ export class SyncEngine {
       if (forget) {
         this.port.setItem(`bloom-sync-known-${forget}`, '{}');
         this.port.setItem(`bloom-sync-photos-${forget}`, '[]');
+        this.port.setItem(`bloom-sync-marks-${forget}`, '{}');
       }
       this.known = {};
+      this.marks = {};
       await this.port.switchProfile?.(null, forget);
       this.set({ user: null, profile: null, space: null, status: 'off', error: null });
       return;
@@ -273,6 +297,8 @@ export class SyncEngine {
     await this.port.switchProfile?.(user.uid);
     this.set({ user, status: 'connecting', error: null });
     this.known = this.readJSON(`bloom-sync-known-${user.uid}`, {});
+    // Without what was received before, start over with a full download.
+    this.marks = Object.keys(this.known).length ? this.readJSON(`bloom-sync-marks-${user.uid}`, {}) : {};
     this.uploaded = new Set(this.readJSON<string[]>(`bloom-sync-photos-${user.uid}`, []));
     this.loadPrefs(user.uid);
     try {
@@ -308,24 +334,68 @@ export class SyncEngine {
     this.watchScope({ kind: 'space', sid });
   }
 
-  private scopeUnsubs: (() => void)[] = [];
+  private scopeUnsubs = new Map<string, () => void>();
   private stopScopes() {
     this.scopeUnsubs.forEach((u) => u());
-    this.scopeUnsubs = [];
+    this.scopeUnsubs.clear();
+    this.relisten.forEach((r) => clearTimeout(r.timer));
+    this.relisten.clear();
     this.loaded.clear();
   }
 
-  private watchScope(scope: Scope) {
-    this.scopeUnsubs.push(
-      this.backend.subscribe(
-        scope,
-        (items) => void this.onRemote(scope, items),
-        (e) => this.fail(e),
-      ),
+  /**
+   * Listen to a scope: only what changed since last time, or everything when
+   * asked, when nothing was received yet, or every 12 hours. If the feed stops
+   * (Firebase ends it on errors like a used-up quota or an expired sign-in),
+   * listen again after a pause, so this device never silently stops receiving.
+   */
+  private watchScope(scope: Scope, full = false) {
+    const sk = scopeKey(scope);
+    this.scopeUnsubs.get(sk)?.();
+    this.loaded.delete(sk);
+    const m = this.marks[sk];
+    const isFull = full || !m || Date.now() - m.full > FULL_EVERY_MS;
+    let stopped = false;
+    const unsub = this.backend.subscribe(
+      scope,
+      isFull ? null : m.mark,
+      (items, info) => {
+        if (stopped) return;
+        const r = this.relisten.get(sk);
+        if (r) r.tries = 0;
+        void this.onRemote(scope, items, info, isFull);
+      },
+      (e) => {
+        if (stopped) return;
+        stopped = true;
+        this.scopeUnsubs.delete(sk);
+        this.fail(e);
+        this.scheduleRelisten(scope);
+      },
     );
+    this.scopeUnsubs.set(sk, () => {
+      stopped = true;
+      unsub();
+    });
   }
 
-  private async onRemote(scope: Scope, items: RemoteItem[]) {
+  private scheduleRelisten(scope: Scope) {
+    const sk = scopeKey(scope);
+    const prev = this.relisten.get(sk);
+    if (prev) clearTimeout(prev.timer);
+    const tries = prev?.tries ?? 0;
+    const timer = setTimeout(
+      () => {
+        const uid = this.state.user?.uid;
+        const stillOurs = scope.kind === 'user' ? scope.uid === uid : scope.sid === this.state.profile?.spaceId;
+        if (uid && stillOurs) this.watchScope(scope);
+      },
+      this.relistenMs[Math.min(tries, this.relistenMs.length - 1)],
+    );
+    this.relisten.set(sk, { timer, tries: tries + 1 });
+  }
+
+  private async onRemote(scope: Scope, items: RemoteItem[], info: FeedInfo = { mark: null }, full = true) {
     const sk = scopeKey(scope);
     const first = !this.loaded.has(sk);
     const incoming: Partial<Record<CollectionName, SyncMeta[]>> = {};
@@ -347,8 +417,16 @@ export class SyncEngine {
     }
     this.saveKnown();
     if (Object.keys(incoming).length) await this.port.applyRemote(incoming as Partial<Collections>);
-    if (scope.kind === 'user' && (prefsDoc || first)) await this.mergePrefs(prefsDoc);
+    // No settings document in a "what changed" answer just means they didn't change.
+    if (scope.kind === 'user' && (prefsDoc || (first && full))) await this.mergePrefs(prefsDoc);
     this.loaded.add(sk);
+    // Remember how far we got (after the items are in the local data).
+    const prev = this.marks[sk];
+    const mark = Math.max(prev?.mark ?? 0, info.mark ?? 0);
+    if (mark || (first && full)) {
+      this.marks[sk] = { mark, full: first && full ? Date.now() : (prev?.full ?? 0) };
+      if (this.state.user) this.port.setItem(`bloom-sync-marks-${this.state.user.uid}`, JSON.stringify(this.marks));
+    }
     if (scope.kind === 'user' && this.prefsPush) this.schedulePush(0);
     // Fetch photos of journal entries and documents of doctor visits we just received.
     const withFiles = [...((incoming.journal ?? []) as JournalEntry[]), ...((incoming.health ?? []) as SyncMeta[]).map((h) => ({ deletedAt: h.deletedAt, photos: filesOf('health', h) }))];
@@ -364,7 +442,7 @@ export class SyncEngine {
         }
       }
     }
-    if (this.state.status === 'connecting' || this.state.status === 'error') this.set({ status: 'synced', error: null, lastSync: Date.now() });
+    if (this.state.status === 'connecting' || this.state.status === 'error') this.set({ status: 'synced', error: this.refusedNote(), lastSync: Date.now() });
     else this.set({ lastSync: Date.now() });
   }
 
@@ -405,7 +483,7 @@ export class SyncEngine {
         if (mark) b.marks.push([`${item.coll}/${item.id}`, item.updatedAt, sk]);
         batches.set(sk, b);
       };
-      const photoJobs: { scope: Scope; fileName: string }[] = [];
+      const photoJobs: { scope: Scope; fileName: string; key: string }[] = [];
 
       for (const coll of SYNCED) {
         for (const rec of snap[coll] as SyncMeta[]) {
@@ -416,6 +494,7 @@ export class SyncEngine {
           const k = this.known[key];
           const t = rec.updatedAt ?? 0;
           if (k && k.t >= t && k.s === sk) continue; // already online
+          if (this.refused.get(key) === t) continue; // the server refused this version
           if (k && k.s !== sk && !(k.t > t) && !(ALWAYS_PRIVATE.includes(coll) && k.s.startsWith('s:'))) {
             // Moved (e.g. shared -> private): leave a tombstone where it was.
             const old: Scope = k.s.startsWith('u:') ? { kind: 'user', uid: k.s.slice(2) } : { kind: 'space', sid: k.s.slice(2) };
@@ -426,7 +505,7 @@ export class SyncEngine {
           add(scope, { coll, id: rec.id, updatedAt: t, data: rec as unknown as Record<string, unknown> }, true);
           if (!rec.deletedAt) {
             for (const p of filesOf(coll, rec)) {
-              if (!this.uploaded.has(`${sk}|${p.fileName}`)) photoJobs.push({ scope, fileName: p.fileName });
+              if (!this.uploaded.has(`${sk}|${p.fileName}`)) photoJobs.push({ scope, fileName: p.fileName, key });
             }
           }
         }
@@ -442,22 +521,58 @@ export class SyncEngine {
       }
 
       if (batches.size) this.set({ status: 'syncing' });
+      // Photos before their entry (the other device fetches them when the
+      // entry arrives). A photo that fails only holds back its own entry.
+      let photoError: unknown = null;
+      const held = new Set<string>();
       for (const job of photoJobs) {
-        const data = await this.port.readPhoto(job.fileName);
-        if (data && data.length <= MAX_PHOTO_CHARS) {
-          await this.backend.putPhoto(job.scope, job.fileName, data);
-          this.uploaded.add(`${scopeKey(job.scope)}|${job.fileName}`);
+        try {
+          const data = await this.port.readPhoto(job.fileName);
+          if (data && data.length <= MAX_PHOTO_CHARS) {
+            await this.backend.putPhoto(job.scope, job.fileName, data);
+            this.uploaded.add(`${scopeKey(job.scope)}|${job.fileName}`);
+          }
+        } catch (e) {
+          photoError = e; // tried again on the next sync
+          held.add(job.key);
         }
       }
       if (photoJobs.length) this.port.setItem(`bloom-sync-photos-${this.state.user.uid}`, JSON.stringify([...this.uploaded]));
+      if (held.size) for (const b of batches.values()) b.items = b.items.filter((it) => !held.has(`${it.coll}/${it.id}`));
 
       for (const b of batches.values()) {
-        for (let i = 0; i < b.items.length; i += 400) await this.backend.put(b.scope, b.items.slice(i, i + 400));
-        for (const [key, t, sk] of b.marks) this.known[key] = { t, s: sk };
+        const marks = new Map(b.marks.map(([key, t, sk]) => [key, [t, sk] as const]));
+        const done = (items: RemoteItem[]) => {
+          for (const it of items) {
+            const m = marks.get(`${it.coll}/${it.id}`);
+            if (m) this.known[`${it.coll}/${it.id}`] = { t: m[0], s: m[1] };
+          }
+          this.saveKnown();
+        };
+        for (const chunk of chunks(b.items)) {
+          try {
+            await this.backend.put(b.scope, chunk);
+            done(chunk);
+          } catch (e) {
+            if (!isRefusal(e)) throw e;
+            // One bad record must not stop everything else: send them one by one.
+            for (const it of chunk) {
+              try {
+                await this.backend.put(b.scope, [it]);
+                done([it]);
+              } catch (e2) {
+                if (!isRefusal(e2)) throw e2;
+                this.refused.set(`${it.coll}/${it.id}`, it.updatedAt);
+                console.error('bloom sync: the server refused', `${it.coll}/${it.id}`, e2);
+              }
+            }
+          }
+        }
       }
       if (prefsSent) this.prefsPush = false;
-      this.saveKnown();
-      this.set({ status: 'synced', error: null, lastSync: Date.now() });
+
+      if (photoError) throw photoError;
+      this.set({ status: 'synced', error: this.refusedNote(), lastSync: Date.now() });
     } catch (e) {
       this.fail(e);
       this.schedulePush(30_000); // retry later (offline, etc.)
@@ -538,8 +653,13 @@ export class SyncEngine {
 
   // ---------------------------------------------------------------- helpers
 
+  /** Shown under the status while the server refuses some records (so it's never silent). */
+  private refusedNote(): string | null {
+    return this.refused.size ? `refused: ${[...this.refused.keys()].slice(0, 3).join(', ')}${this.refused.size > 3 ? ` +${this.refused.size - 3}` : ''}` : null;
+  }
+
   private fail(e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = errorText(e);
     const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
     this.set({ status: offline ? 'offline' : 'error', error: msg });
   }
@@ -573,4 +693,29 @@ export function filesOf(coll: CollectionName, rec: SyncMeta): PhotoRef[] {
 /** Merge helper for ports: applies incoming records into a snapshot (newest wins). */
 export function partialToSnapshot(base: Snapshot, c: Partial<Collections>): Snapshot {
   return normalizeSnapshot({ ...base, ...Object.fromEntries(COLLECTIONS.map((k) => [k, c[k] ?? []])) });
+}
+
+/** Batches Firestore accepts: at most 400 writes and about 4 MB each. */
+function chunks(items: RemoteItem[]): RemoteItem[][] {
+  const out: RemoteItem[][] = [];
+  let cur: RemoteItem[] = [];
+  let size = 0;
+  for (const it of items) {
+    const n = JSON.stringify(it.data).length;
+    if (cur.length && (cur.length >= 400 || size + n > 4_000_000)) {
+      out.push(cur);
+      cur = [];
+      size = 0;
+    }
+    cur.push(it);
+    size += n;
+  }
+  if (cur.length) out.push(cur);
+  return out;
+}
+
+/** The server said no to the data itself (not a network problem). */
+function isRefusal(e: unknown): boolean {
+  const code = String((e as { code?: unknown })?.code ?? (e instanceof Error ? e.message : e));
+  return /invalid-argument|failed-precondition|out-of-range/.test(code);
 }

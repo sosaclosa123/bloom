@@ -3875,6 +3875,19 @@ button.chip-note:hover {
   flex-direction: column;
   min-width: 0;
 }
+.sync-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.sync-row .sync-status {
+  margin: 0;
+}
+.sync-error {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
 .sync-status {
   margin: 0;
   display: flex;

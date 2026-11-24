@@ -104,9 +104,20 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   again"; `SettingsAsk.tsx`, `settings.localKeys` / `askOff`; the engine skips
   local keys both ways). First sync: a PC's settings beat a new phone's
   defaults; afterwards the newest change of each setting wins. Tests:
-  `src/sync/prefs.test.ts`. Sync refreshes when the app comes back from the
-  background and pushes when hidden (`engine.refresh()`; deletes test
-  `src/sync/delete.test.ts`).
+  `src/sync/prefs.test.ts`.
+- **Sync reliability** (owner, Nov 2026: phone changes never reached the PC):
+  every item gets a server save time (`serverAt`); listeners download only
+  what changed since the last one (`marks` per area), a full download every
+  12 h / first time / "Sync now" (Account tab: status, "last HH:MM", error
+  text). Firebase free tier = 50k reads/day: never re-download everything on
+  every resume. A stopped listener (quota, expired sign-in) listens again by
+  itself (5 s -> 10 min backoff). Re-listen on resume (>15 s hidden), on
+  `online`, after sleep (clock jump) and every 10 min. Push on hide
+  (`flush`). One refused record never blocks others (shown as "refused: …");
+  a failed photo only holds back its own entry. Tests: `src/sync/reliable.test.ts`,
+  `delete.test.ts`; real Firestore emulator + rules: `qa/sync-emulator.sh`;
+  real app PC + phone windows on the emulator: `qa/sync-e2e.sh` (LANG_UI=he).
+  Dev-server-only switches (stripped from builds): `qa-emulator`, `qa-signed-in`.
 - **Day info (busy dot, notes, to-dos, stickers) is always private.** Saves go
   to the person's own private day record (`asPrivateDay`); the UI shows one
   record per date (`personalDays`). Never edit a shared day record.
@@ -354,8 +365,10 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   Wallet keeps its two columns. Check: `qa/phone-wallet.cjs`.
 
 ## In progress
-- Round 3 phone feedback released (Nov 2026). Waiting for the owner's
-  feedback from the phones.
+- Sync reliability fix (owner: phone changes not on the PC) built + tested
+  on the work branch; release when the owner says. Tell the owner to update
+  the phone app too (old versions don't write `serverAt`; the PC still gets
+  their changes on the 12-hourly full download or "Sync now").
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas

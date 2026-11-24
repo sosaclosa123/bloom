@@ -1,6 +1,6 @@
 // In-memory stand-in for Firebase, used by tests. Enforces the same rules as
 // firebase/firestore.rules (private areas, members-only calendars, max 2).
-import type { AuthUser, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } from './backend';
+import type { AuthUser, FeedInfo, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } from './backend';
 
 export class FakeCloud {
   users = new Map<string, { email: string; password: string; uid: string }>();
@@ -8,13 +8,26 @@ export class FakeCloud {
   spaces = new Map<string, SpaceInfo>();
   items = new Map<string, Map<string, RemoteItem>>(); // scopeKey -> docId -> item
   photos = new Map<string, string>();
-  subs = new Set<{ key: string; cb: (items: RemoteItem[]) => void }>();
+  subs = new Set<{ key: string; cb: (items: RemoteItem[], info: FeedInfo) => void; onError: (e: unknown) => void }>();
+  /** Server clock for save times (ms, always rising). */
+  clock = 1_000;
+  /** Documents downloaded (Firebase bills each one as a read). */
+  reads = 0;
+  /** A batch with any of these ids is refused like Firestore refuses a bad document. */
+  badIds = new Set<string>();
+  /** Stops every live feed with this error (quota used up, token expired…). */
+  breakFeeds(e: unknown = new Error('resource-exhausted')) {
+    const subs = [...this.subs];
+    this.subs.clear();
+    subs.forEach((s) => s.onError(e));
+  }
   spaceSubs = new Set<{ id: string; cb: (s: SpaceInfo | null) => void }>();
   next = 1;
 }
 
 const key = (s: Scope) => (s.kind === 'user' ? `u:${s.uid}` : `s:${s.sid}`);
 const tick = () => new Promise((r) => setTimeout(r, 0));
+const markOf = (items: RemoteItem[]) => (items.length ? Math.max(...items.map((it) => it.serverAt ?? 0)) : null);
 
 export class FakeBackend implements SyncBackend {
   private user: AuthUser | null = null;
@@ -89,24 +102,35 @@ export class FakeBackend implements SyncBackend {
     setTimeout(() => cb(this.cloud.spaces.get(id) ?? null), 0);
     return () => this.cloud.spaceSubs.delete(sub);
   }
-  subscribe(scope: Scope, cb: (items: RemoteItem[]) => void, onError: (e: unknown) => void) {
+  subscribe(scope: Scope, since: number | null, cb: (items: RemoteItem[], info: FeedInfo) => void, onError: (e: unknown) => void) {
     if (!this.can(scope)) {
       setTimeout(() => onError(new Error('permission-denied')), 0);
       return () => {};
     }
-    const sub = { key: key(scope), cb };
+    const sub = { key: key(scope), cb, onError };
     this.cloud.subs.add(sub);
-    setTimeout(() => cb(structuredClone([...(this.cloud.items.get(sub.key)?.values() ?? [])])), 0);
+    setTimeout(() => {
+      if (!this.cloud.subs.has(sub)) return;
+      const all = [...(this.cloud.items.get(sub.key)?.values() ?? [])].filter((it) => !since || (it.serverAt ?? 0) > since);
+      this.cloud.reads += Math.max(1, all.length); // an empty answer still costs one read
+      cb(structuredClone(all), { mark: markOf(all) });
+    }, 0);
     return () => this.cloud.subs.delete(sub);
   }
   async put(scope: Scope, items: RemoteItem[]) {
     if (!this.can(scope)) throw new Error('permission-denied');
+    if (items.some((it) => this.cloud.badIds.has(it.id))) throw Object.assign(new Error('invalid-argument'), { code: 'invalid-argument' });
     const k = key(scope);
     const m = this.cloud.items.get(k) ?? new Map();
-    for (const it of items) m.set(`${it.coll}_${it.id}`, structuredClone(it));
+    const saved = items.map((it) => ({ ...structuredClone(it), serverAt: ++this.cloud.clock }));
+    for (const it of saved) m.set(`${it.coll}_${it.id}`, it);
     this.cloud.items.set(k, m);
     await tick();
-    this.cloud.subs.forEach((s) => s.key === k && s.cb(structuredClone(items)));
+    this.cloud.subs.forEach((s) => {
+      if (s.key !== k) return;
+      this.cloud.reads += saved.length;
+      s.cb(structuredClone(saved), { mark: markOf(saved) });
+    });
   }
   async putPhoto(scope: Scope, fileName: string, dataUrl: string) {
     if (!this.can(scope)) throw new Error('permission-denied');

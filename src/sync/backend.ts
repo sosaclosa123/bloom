@@ -11,6 +11,14 @@ export interface RemoteItem {
   id: string;
   updatedAt: number;
   data: Record<string, unknown>;
+  /** When the server saved it (ms; set by the server, not the device's clock). */
+  serverAt?: number;
+}
+
+/** One delivery from a live feed. */
+export interface FeedInfo {
+  /** Newest server save time in this delivery (to listen "from here" next time). */
+  mark: number | null;
 }
 
 export interface AuthUser {
@@ -45,8 +53,12 @@ export interface SyncBackend {
   getSpace(id: string): Promise<SpaceInfo | null>;
   onSpace(id: string, cb: (s: SpaceInfo | null) => void): () => void;
 
-  /** Live feed of every item in a scope (all of them first, then changes). */
-  subscribe(scope: Scope, cb: (items: RemoteItem[]) => void, onError: (e: unknown) => void): () => void;
+  /**
+   * Live feed of a scope: every item (since = null) or only items the server
+   * saved after `since` (ms), first what's there, then changes. Downloading
+   * only what changed keeps far below Firebase's free daily read limit.
+   */
+  subscribe(scope: Scope, since: number | null, cb: (items: RemoteItem[], info: FeedInfo) => void, onError: (e: unknown) => void): () => void;
   put(scope: Scope, items: RemoteItem[]): Promise<void>;
 
   putPhoto(scope: Scope, fileName: string, dataUrl: string): Promise<void>;

@@ -9,6 +9,7 @@
 import { initializeApp, type FirebaseOptions } from 'firebase/app';
 import {
   browserLocalPersistence,
+  connectAuthEmulator,
   createUserWithEmailAndPassword,
   indexedDBLocalPersistence,
   initializeAuth,
@@ -19,23 +20,40 @@ import {
 import {
   arrayUnion,
   collection,
+  connectFirestoreEmulator,
   doc,
   getDoc,
   initializeFirestore,
   memoryLocalCache,
   onSnapshot,
+  query,
+  serverTimestamp,
   setDoc,
+  Timestamp,
+  where,
   updateDoc,
   writeBatch,
   type DocumentData,
 } from 'firebase/firestore';
 import type { AuthUser, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } from './backend';
 
-export function createFirebaseBackend(config: FirebaseOptions): SyncBackend {
-  const app = initializeApp(config);
-  const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
+/** Tests only: run against the local Firebase emulator (several devices = several app names). */
+export interface EmulatorOptions {
+  name?: string;
+  host: string;
+  firestorePort: number;
+  authPort: number;
+}
+
+export function createFirebaseBackend(config: FirebaseOptions, emulator?: EmulatorOptions): SyncBackend {
+  const app = initializeApp(config, emulator?.name);
+  const auth = initializeAuth(app, { persistence: emulator ? [] : [indexedDBLocalPersistence, browserLocalPersistence] });
   // Bloom keeps its own local copy, so Firestore only needs a memory cache.
   const db = initializeFirestore(app, { localCache: memoryLocalCache(), ignoreUndefinedProperties: true });
+  if (emulator) {
+    connectAuthEmulator(auth, `http://${emulator.host}:${emulator.authPort}`, { disableWarnings: true });
+    connectFirestoreEmulator(db, emulator.host, emulator.firestorePort);
+  }
 
   const base = (s: Scope) => (s.kind === 'user' ? ['users', s.uid] : ['spaces', s.sid]);
   const toUser = (u: { uid: string; email: string | null }): AuthUser => ({ uid: u.uid, email: u.email ?? '' });
@@ -88,17 +106,26 @@ export function createFirebaseBackend(config: FirebaseOptions): SyncBackend {
         () => cb(null),
       ),
 
-    subscribe(scope, cb, onError) {
+    subscribe(scope, since, cb, onError) {
       const [a, b] = base(scope);
+      const items = collection(db, a, b, 'items');
+      // Only what the server saved after `since` (an older item without a save
+      // time is only in the full feed, which runs now and then).
+      const q = since ? query(items, where('serverAt', '>', Timestamp.fromMillis(since))) : items;
       return onSnapshot(
-        collection(db, a, b, 'items'),
+        q,
         (snap) => {
-          const items = snap
-            .docChanges()
-            .filter((c) => c.type !== 'removed')
-            .map((c) => c.doc.data() as RemoteItem);
-          if (items.length) cb(items);
-          else if (snap.metadata.fromCache === false) cb([]);
+          let mark: number | null = null;
+          const out: RemoteItem[] = [];
+          for (const c of snap.docChanges()) {
+            if (c.type === 'removed') continue;
+            const d = c.doc.data();
+            const at = d.serverAt instanceof Timestamp ? d.serverAt.toMillis() : null;
+            // Our own unsent write has no server time yet; it comes back once saved.
+            if (at !== null && !c.doc.metadata.hasPendingWrites) mark = Math.max(mark ?? 0, at);
+            out.push({ coll: d.coll, id: d.id, updatedAt: d.updatedAt, data: d.data, serverAt: at ?? undefined } as RemoteItem);
+          }
+          if (out.length || snap.metadata.fromCache === false) cb(out, { mark });
         },
         onError,
       );
@@ -106,7 +133,7 @@ export function createFirebaseBackend(config: FirebaseOptions): SyncBackend {
     async put(scope, items) {
       const [a, b] = base(scope);
       const batch = writeBatch(db);
-      for (const it of items) batch.set(doc(db, a, b, 'items', `${it.coll}_${it.id}`), it);
+      for (const it of items) batch.set(doc(db, a, b, 'items', `${it.coll}_${it.id}`), { ...it, serverAt: serverTimestamp() });
       await batch.commit();
     },
 
