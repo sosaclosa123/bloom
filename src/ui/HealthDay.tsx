@@ -11,7 +11,7 @@ import { DocsList } from './HealthCards';
 import { MoodFace } from './HealthCheckin';
 import { useHealth, useWaterFmt } from './healthUi';
 import { StickerArt } from './Stickers';
-import { proteinText } from './HealthFood';
+import { FoodTable, proteinText } from './HealthFood';
 import { useBloom } from './store';
 
 export function DaySummary({ date, onClose }: { date: ISODate; onClose: () => void }) {
@@ -98,20 +98,7 @@ export function DaySummary({ date, onClose }: { date: ISODate; onClose: () => vo
               {kcal > 0 && <> · {t('hlKcal', { n: Math.round(kcal).toLocaleString(locale) })}</>}
               {protein > 0 && <> · {proteinText(protein, t, locale)}</>}
             </h4>
-            <ul className="hl-daysum-list">
-              {food.map((x) => (
-                <li key={x.id}>
-                  <span className="muted">{kind(x.meal)}</span>
-                  <span dir="auto">{x.text}</span>
-                  {(x.kcal != null || x.protein != null) && (
-                    <b>
-                      {x.kcal != null && t('hlKcal', { n: x.kcal.toLocaleString(locale) })}
-                      {x.protein != null && <small className="hl-protein">{proteinText(x.protein, t, locale)}</small>}
-                    </b>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <FoodTable items={food} label={(x) => kind(x.meal)} />
           </section>
         )}
 

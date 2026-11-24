@@ -9,7 +9,7 @@ import { dosesOn, forDate, healthOf, latestWeight } from '../shared/health';
 import type { HealthBody, HealthFood, HealthTest, HealthVisit, ISODate } from '../shared/types';
 import { Button, Field, Icon, Modal } from './common';
 import { MedEditor, TestEditor, VisitEditor } from './HealthCards';
-import { FoodAdd, FoodEditor, proteinNum, proteinText } from './HealthFood';
+import { FoodAdd, FoodEditor, FoodTable, proteinNum } from './HealthFood';
 import { BathroomEditor } from './HealthIbd';
 import { CardHead, NumBox, useHealth, useWaterFmt } from './healthUi';
 import { StickerArt } from './Stickers';
@@ -186,7 +186,6 @@ export function TodayLogCard({ date, isToday }: { date: ISODate; isToday: boolea
     b?.exerciseMin ? `${t('hlExercise')} ${b.exerciseMin} ${t('hlUnitMin')}` : null,
     b?.weightKg ? `${t('hlWeight')} ${b.weightKg.toLocaleString(locale)} ${t('hlUnitKg')}` : null,
   ].filter(Boolean);
-  const amount = (f: HealthFood) => (f.grams ? (f.meal === 'drink' ? t('hlMl', { n: f.grams }) : t('hlGrams', { n: Math.round(f.grams) })) : '');
   const empty = !foods.length && !bodyBits.length && !tests.length && !visits.length;
   const edit = <Icon name="pen" size={13} className="hl-log-edit" />;
   return (
@@ -218,26 +217,7 @@ export function TodayLogCard({ date, isToday }: { date: ISODate; isToday: boolea
       {foods.length > 0 && (
         <>
           <h4 className="hl-log-h">{t('hlFoodDrinks')}</h4>
-          <ul className="hl-log-list">
-            {foods.map((f) => (
-              <li key={f.id}>
-                <button type="button" onClick={() => setFood(f)}>
-                  <span className="hl-log-kind">{meal(f)}</span>
-                  <span className="hl-log-text">
-                    <bdi>{f.text}</bdi>
-                    {f.grams ? <small> {amount(f)}</small> : null}
-                  </span>
-                  {(f.kcal != null || f.protein != null) && (
-                    <b>
-                      {f.kcal != null && t('hlKcal', { n: Math.round(f.kcal).toLocaleString(locale) })}
-                      {f.protein != null && <small className="hl-protein">{proteinText(f.protein, t, locale)}</small>}
-                    </b>
-                  )}
-                  {edit}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <FoodTable items={foods} label={meal} onRow={setFood} action={() => edit} />
         </>
       )}
       <h4 className="hl-log-h">{t('hlBody')}</h4>

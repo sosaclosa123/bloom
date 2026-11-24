@@ -1,7 +1,7 @@
 // Food tab: meals and (separately) small snacks, with calories from the
 // built-in Israeli Ministry of Health food list (offline) and, if turned on,
 // Open Food Facts products and barcodes (online). Totals for the day.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
@@ -167,19 +167,92 @@ export function proteinText(g: number, t: ReturnType<typeof useBloom>['t'], loca
   return t('hlProtein', { n: proteinNum(g, locale) });
 }
 
+/**
+ * Food rows as neat columns (owner chose "C"): meal | food + amount | kcal |
+ * protein | edit/delete. Units once in the header, so nothing stacks.
+ * Used by the Food tab, Today's log and the day pop-up (phone and PC).
+ */
+export function FoodTable({
+  items,
+  label,
+  onRow,
+  name,
+  action,
+}: {
+  items: HealthFood[];
+  /** Left column: meal / snack / drink. */
+  label: (f: HealthFood) => string;
+  /** The whole row is a button (Today's log). */
+  onRow?: (f: HealthFood) => void;
+  /** Custom food cell (e.g. a button with tags); default = name + amount. */
+  name?: (f: HealthFood) => ReactNode;
+  action?: (f: HealthFood) => ReactNode;
+}) {
+  const { t, locale } = useBloom();
+  const amount = (f: HealthFood) => foodAmount(f, t, locale);
+  const cells = (f: HealthFood) => (
+    <>
+      <span className="hl-ft-meal">{label(f)}</span>
+      <span className="hl-ft-name">
+        {name ? (
+          name(f)
+        ) : (
+          <>
+            <bdi>{f.text}</bdi>
+            {f.grams ? <small className="hl-ft-amount"> {amount(f)}</small> : null}
+          </>
+        )}
+        {/* Narrow screens: the meal moves here, under the name. */}
+        <small className="hl-ft-sub">{[label(f), amount(f)].filter(Boolean).join(' · ')}</small>
+      </span>
+      <span className="hl-ft-num hl-ft-kcal">{f.kcal != null ? Math.round(f.kcal).toLocaleString(locale) : '–'}</span>
+      <span className="hl-ft-num hl-ft-protein">{f.protein != null ? t('hlGrams', { n: proteinNum(f.protein, locale) }) : '–'}</span>
+      <span className="hl-ft-act">{action?.(f)}</span>
+    </>
+  );
+  return (
+    <div className="hl-ftable-wrap">
+    <div className="hl-ftable" role="table">
+      <div className="hl-ft-row hl-ft-head" role="row">
+        <span />
+        <span>{t('hlFtFood')}</span>
+        <span className="hl-ft-num">{t('hlKcalUnit')}</span>
+        <span className="hl-ft-num">{t('hlLblProtein')}</span>
+        <span />
+      </div>
+      {items.map((f) =>
+        onRow ? (
+          <button type="button" key={f.id} role="row" className="hl-ft-row" title={t('hlEditFood')} onClick={() => onRow(f)}>
+            {cells(f)}
+          </button>
+        ) : (
+          <div key={f.id} role="row" className="hl-ft-row">
+            {cells(f)}
+          </div>
+        ),
+      )}
+    </div>
+    </div>
+  );
+}
+
+/** "200 g", "250 ml", "5 pieces (60 g)". */
+export function foodAmount(f: HealthFood, t: ReturnType<typeof useBloom>['t'], locale: string) {
+  return f.pieces && f.grams
+    ? t('hlPiecesAmount', { n: f.pieces.toLocaleString(locale), g: Math.round(f.grams).toLocaleString(locale) })
+    : f.grams
+      ? kindOf(f) === 'drink'
+        ? t('hlMl', { n: f.grams })
+        : t('hlGrams', { n: Math.round(f.grams) })
+      : '';
+}
+
 const tagName = (x: string, t: ReturnType<typeof useBloom>['t']) => ((FOOD_TAGS as readonly string[]).includes(x) ? t(`hlTag_${x}` as StringKey) : x);
 
 function FoodList({ list, chips, onEdit }: { list: HealthFood[]; chips?: boolean; onEdit: (f: HealthFood) => void }) {
   const { t, locale } = useBloom();
   const kcal = (f: HealthFood) => (f.kcal != null ? t('hlKcal', { n: f.kcal.toLocaleString(locale) }) : '');
-  const amount = (f: HealthFood) =>
-    f.pieces && f.grams
-      ? t('hlPiecesAmount', { n: f.pieces.toLocaleString(locale), g: Math.round(f.grams).toLocaleString(locale) })
-      : f.grams
-        ? kindOf(f) === 'drink'
-          ? t('hlMl', { n: f.grams })
-          : t('hlGrams', { n: f.grams })
-        : '';
+  const amount = (f: HealthFood) => foodAmount(f, t, locale);
   if (chips)
     return (
       <ul className="hl-snack-list">
@@ -199,29 +272,22 @@ function FoodList({ list, chips, onEdit }: { list: HealthFood[]; chips?: boolean
       </ul>
     );
   return (
-    <ul className="hl-list">
-      {list.map((f) => (
-        <li key={f.id} className="hl-food-item">
-          <span className="hl-food-meal">{t(`hlMeal_${f.meal}` as StringKey)}</span>
-          <button type="button" className="hl-food-text" dir="auto" title={t('hlEditFood')} onClick={() => onEdit(f)}>
-            {f.text}
-            {f.grams ? <span className="muted small">{amount(f)}</span> : null}
-            {f.tags.map((x) => (
-              <span key={x} className="hl-tag">
-                {tagName(x, t)}
-              </span>
-            ))}
-          </button>
-          {(f.kcal != null || f.protein != null) && (
-            <span className="hl-food-kcal">
-              {f.kcal != null && kcal(f)}
-              {f.protein != null && <small className="hl-protein">{proteinText(f.protein, t, locale)}</small>}
+    <FoodTable
+      items={list}
+      label={(f) => t(`hlMeal_${f.meal}` as StringKey)}
+      name={(f) => (
+        <button type="button" className="hl-food-text" title={t('hlEditFood')} onClick={() => onEdit(f)}>
+          <bdi>{f.text}</bdi>
+          {f.grams ? <small className="hl-ft-amount"> {amount(f)}</small> : null}
+          {f.tags.map((x) => (
+            <span key={x} className="hl-tag">
+              {tagName(x, t)}
             </span>
-          )}
-          <IconButton icon="close" label={t('delete')} onClick={() => void platform.remove('health', f.id)} />
-        </li>
-      ))}
-    </ul>
+          ))}
+        </button>
+      )}
+      action={(f) => <IconButton icon="close" label={t('delete')} onClick={() => void platform.remove('health', f.id)} />}
+    />
   );
 }
 

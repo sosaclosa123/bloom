@@ -8175,20 +8175,8 @@ button.hl-line-dot.at-l:not(:hover):not(:focus-visible) .hl-dot-label {
   font-size: var(--fs-xs);
   white-space: nowrap;
 }
-.hl-food-kcal,
-.hl-log-list button > b,
-.hl-daysum-list b {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.2;
-  text-align: end;
-}
-.hl-food-sum-kcal {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.15;
+.hl-food-sum-kcal .hl-protein {
+  margin-inline-start: 8px;
 }
 .hl-total-line {
   display: flex;
@@ -8204,4 +8192,131 @@ button.hl-line-dot.at-l:not(:hover):not(:focus-visible) .hl-dot-label {
 }
 .hl-snack .hl-protein {
   margin-inline-start: 2px;
+}
+
+/* Food rows as a table (owner chose "C"): meal | food | kcal | protein | edit.
+   Rows share the columns (subgrid), units are only in the header. */
+.hl-ftable {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content max-content max-content;
+  column-gap: 10px;
+  margin: 0;
+}
+.hl-ft-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: 34px;
+  padding: 4px 6px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  border-radius: 0;
+}
+.hl-ft-row:last-child {
+  border-bottom: 0;
+}
+button.hl-ft-row {
+  cursor: pointer;
+  border-radius: 8px;
+}
+button.hl-ft-row:hover {
+  background: var(--surface-hover);
+}
+.hl-ft-head {
+  min-height: 0;
+  padding-block: 0 4px;
+  font-size: calc(10px * var(--fs-scale, 1));
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.hl-ft-meal {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.hl-ft-name {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.hl-ft-name small {
+  color: var(--text-faint);
+  font-weight: 400;
+  white-space: nowrap;
+}
+.hl-ft-name .hl-food-text {
+  display: inline;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.hl-ft-name .hl-tag {
+  margin-inline-start: 4px;
+}
+.hl-ft-num {
+  text-align: end;
+  white-space: nowrap;
+  font-family: 'Outfit', var(--font-sans);
+}
+.hl-ft-kcal {
+  font-weight: 600;
+  font-size: var(--fs-sm);
+}
+.hl-ft-protein {
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  color: var(--accent-text);
+}
+.hl-ft-head .hl-ft-num {
+  font-family: inherit;
+}
+.hl-ft-act {
+  display: flex;
+  align-items: center;
+  color: var(--text-faint);
+}
+.hl-ft-act:empty {
+  display: none;
+}
+/* Narrow (phone): no meal column; "Breakfast · 200 g" goes under the name. */
+.hl-ftable-wrap {
+  container-type: inline-size;
+}
+.hl-ft-sub {
+  display: none;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+@container (max-width: 360px) {
+  .hl-ftable {
+    grid-template-columns: minmax(0, 1fr) max-content max-content max-content;
+    column-gap: 12px;
+  }
+  .hl-ft-meal,
+  .hl-ft-head > span:first-child,
+  .hl-ft-amount {
+    display: none;
+  }
+  .hl-ft-sub {
+    display: block;
+  }
+  .hl-ft-row {
+    padding-inline: 4px;
+  }
 }

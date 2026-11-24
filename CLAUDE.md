@@ -206,8 +206,13 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   picking, a "Show as" box (e.g. "XL") sets the name shown in the day
   (`text`); the full title is kept in `product` and shown in the editor.
   The last "show as" name for that product comes back next time.
+- **Food rows = table "C"** (owner, Nov 2026; `FoodTable` in HealthFood.tsx):
+  meal | food + amount | kcal | protein | edit, units once in the header,
+  rows share columns (subgrid). Narrow (card < 360px, phone): no meal column,
+  "Breakfast · 200 g" under the name. Used by Food tab meals, Today's log, day
+  pop-up. Snack/drink chips keep "kcal · N g protein" on one line.
 - **Protein shown like calories** (owner, Nov 2026): every food line shows
-  "N g protein" under its kcal; day totals (Today's log tile, Food today card,
+  its protein; day totals (Today's log tile, Food today card,
   Food tab total, day pop-up). Filled in from the product; the food editor
   has a "Protein (g)" box to correct it (saved per 100 g too, so changing the
   portion keeps the correction); typed-in foods can get protein when added.
