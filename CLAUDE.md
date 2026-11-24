@@ -354,14 +354,8 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   Wallet keeps its two columns. Check: `qa/phone-wallet.cjs`.
 
 ## In progress
-Phone feedback round 3 (owner, Nov 2026). Done = committed on the work branch:
-- [x] Sync: refresh on coming back from background, push on hide (delete bug)
-- [x] Look per device + "All my devices / Only this device" ask
-- [x] Phone weekly auto backup (default ON)
-- [x] Stickers scaled to the phone's day squares
-- [x] Day panel + particles GPU-only; finger-drag month swipe
-- [x] Phone Wallet layout A
-- [ ] Full QA (phone + PC, EN/HE, light/dark), show owner, release when told.
+- Round 3 phone feedback released (Nov 2026). Waiting for the owner's
+  feedback from the phones.
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas
