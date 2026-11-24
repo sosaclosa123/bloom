@@ -35,12 +35,17 @@ import { useAlive, useBloom } from './store';
 import { CountdownIcon, countdownSticker, GOAL_STICKERS, StickerArt } from './Stickers';
 import { STICKERS } from './stickerDesigns';
 import { useSync } from './sync';
+import { isPhone } from '../platform/api';
 
 type Editing =
   | { kind: 'spend'; item: MoneySpend; isNew: boolean }
   | { kind: 'recurring'; item: MoneyRecurring; isNew: boolean }
   | { kind: 'goal'; item: MoneyGoal; isNew: boolean }
   | null;
+
+/** Phone Wallet = tabs (owner chose layout A); the PC keeps its two columns. */
+type WalletTab = 'month' | 'year' | 'savings' | 'payments';
+const WALLET_TABS: WalletTab[] = ['month', 'year', 'savings', 'payments'];
 
 const todayISO = () => toISODate(new Date());
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -66,6 +71,29 @@ export function WalletPage() {
   const [side, setSide] = useState<Visibility>(() => (localStorage.getItem('bloom-wallet-side') === 'shared' ? 'shared' : 'private'));
   const [month, setMonth] = useState(() => todayISO().slice(0, 7));
   const [editing, setEditing] = useState<Editing>(null);
+  const [tab, setTab] = useState<WalletTab>(() => {
+    try {
+      const v = localStorage.getItem('bloom-wallet-tab') as WalletTab;
+      return WALLET_TABS.includes(v) ? v : 'month';
+    } catch {
+      return 'month';
+    }
+  });
+  const chooseTab = (v: WalletTab) => {
+    setTab(v);
+    try {
+      localStorage.setItem('bloom-wallet-tab', v);
+    } catch {
+      /* ignore */
+    }
+  };
+  const newPurchase = () => {
+    const today = todayISO();
+    const item: MoneySpend = { ...newMeta(), visibility: side, kind: 'spend', title: '', amount: 0, date: month === today.slice(0, 7) ? today : `${month}-01`, note: '' };
+    setEditing({ kind: 'spend', item, isNew: true });
+  };
+  // Savings and payments don't depend on the month (phone tabs).
+  const showMonth = !(isPhone && (tab === 'savings' || tab === 'payments'));
 
   const chooseSide = (v: Visibility) => {
     setSide(v);
@@ -95,34 +123,73 @@ export function WalletPage() {
           ]}
         />
         <span className="spacer" />
-        <div className="wallet-month">
-          <IconButton icon="chevronLeft" className="flip-rtl" label={t('prev')} onClick={() => shiftMonth(-1)} />
-          <span>{monthLabel}</span>
-          <IconButton icon="chevronRight" className="flip-rtl" label={t('next')} onClick={() => shiftMonth(1)} />
-          {!isThisMonth && (
-            <button type="button" className="today-btn" onClick={() => setMonth(todayISO().slice(0, 7))}>
-              {t('today')}
-            </button>
-          )}
-        </div>
+        {showMonth && (
+          <div className="wallet-month">
+            <IconButton icon="chevronLeft" className="flip-rtl" label={t('prev')} onClick={() => shiftMonth(-1)} />
+            <span>{monthLabel}</span>
+            <IconButton icon="chevronRight" className="flip-rtl" label={t('next')} onClick={() => shiftMonth(1)} />
+            {!isThisMonth && (
+              <button type="button" className="today-btn" onClick={() => setMonth(todayISO().slice(0, 7))}>
+                {t('today')}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Two sides that scroll separately: this month on the left (right in Hebrew), the bigger picture beside it. */}
-      <div className="wallet-body wl-two">
-        <div className="wl-main">
-          {side === 'shared' && <p className="wl-shared-hint">{me.inSpace ? t('wlSharedHint') : t('wlConnectHint')}</p>}
-          <LimitCard all={all} side={side} month={month} />
-          <QuickAdd side={side} month={month} />
-          <SpendingList all={all} side={side} month={month} onEdit={setEditing} />
+      {isPhone ? (
+        <>
+          <div className="wl-tabs">
+            <Segmented
+              value={tab}
+              onChange={chooseTab}
+              options={WALLET_TABS.map((v) => ({ value: v, label: t(({ month: 'wlTabMonth', year: 'wlTabYear', savings: 'wlTabSavings', payments: 'wlTabPayments' } as const)[v]) }))}
+            />
+          </div>
+          <div className="wallet-body wl-phone">
+            {side === 'shared' && <p className="wl-shared-hint">{me.inSpace ? t('wlSharedHint') : t('wlConnectHint')}</p>}
+            {tab === 'month' && (
+              <>
+                <LimitCard all={all} side={side} month={month} />
+                <Button variant="primary" icon="plus" className="wl-add-btn" onClick={newPurchase}>
+                  {t('wlPurchase')}
+                </Button>
+                <SpendingList all={all} side={side} month={month} onEdit={setEditing} />
+              </>
+            )}
+            {tab === 'year' && (
+              <YearCard
+                all={all}
+                side={side}
+                month={month}
+                onPickMonth={(m) => {
+                  setMonth(m);
+                  chooseTab('month');
+                }}
+              />
+            )}
+            {tab === 'savings' && <GoalsCard all={all} side={side} onEdit={setEditing} />}
+            {tab === 'payments' && <RecurringCard all={all} side={side} onEdit={setEditing} />}
+          </div>
+        </>
+      ) : (
+        /* Two sides that scroll separately: this month on the left (right in Hebrew), the bigger picture beside it. */
+        <div className="wallet-body wl-two">
+          <div className="wl-main">
+            {side === 'shared' && <p className="wl-shared-hint">{me.inSpace ? t('wlSharedHint') : t('wlConnectHint')}</p>}
+            <LimitCard all={all} side={side} month={month} />
+            <QuickAdd side={side} month={month} />
+            <SpendingList all={all} side={side} month={month} onEdit={setEditing} />
+          </div>
+          <div className="wl-side">
+            <YearCard all={all} side={side} month={month} onPickMonth={setMonth} />
+            <GoalsCard all={all} side={side} onEdit={setEditing} />
+            <RecurringCard all={all} side={side} onEdit={setEditing} />
+          </div>
         </div>
-        <div className="wl-side">
-          <YearCard all={all} side={side} month={month} onPickMonth={setMonth} />
-          <GoalsCard all={all} side={side} onEdit={setEditing} />
-          <RecurringCard all={all} side={side} onEdit={setEditing} />
-        </div>
-      </div>
+      )}
 
-      {editing?.kind === 'spend' && <SpendEditor init={editing.item} onClose={() => setEditing(null)} />}
+      {editing?.kind === 'spend' && <SpendEditor init={editing.item} isNew={editing.isNew} onClose={() => setEditing(null)} />}
       {editing?.kind === 'recurring' && <RecurringEditor init={editing.item} isNew={editing.isNew} onClose={() => setEditing(null)} />}
       {editing?.kind === 'goal' && <GoalEditor init={editing.item} isNew={editing.isNew} onClose={() => setEditing(null)} />}
     </div>
@@ -321,7 +388,7 @@ function SpendingList({ all, side, month, onEdit }: { all: MoneyItem[]; side: Vi
   return (
     <Card title={t('wlList')}>
       {rows.length === 0 ? (
-        <p className="empty-note">{t('wlEmpty')}</p>
+        <p className="empty-note">{t(isPhone ? 'wlEmptyPhone' : 'wlEmpty')}</p>
       ) : (
         <ul className="wl-rows">
           {rows.map((r) => (
@@ -676,14 +743,14 @@ function EditorShell({ title, isNew, onClose, onSave, onDelete, canSave, extra, 
   );
 }
 
-function SpendEditor({ init, onClose }: { init: MoneySpend; onClose: () => void }) {
+function SpendEditor({ init, isNew = false, onClose }: { init: MoneySpend; isNew?: boolean; onClose: () => void }) {
   const { t, save, del } = useBloom();
   const [v, setV] = useState(init);
   const set = (p: Partial<MoneySpend>) => setV((x) => ({ ...x, ...p }));
   return (
     <EditorShell
-      title={t('wlEditPurchase')}
-      isNew={false}
+      title={isNew ? t('wlNewPurchase') : t('wlEditPurchase')}
+      isNew={isNew}
       onClose={onClose}
       onSave={() => {
         save('money', { ...v, title: v.title.trim() });

@@ -94,13 +94,19 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   change adopts the old single file as the account's copy. Account settings
   offer "Add this computer's offline items to my account". Tests:
   `src/sync/profiles.test.ts`.
-- **Settings follow the account** (owner, Nov 2026): language, theme, week
-  start, holidays, Hebrew dates, default reminder, snooze, currency, month
-  colors and every Health switch sync through one private document
-  (`ACCOUNT_SETTINGS` in `src/sync/engine.ts`). Per device: text size, start
-  with Windows, tray, startup window, game mode, volume, sound, backup folder.
-  First sync: a PC's settings beat a new phone's defaults; afterwards the
-  newest change of each setting wins. Tests: `src/sync/prefs.test.ts`.
+- **Settings follow the account** (owner, Nov 2026): language, week start,
+  holidays, default reminder, snooze, currency, month colors and every Health
+  switch sync through one private document (`ACCOUNT_SETTINGS` in
+  `src/sync/engine.ts`). **Look is per device** (round 3): text size,
+  light/dark, Hebrew dates; also start with Windows, tray, startup window,
+  game mode, volume, sound, backup folder. While signed in, changing an
+  account setting asks "All my devices / Only this device" (+ "Don't ask
+  again"; `SettingsAsk.tsx`, `settings.localKeys` / `askOff`; the engine skips
+  local keys both ways). First sync: a PC's settings beat a new phone's
+  defaults; afterwards the newest change of each setting wins. Tests:
+  `src/sync/prefs.test.ts`. Sync refreshes when the app comes back from the
+  background and pushes when hidden (`engine.refresh()`; deletes test
+  `src/sync/delete.test.ts`).
 - **Day info (busy dot, notes, to-dos, stickers) is always private.** Saves go
   to the person's own private day record (`asPrivateDay`); the UI shows one
   record per date (`personalDays`). Never edit a shared day record.
@@ -334,20 +340,28 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   silent updates, no Play Store). Same account = same data. PC-only parts are
   hidden on the phone (game mode, tray, start with Windows, startup window,
   folder backups, custom reminder sounds). Backup "Save" = share sheet.
+  Phone weekly auto backup (default ON, Settings > Backup can turn it off):
+  Documents/Bloom (fallback: the app's own folder), newest 8 kept.
+  Stickers scale with the phone's day squares (`Stickers.tsx`).
+  **Phone animations = transforms/opacity only** (round 3 root cause: the
+  month resized + the season particles animated `top`, so the whole page was
+  re-laid out every frame). Day panel: rows slide up (`--row`/`--shrink`),
+  panel slides over (`--sheet-top`). Month/week/year swipe follows the finger
+  (`useSwipe` in phone.tsx; 25% or a flick, RTL aware). Never animate
+  layout properties on the phone. Checks: `qa/phone-fps.cjs`.
+  **Phone Wallet = layout A** (owner): tabs This month | Year | Savings |
+  Payments (remembered), "+ Purchase" opens the purchase window; the PC
+  Wallet keeps its two columns. Check: `qa/phone-wallet.cjs`.
 
 ## In progress
 Phone feedback round 3 (owner, Nov 2026). Done = committed on the work branch:
 - [x] Sync: refresh on coming back from background, push on hide (delete bug)
-- [x] Look per device (text size, light/dark, Hebrew dates); ask "All my
-      devices / Only this device" before account settings change (SettingsAsk.tsx)
-- [ ] Phone weekly auto backup (default ON, can turn off) - Documents/Bloom,
-      newest 8 kept (reuse src/shared/backup.ts)
-- [ ] Stickers on the phone: scaled to the phone's day squares
-- [ ] Day panel open/close: root cause of stutter -> compositor-only animation
-      (transforms), not layout; month swipe follows the finger (drag) + snap
-- [ ] Phone Wallet = layout A (owner chose): tabs This month | Year | Savings |
-      Payments, "+ Purchase" button opens the add form. PC Wallet unchanged.
-- Then QA (phone + PC, EN/HE, light/dark), show owner, release.
+- [x] Look per device + "All my devices / Only this device" ask
+- [x] Phone weekly auto backup (default ON)
+- [x] Stickers scaled to the phone's day squares
+- [x] Day panel + particles GPU-only; finger-drag month swipe
+- [x] Phone Wallet layout A
+- [ ] Full QA (phone + PC, EN/HE, light/dark), show owner, release when told.
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas

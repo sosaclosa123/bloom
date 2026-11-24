@@ -4,15 +4,19 @@ import { emptySnapshot } from '../shared/db';
 import type { CalendarEvent, Snapshot } from '../shared/types';
 
 const files = new Map<string, string>();
+// Shared folders (Documents / the app's own folder) get a prefix; app data doesn't.
+const at = (path: string, directory?: string) => (directory === 'DOCUMENTS' || directory === 'EXTERNAL' ? `${directory}:${path}` : path);
+let documentsBlocked = false;
 const scheduled: { id: number; title: string; schedule: { at: Date } }[] = [];
 const listeners: Record<string, (x: unknown) => void> = {};
 
 vi.mock('@capacitor/filesystem', () => ({
-  Directory: { Data: 'DATA', Cache: 'CACHE' },
+  Directory: { Data: 'DATA', Cache: 'CACHE', Documents: 'DOCUMENTS', External: 'EXTERNAL' },
   Encoding: { UTF8: 'utf8' },
   Filesystem: {
-    readdir: async ({ path }: { path: string }) => {
-      const names = [...files.keys()].filter((k) => k.startsWith(path + '/')).map((k) => ({ name: k.slice(path.length + 1) }));
+    readdir: async ({ path, directory }: { path: string; directory?: string }) => {
+      const dir = at(path, directory);
+      const names = [...files.keys()].filter((k) => k.startsWith(dir + '/')).map((k) => ({ name: k.slice(dir.length + 1) }));
       if (!names.length) throw new Error('no dir');
       return { files: names };
     },
@@ -20,10 +24,14 @@ vi.mock('@capacitor/filesystem', () => ({
       if (!files.has(path)) throw new Error('missing');
       return { data: files.get(path) };
     },
-    writeFile: async ({ path, data }: { path: string; data: string }) => void files.set(path, data),
-    deleteFile: async ({ path }: { path: string }) => {
-      if (!files.delete(path)) throw new Error('missing');
+    writeFile: async ({ path, data, directory }: { path: string; data: string; directory?: string }) => {
+      if (directory === 'DOCUMENTS' && documentsBlocked) throw new Error('denied');
+      files.set(at(path, directory), data);
     },
+    deleteFile: async ({ path, directory }: { path: string; directory?: string }) => {
+      if (!files.delete(at(path, directory))) throw new Error('missing');
+    },
+    requestPermissions: async () => ({ publicStorage: 'denied' }),
     rename: async ({ from, to }: { from: string; to: string }) => {
       files.set(to, files.get(from)!);
       files.delete(from);
@@ -153,5 +161,36 @@ describe('createAndroid', () => {
     const opened: string[] = [];
     p.onOpenDate((d) => opened.push(d));
     expect(opened).toEqual(['2026-11-20']);
+  });
+
+  it('backs up every week to Documents/Bloom, keeps the newest 8 (and other files)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'], now: new Date('2026-11-19T10:00') });
+    documentsBlocked = false;
+    for (let d = 1; d <= 9; d++) files.set(`DOCUMENTS:Bloom/bloom-backup-2026-10-${String(d).padStart(2, '0')}.json`, '{}');
+    files.set('DOCUMENTS:Bloom/my-notes.txt', 'mine');
+    const p = await createAndroid(fakeWeb);
+    await vi.advanceTimersByTimeAsync(16000);
+    const docs = [...files.keys()].filter((k) => k.startsWith('DOCUMENTS:Bloom/bloom-backup-')).sort();
+    expect(docs).toHaveLength(8);
+    expect(docs.at(-1)).toBe('DOCUMENTS:Bloom/bloom-backup-2026-11-19.json');
+    expect(files.has('DOCUMENTS:Bloom/my-notes.txt')).toBe(true);
+    expect((await p.autoBackup!.get()).folder).toBe('Documents/Bloom');
+    // Not again the same week.
+    files.delete('DOCUMENTS:Bloom/bloom-backup-2026-11-19.json');
+    await vi.advanceTimersByTimeAsync(3 * 3600000);
+    expect(files.has('DOCUMENTS:Bloom/bloom-backup-2026-11-19.json')).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it("falls back to the app's own folder when Documents can't be written", async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'], now: new Date('2026-11-19T10:00') });
+    documentsBlocked = true;
+    const p = await createAndroid(fakeWeb);
+    const st = await p.autoBackup!.run();
+    expect(files.has('EXTERNAL:Bloom/bloom-backup-2026-11-19.json')).toBe(true);
+    expect(st.folder).toBe('Android/data/app.bloom.calendar/files/Bloom');
+    expect(st.error).toBeNull();
+    documentsBlocked = false;
+    vi.useRealTimers();
   });
 });

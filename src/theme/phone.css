@@ -603,3 +603,33 @@
 .phone .wallet-body {
   padding-inline: 8px;
 }
+/* Phone Wallet = tabs (layout A): one card area that scrolls, tabs on top. */
+.phone .wl-tabs {
+  padding: 4px 8px 6px;
+}
+.phone .wl-tabs .segmented {
+  display: flex;
+  width: 100%;
+}
+.phone .wl-tabs .segmented button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.phone .wallet-body.wl-phone {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding-bottom: 16px;
+}
+.phone .wl-add-btn {
+  align-self: stretch;
+  justify-content: center;
+  min-height: 44px;
+}

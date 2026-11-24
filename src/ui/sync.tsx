@@ -93,6 +93,8 @@ export function startSync(): Promise<SyncEngine | null> {
 
 /** Signed in to an account right now (settings can then sync to other devices). */
 export function syncSignedIn(): boolean {
+  // QA only (dev server, never in a release build): pretend to be signed in.
+  if (import.meta.env.DEV && localStorage.getItem('qa-signed-in')) return true;
   return !!engine?.get().user;
 }
 
