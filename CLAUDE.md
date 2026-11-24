@@ -235,6 +235,13 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   Under the medicines: **"Today's log"** (owner chose A, grouped): totals
   (kcal, water, steps, medicines taken/due), then Food & drinks, Body, Tests &
   visits for that day; click any line = its editor (same records).
+- **Calorie goal lives in the Food tab only** (owner's choice): the History
+  card shows goal + protein goal (with "Change"), a dashed goal line and a
+  dotted "keep weight" line on the Calories chart (protein chart: protein
+  goal line), and avg a day / vs. burn / about kg a week for the range
+  (days with no food logged are skipped). Goal + pace are also questions in
+  the health questionnaire. `PROFILE_VERSION` (HealthProfile.tsx): raising it
+  asks everyone the questions again (answers kept); 2 = goal added.
 - Food tab side: **History** line chart (same `LineChart`): Calories /
   Carbohydrates / Fat / Protein per day; Week / 30 / 90 days / Year / From the
   start; click a dot = day pop-up (`foodSeries` in healthExtras.ts).
@@ -290,6 +297,17 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
     <=2 calm, 3-4 mild, >=5 active.
   - Red-flag note (blood, severe pain, fever, dehydration -> doctor today).
     Sleep line = 7 h (adults 7+). Always "Not medical advice".
+  - **Calorie + protein goal** (owner, Nov 2026; `energyGoal` in health.ts,
+    tests `energy.test.ts`): Mifflin-St Jeor BMR (Frankenfield 2005: most
+    accurate) x PAL from FAO/WHO/UNU 2004 (mostly sitting 1.40, a little
+    1.55, active 1.85, very active 2.20). Goals: Lose fat (חיטוב) -250 /
+    -500 / -750 kcal a day (AHA/ACC/TOS 2013), max ~1% body weight a week
+    (Helms 2014), floor 1200 women / 1500 men (1350 other); Keep weight
+    (ללא שינוי) = burn; Build muscle (מסה) +10% / +20% (Iraki 2019);
+    Recomp (רה-קומפוזיציה) = burn (Barakat 2020). Protein 0.8 g/kg keep
+    (RDA), 1.6 g/kg other goals (Morton 2018). Under 18 -> keep only; BMI
+    < 18.5 -> no fat-loss goal; IBD -> "set with your doctor" note.
+    kg/week shown as "about" (7700 kcal/kg; Hall 2011 caveat).
 
 - **Android app (owner's choices):** both of them install it (she in Hebrew).
   Everything from the PC app, same icons/stickers/colors, phone layout:
@@ -308,9 +326,8 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   folder backups, custom reminder sounds). Backup "Save" = share sheet.
 
 ## In progress
-- Android app: first phone feedback fixed (menus off screen, update check,
-  stutter, settings sync). Owner installs the fixed APK by hand once (the
-  first APK couldn't see updates); waiting for their next feedback.
+- Calorie + protein goal: built and tested on the work branch, NOT released
+  (owner has more features to add first; release them together).
 
 ## Open ideas
 - (none right now)

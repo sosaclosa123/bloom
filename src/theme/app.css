@@ -8320,3 +8320,74 @@ button.hl-ft-row:hover {
     padding-inline: 4px;
   }
 }
+
+/* Calorie goal in the Food tab (owner, Nov 2026; formulas + sources in shared/health.ts). */
+.hl-cal-goal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 12px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.hl-cal-goal-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.hl-cal-goal .hl-goal-tip {
+  flex-basis: 100%;
+}
+.hl-cal-goal strong {
+  font-size: var(--fs-lg);
+}
+.hl-line-ref {
+  stroke: var(--text-faint);
+  stroke-width: 1.5;
+  stroke-dasharray: 1 4;
+  stroke-linecap: round;
+}
+.hl-line-ref-label {
+  color: var(--text-faint);
+}
+.hl-cal-sum {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.hl-cal-sum span {
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 7px 6px;
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.hl-cal-sum b {
+  display: block;
+  font-family: 'Outfit', var(--font-sans);
+  font-size: calc(17px * var(--fs-scale, 1));
+  color: var(--text);
+  white-space: nowrap;
+}
+.hl-cal-days,
+.hl-cal-src {
+  margin: 6px 0 0;
+}
+.hl-cal-src {
+  color: var(--text-faint);
+  font-size: calc(10px * var(--fs-scale, 1));
+}
+.hl-cal-preview {
+  margin: 4px 0 0;
+}
+.hl-energy {
+  flex-wrap: wrap;
+}

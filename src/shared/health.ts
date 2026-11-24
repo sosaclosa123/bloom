@@ -1,6 +1,6 @@
 // Health: pure helpers and formulas (no DOM). Shown as guidance and trends,
 // never as a diagnosis. Sources are noted next to each formula.
-import type {
+import type { CalorieGoal, CaloriePace,
   HealthBathroom,
   HealthBody,
   HealthCheckin,
@@ -57,6 +57,8 @@ export function emptyProfile(): Omit<HealthProfile, keyof SyncMeta> {
     typicalStools: null,
     triggerFoods: '',
     done: false,
+    goal: null,
+    pace: null,
   };
 }
 
@@ -173,6 +175,134 @@ export function bmi(
   // Adult ranges only (under 18 uses growth charts, so no category).
   const cat: BmiCategory | null = age != null && age < 18 ? null : value < 18.5 ? 'under' : value < 25 ? 'normal' : value < 30 ? 'over' : 'obese';
   return { value, cat };
+}
+
+// ---------------------------------------------------------------- calorie + protein goal
+//
+// Researched with the owner (Nov 2026); don't change without new sources.
+//
+// 1. Resting burn (BMR): Mifflin-St Jeor equation
+//    Mifflin MD, St Jeor ST et al. Am J Clin Nutr 1990;51:241-247.
+//      men   = 10 x kg + 6.25 x cm - 5 x age + 5
+//      women = 10 x kg + 6.25 x cm - 5 x age - 161
+//    ("other": the average of both). Chosen because a systematic review found
+//    it the most accurate equation for non-obese and obese adults (within 10%
+//    of measured for most people): Frankenfield D et al. J Am Diet Assoc
+//    2005;105:775-789. Developed in adults (19-78), so used for 18+ only.
+// 2. Daily burn = BMR x physical activity level (PAL). PAL ranges from the
+//    FAO/WHO/UNU expert consultation "Human energy requirements" (2004):
+//    sedentary/light 1.40-1.69, active/moderate 1.70-1.99, vigorous 2.00-2.40
+//    (>= 2.40 is hard to keep up). Bloom's 4 answers -> 1.40 (mostly sitting),
+//    1.55 (a little; middle of sedentary/light), 1.85 (active; middle),
+//    2.20 (very active; middle of vigorous).
+// 3. Lose fat: a 250 / 500 / 750 kcal a day deficit. 500 and 750 are the
+//    deficits in the 2013 AHA/ACC/TOS obesity guideline (Jensen MD et al.,
+//    Circulation 2014;129:S102-S138); 250 = a gentler start. Two limits:
+//    - never under 1200 kcal (women) / 1500 kcal (men), the lower ends of
+//      that guideline's daily targets (1350 for "other");
+//    - never faster than about 1% of body weight a week, to keep muscle
+//      (Helms ER et al. J Int Soc Sports Nutr 2014;11:20: 0.5-1%/week).
+//    kg per week is only shown as "about": 7700 kcal ~ 1 kg of body fat, a
+//    rough rule that over-promises over months (Hall KD et al. Lancet
+//    2011;378:826-837), so it's labeled as an estimate.
+// 4. Build muscle: +10% (slow) or +20% (faster) above the daily burn
+//    (Iraki J et al. Sports 2019;7:154: "~10-20% above maintenance").
+// 5. Keep weight and recomposition (lose fat + build muscle slowly): eat
+//    about what you burn, with a high protein goal (Barakat C et al.
+//    Strength Cond J 2020;42:7-21).
+// 6. Protein: keep weight 0.8 g/kg (RDA, Institute of Medicine DRI 2005);
+//    lose fat / build muscle / recomposition 1.6 g/kg (Morton RW et al.
+//    Br J Sports Med 2018;52:376-384: gains level off around 1.6 g/kg/day).
+// Not for under 18 (growing); no fat-loss goal under BMI 18.5. Nothing
+// pregnancy-related (owner's rule). Always "not medical advice".
+
+export const PAL: Record<NonNullable<HealthProfile['activity']>, number> = { sedentary: 1.4, light: 1.55, active: 1.85, very: 2.2 };
+export const KCAL_PER_KG = 7700;
+const LOSE_DEFICIT: Record<CaloriePace, number> = { gentle: 250, normal: 500, fast: 750 };
+const GAIN_EXTRA: Record<CaloriePace, number> = { gentle: 0.1, normal: 0.1, fast: 0.2 };
+const FLOOR: Record<NonNullable<HealthProfile['sex']>, number> = { female: 1200, male: 1500, other: 1350 };
+
+export type EnergyNote = 'teen' | 'underweight' | 'floor' | 'capped' | 'ibd' | 'noActivity';
+export interface EnergyGoal {
+  goal: CalorieGoal;
+  pace: CaloriePace | null;
+  bmr: number;
+  /** About what you burn a day ("keep weight"). */
+  burn: number;
+  /** Calories to eat a day for the goal. */
+  target: number;
+  /** Protein to eat a day (g). */
+  protein: number;
+  proteinPerKg: number;
+  /** About how much the weight changes a week at the target (kg, + = gain). */
+  kgPerWeek: number;
+  weightKg: number;
+  notes: EnergyNote[];
+}
+
+/** Daily calorie + protein goal from the health questions (null = age, sex, height or weight missing). */
+export function energyGoal(p: Partial<HealthProfile> | undefined, weightKg: number | null | undefined, opts: { ibd?: boolean } = {}): EnergyGoal | null {
+  const w = weightKg ?? p?.weightKg ?? null;
+  if (!p || p.age == null || !p.sex || !p.heightCm || !w) return null;
+  const notes: EnergyNote[] = [];
+  const base = 10 * w + 6.25 * p.heightCm - 5 * p.age;
+  const bmr = p.sex === 'male' ? base + 5 : p.sex === 'female' ? base - 161 : base - 78;
+  if (!p.activity) notes.push('noActivity');
+  const burn = bmr * PAL[p.activity ?? 'sedentary'];
+  let goal: CalorieGoal = p.goal ?? 'keep';
+  const pace: CaloriePace | null = goal === 'lose' || goal === 'gain' ? (p.pace ?? 'normal') : null;
+  if (p.age < 18) {
+    if (goal !== 'keep') notes.push('teen');
+    goal = 'keep';
+  }
+  const b = bmi(p.heightCm, w, p.age);
+  if (b && b.value < 18.5 && (goal === 'lose' || goal === 'recomp')) {
+    notes.push('underweight');
+    goal = 'keep';
+  }
+  let target = burn;
+  if (goal === 'lose') {
+    let deficit = LOSE_DEFICIT[pace ?? 'normal'];
+    const maxDeficit = (0.01 * w * KCAL_PER_KG) / 7;
+    if (deficit > maxDeficit) {
+      deficit = maxDeficit;
+      notes.push('capped');
+    }
+    target = burn - deficit;
+    const floor = FLOOR[p.sex];
+    if (target < floor) {
+      target = Math.min(burn, floor);
+      notes.push('floor');
+    }
+  } else if (goal === 'gain') target = burn * (1 + GAIN_EXTRA[pace ?? 'normal']);
+  if (opts.ibd) notes.push('ibd');
+  const proteinPerKg = goal === 'keep' ? 0.8 : 1.6;
+  const r10 = (n: number) => Math.round(n / 10) * 10;
+  return {
+    goal,
+    pace: goal === 'lose' || goal === 'gain' ? pace : null,
+    bmr: r10(bmr),
+    burn: r10(burn),
+    target: r10(target),
+    protein: Math.round(w * proteinPerKg),
+    proteinPerKg,
+    kgPerWeek: Math.round((((target - burn) * 7) / KCAL_PER_KG) * 100) / 100,
+    weightKg: w,
+    notes,
+  };
+}
+
+/** Average of logged days in a range compared with the goal (days with no food logged are skipped). */
+export function energySummary(dayKcal: { date: string; value: number }[], g: Pick<EnergyGoal, 'burn' | 'target'>) {
+  if (!dayKcal.length) return null;
+  const avg = dayKcal.reduce((a, d) => a + d.value, 0) / dayKcal.length;
+  return {
+    days: dayKcal.length,
+    avg: Math.round(avg),
+    vsBurn: Math.round(avg - g.burn),
+    vsTarget: Math.round(avg - g.target),
+    kgPerWeek: Math.round((((avg - g.burn) * 7) / KCAL_PER_KG) * 100) / 100,
+  };
 }
 
 // ---------------------------------------------------------------- bathroom log (IBD)

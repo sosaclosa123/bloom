@@ -208,7 +208,14 @@ export interface HealthProfile extends SyncMeta {
   completed?: boolean;
   /** Also went through the IBD questions (asked again if IBD is turned on later). */
   completedIbd?: boolean;
+  /** Version of the questions answered (new questions = everyone is asked again). */
+  qVersion?: number;
+  /** Calorie goal (Food tab) and how fast. */
+  goal?: CalorieGoal | null;
+  pace?: CaloriePace | null;
 }
+export type CalorieGoal = 'lose' | 'keep' | 'gain' | 'recomp';
+export type CaloriePace = 'gentle' | 'normal' | 'fast';
 
 /** Daily check-in, one per date. null = not answered. */
 export interface HealthCheckin extends SyncMeta {

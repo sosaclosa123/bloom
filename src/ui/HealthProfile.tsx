@@ -3,9 +3,15 @@
 import { useState, type ReactNode } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { toISODate } from '../shared/dates';
-import { bmi, emptyProfile, forDate, latestWeight, waterGoal, type WaterGoal } from '../shared/health';
+import { bmi, emptyProfile, energyGoal, forDate, latestWeight, waterGoal, type EnergyGoal, type WaterGoal } from '../shared/health';
 import { newMeta } from '../shared/db';
-import type { HealthActivity, HealthHot, HealthProfile, HealthSex, IbdOstomy, IbdType } from '../shared/types';
+import type { CalorieGoal, CaloriePace, HealthActivity, HealthHot, HealthProfile, HealthSex, IbdOstomy, IbdType } from '../shared/types';
+
+/**
+ * Version of the questions. Raising it asks everyone again (answers kept and
+ * shown, so it's quick): 2 = calorie goal + pace added (Nov 2026).
+ */
+export const PROFILE_VERSION = 2;
 import { Button, Icon, Modal } from './common';
 import { NumBox, Tip, useHealth, useWaterFmt } from './healthUi';
 import { useBloom } from './store';
@@ -29,6 +35,8 @@ const FIELDS: Record<string, (keyof Draft)[]> = {
   weight: ['weightKg'],
   activity: ['activity'],
   exercise: ['exerciseMin'],
+  goal: ['goal'],
+  pace: ['pace'],
   hot: ['hot'],
   fluid: ['fluidLimit', 'fluidLimitMl'],
   glass: ['glassMl'],
@@ -70,6 +78,23 @@ function useQuestions(): Q[] {
       render: (d, set) => <Choice<HealthActivity> prefix="hlAct" value={d.activity} options={['sedentary', 'light', 'active', 'very']} onChange={(activity) => set({ activity })} />,
     },
     { id: 'exercise', title: 'hlQExercise', render: (d, set) => <NumBox autoFocus value={d.exerciseMin} onChange={(exerciseMin) => set({ exerciseMin })} min={0} max={600} unit={t('hlUnitMin')} label={t('hlQExercise')} /> },
+    {
+      id: 'goal',
+      title: 'hlQGoal',
+      hint: 'hlQGoalHint',
+      render: (d, set) => <Choice<CalorieGoal> prefix="hlGoal" value={d.goal ?? null} options={['lose', 'keep', 'gain', 'recomp']} onChange={(goal) => set({ goal, pace: goal === 'lose' || goal === 'gain' ? (d.pace ?? 'normal') : null })} />,
+    },
+    {
+      id: 'pace',
+      title: 'hlQPace',
+      when: (d) => d.goal === 'lose' || d.goal === 'gain',
+      render: (d, set) =>
+        d.goal === 'gain' ? (
+          <Choice<CaloriePace> prefix="hlPaceGain" value={d.pace === 'fast' ? 'fast' : 'normal'} options={['normal', 'fast']} onChange={(pace) => set({ pace })} />
+        ) : (
+          <Choice<CaloriePace> prefix="hlPaceLose" value={d.pace ?? 'normal'} options={['gentle', 'normal', 'fast']} onChange={(pace) => set({ pace })} />
+        ),
+    },
     { id: 'hot', title: 'hlQHot', hint: 'hlQHotHint', render: (d, set) => <Choice<HealthHot> prefix="hlHot" value={d.hot} options={['no', 'summer', 'yes']} onChange={(hot) => set({ hot })} /> },
     {
       id: 'fluid',
@@ -129,7 +154,8 @@ export function ProfileWizard({ onClose, restart }: { onClose: () => void; resta
   const questions = useQuestions().filter((q) => !q.when || q.when(draft, ibd));
   // Not finished yet: carry on from the first question without an answer.
   const [i, setI] = useState(() => {
-    if (restart || profileComplete(profile, ibd)) return 0;
+    // New questions were added since: go through all of them again (answers are kept).
+    if (restart || profileComplete(profile, ibd) || (profile?.completed && (profile.qVersion ?? 1) < PROFILE_VERSION)) return 0;
     // General part already done (IBD was turned on later): go to the IBD questions.
     const IBD_IDS = ['ibdType', 'ibdLocation', 'ibdMeds', 'ostomy', 'stools', 'triggers'];
     const k = profile?.completed ? questions.findIndex((q) => IBD_IDS.includes(q.id)) : questions.findIndex((q) => !answered(draft, q.id));
@@ -140,7 +166,7 @@ export function ProfileWizard({ onClose, restart }: { onClose: () => void; resta
   // Only going through to the last question counts as filled in; closing early keeps the setup card.
   const { save } = useBloom();
   const commit = (d: Draft, last: boolean) => {
-    saveProfile({ ...d, ...(last ? { completed: true, completedIbd: ibd || !!d.completedIbd, done: true } : {}) });
+    saveProfile({ ...d, ...(last ? { completed: true, completedIbd: ibd || !!d.completedIbd, done: true, qVersion: PROFILE_VERSION } : {}) });
     // The weight from the questions also goes into today's Body log (so Body and the weight chart start from it).
     if (d.weightKg && d.weightKg !== profile?.weightKg) {
       const today = toISODate(new Date());
@@ -204,6 +230,7 @@ export function ProfileWizard({ onClose, restart }: { onClose: () => void; resta
         <div className="hl-results">
           <WaterGoalBlock goal={goal} />
           <BmiBlock heightCm={draft.heightCm} weightKg={draft.weightKg} age={draft.age} />
+          <EnergyBlock goal={energyGoal(draft, draft.weightKg, { ibd })} />
           <p className="hl-note">
             <Icon name="heartPulse" size={14} /> {t('hlNotAdvice')}
           </p>
@@ -275,6 +302,40 @@ export function WaterGoalBlock({ goal, compact }: { goal: WaterGoal; compact?: b
   );
 }
 
+/** Calories a day for the goal + protein (from the health questions). */
+export function EnergyBlock({ goal }: { goal: EnergyGoal | null }) {
+  const { t, locale } = useBloom();
+  if (!goal) return null;
+  const n = (v: number) => v.toLocaleString(locale);
+  return (
+    <div className="hl-bmi hl-energy">
+      <span className="hl-goal-label">{t('hlCalGoal')}</span>
+      <Tip text={t('hlCalGoalWhy', { b: n(goal.bmr), burn: n(goal.burn) })}>
+        <strong className="hl-num-font">{t('hlKcalPerDay', { n: n(goal.target) })}</strong>
+        <span className="muted"> · {t(`hlGoal_${goal.goal}` as StringKey)}</span>
+      </Tip>
+      <span className="muted small">{t('hlProteinGoal', { n: n(goal.protein) })}</span>
+      <EnergyNotes goal={goal} />
+    </div>
+  );
+}
+
+/** Safety notes for the calorie goal (always visible). */
+export function EnergyNotes({ goal }: { goal: EnergyGoal }) {
+  const { t } = useBloom();
+  const notes = goal.notes.filter((x) => x !== 'noActivity');
+  if (!notes.length) return null;
+  return (
+    <>
+      {notes.map((x) => (
+        <span key={x} className="hl-goal-tip strong">
+          {t(`hlEnergyNote_${x}` as StringKey)}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function BmiBlock({ heightCm, weightKg, age }: { heightCm: number | null; weightKg: number | null; age: number | null }) {
   const { t, locale } = useBloom();
   const b = bmi(heightCm, weightKg, age);
@@ -307,7 +368,7 @@ function answered(d: Partial<Draft> | undefined, id: string): boolean {
 
 /** Questionnaire gone through to the end (and the IBD part, when IBD is on). */
 export function profileComplete(p: Partial<HealthProfile> | undefined, ibd: boolean): boolean {
-  return !!p?.completed && (!ibd || !!p.completedIbd);
+  return !!p?.completed && (p.qVersion ?? 1) >= PROFILE_VERSION && (!ibd || !!p.completedIbd);
 }
 
 /** Shown until the questionnaire is gone through to the end. */
@@ -323,8 +384,14 @@ export function SetupCard({ onStart }: { onStart: () => void }) {
       </div>
       <div className="hl-setup-text">
         <h3>{t('hlSetupTitle')}</h3>
-        <p className="w-card-sub">{t('hlSetupBody')}</p>
-        {n > 0 && <p className="hl-setup-progress">{t('hlAnswered', { n, m: qs.length })}</p>}
+        {profile?.completed && (profile.qVersion ?? 1) < PROFILE_VERSION ? (
+          <p className="w-card-sub">{t('hlSetupNew')}</p>
+        ) : (
+          <>
+            <p className="w-card-sub">{t('hlSetupBody')}</p>
+            {n > 0 && <p className="hl-setup-progress">{t('hlAnswered', { n, m: qs.length })}</p>}
+          </>
+        )}
       </div>
       <div className="hl-setup-actions">
         <Button variant="primary" onClick={onStart}>

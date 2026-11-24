@@ -186,6 +186,7 @@ export function LineChart({
   trend = true,
   label,
   goal,
+  refLine,
   fixed,
   onPick,
   dateLabel,
@@ -196,6 +197,8 @@ export function LineChart({
   label: string;
   /** A dashed goal line (e.g. the water goal). */
   goal?: { value: number; label: string };
+  /** A second, dotted reference line (e.g. "keep weight" calories). */
+  refLine?: { value: number; label: string };
   /** Fixed value range (e.g. mood 1-5). */
   fixed?: [number, number];
   /** Click on a dot (e.g. open that day). */
@@ -211,8 +214,9 @@ export function LineChart({
   const t1 = Date.parse(points[points.length - 1].date);
   const span = Math.max(1, t1 - t0);
   const vals = points.map((p) => p.value);
-  let lo = Math.min(...vals, ...(goal ? [goal.value] : []));
-  let hi = Math.max(...vals, ...(goal ? [goal.value] : []));
+  const lines = [...(goal ? [goal.value] : []), ...(refLine ? [refLine.value] : [])];
+  let lo = Math.min(...vals, ...lines);
+  let hi = Math.max(...vals, ...lines);
   if (fixed) [lo, hi] = fixed;
   if (hi - lo < 1e-9) {
     lo -= 1;
@@ -241,7 +245,13 @@ export function LineChart({
         {tr && <line x1={x(points[0].date)} x2={x(points[points.length - 1].date)} y1={y(tr.y0)} y2={y(tr.y1)} className="hl-line-trend" vectorEffect="non-scaling-stroke" />}
         <path d={path} className="hl-line-path" vectorEffect="non-scaling-stroke" />
         {goal && <line x1={pad.l} x2={W - pad.r} y1={y(goal.value)} y2={y(goal.value)} className="hl-line-goal" vectorEffect="non-scaling-stroke" />}
+        {refLine && <line x1={pad.l} x2={W - pad.r} y1={y(refLine.value)} y2={y(refLine.value)} className="hl-line-ref" vectorEffect="non-scaling-stroke" />}
       </svg>
+      {refLine && (
+        <span className="hl-line-goal-label hl-line-ref-label" style={{ top: `${(y(refLine.value) / H) * 100}%` }}>
+          {refLine.label}
+        </span>
+      )}
       {goal && (
         <span className="hl-line-goal-label" style={{ top: `${(y(goal.value) / H) * 100}%` }}>
           {goal.label}

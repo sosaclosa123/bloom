@@ -7,11 +7,12 @@ import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
 import { autoTags, forGrams, OFF_FIELDS, packWeight, parseOff, piecesToGrams, pieceWeight, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
-import { FOOD_TAGS, forDate, healthOf } from '../shared/health';
+import { energyGoal, energySummary, FOOD_TAGS, forDate, healthOf, latestWeight } from '../shared/health';
 import { foodSeries, type FoodMetric } from '../shared/healthExtras';
-import type { HealthFood, HealthFoodPack, ISODate } from '../shared/types';
+import type { CalorieGoal, CaloriePace, HealthFood, HealthFoodPack, ISODate } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented } from './common';
-import { CardHead, LineChart, NumBox, Pills, Tip, useHealth, useWaterFmt } from './healthUi';
+import { CardHead, LineChart, NumBox, Pills, requestHealthRedo, Tip, useHealth, useWaterFmt } from './healthUi';
+import { EnergyNotes } from './HealthProfile';
 import { DaySummary } from './HealthDay';
 import { useBloom } from './store';
 
@@ -116,9 +117,48 @@ function FoodHistoryCard({ date }: { date: ISODate }) {
   ];
   const name = metrics.find((x) => x.value === metric)?.label ?? '';
   const avg = points.length ? points.reduce((a, p) => a + p.value, 0) / points.length : null;
+  // Calorie + protein goal from the health questions (sources in shared/health.ts).
+  const { profile, ibd } = useHealth();
+  const goal = energyGoal(profile, latestWeight(all, date), { ibd });
+  const [editGoal, setEditGoal] = useState(false);
+  const kcalPoints = useMemo(() => (metric === 'kcal' ? points : foodSeries(all, 'kcal', from, date)), [metric, points, all, from, date]);
+  const sum = goal ? energySummary(kcalPoints, goal) : null;
+  const n = (v: number) => Math.round(v).toLocaleString(locale);
+  const signed = (v: number) => (v > 0 ? `+${n(v)}` : v < 0 ? `−${n(-v)}` : '0');
+  const chartGoal =
+    goal && metric === 'kcal'
+      ? { value: goal.target, label: t('hlGoalLine', { v: n(goal.target) }) }
+      : goal && metric === 'protein'
+        ? { value: goal.protein, label: t('hlGoalLine', { v: t('hlGrams', { n: goal.protein }) }) }
+        : undefined;
+  const chartRef = goal && metric === 'kcal' && Math.abs(goal.burn - goal.target) >= 10 ? { value: goal.burn, label: t('hlKeepLine', { v: n(goal.burn) }) } : undefined;
   return (
     <section className="w-card hl-food-hist">
       <CardHead sticker="idea" title={t('hlFoodHistory')} />
+      {goal ? (
+        <div className="hl-cal-goal">
+          <div className="hl-cal-goal-main">
+            <span className="hl-goal-label">
+              {t('hlCalGoal')} · {t(`hlGoal_${goal.goal}` as StringKey)}
+            </span>
+            <Tip text={t('hlCalGoalWhy', { b: n(goal.bmr), burn: n(goal.burn) })}>
+              <strong className="hl-num-font">{t('hlKcalPerDay', { n: n(goal.target) })}</strong>
+            </Tip>
+            <span className="muted small">{t('hlProteinGoal', { n: n(goal.protein) })}</span>
+          </div>
+          <button type="button" className="link-btn" onClick={() => setEditGoal(true)}>
+            {t('hlGoalChange')}
+          </button>
+          <EnergyNotes goal={goal} />
+        </div>
+      ) : (
+        <div className="hl-cal-goal">
+          <span className="muted small">{t('hlNoGoal')}</span>
+          <button type="button" className="link-btn" onClick={() => requestHealthRedo()}>
+            {t('hlStart')}
+          </button>
+        </div>
+      )}
       <Segmented
         value={range}
         onChange={setRange}
@@ -142,6 +182,8 @@ function FoodHistoryCard({ date }: { date: ISODate }) {
             label={`${t('hlFoodHistory')}: ${name}`}
             points={points}
             fmt={fmt}
+            goal={chartGoal}
+            refLine={chartRef}
           />
           <p className="hl-legend-line">
             <i className="dot" /> {name} · {t('hlFoodPerDay')} {points.length >= 3 && <><i className="dash" /> {t('hlTrendLine')}</>}
@@ -149,8 +191,88 @@ function FoodHistoryCard({ date }: { date: ISODate }) {
           </p>
         </div>
       )}
+      {goal && sum && metric === 'kcal' && (
+        <>
+          <div className="hl-cal-sum">
+            <span>
+              <b>{n(sum.avg)}</b>
+              {t('hlAvgDay')}
+            </span>
+            <span>
+              <b dir="ltr">{signed(sum.vsBurn)}</b>
+              {t('hlVsBurn')}
+            </span>
+            <span>
+              <b>
+                <bdi dir="ltr">
+                  {sum.kgPerWeek > 0 ? '+' : sum.kgPerWeek < 0 ? '−' : ''}
+                  {Math.abs(sum.kgPerWeek).toLocaleString(locale)}
+                </bdi>{' '}
+                {t('hlUnitKg')}
+              </b>
+              {t('hlPerWeekKg')}
+            </span>
+          </div>
+          <p className="muted small hl-cal-days">{sum.days < 3 ? t('hlFewDays') : t('hlDaysLogged', { n: sum.days })}</p>
+        </>
+      )}
+      {goal && <p className="muted small hl-cal-src">{t('hlGoalSources')} · {t('hlNotAdvice')}</p>}
       {day && <DaySummary date={day} onClose={() => setDay(null)} />}
+      {editGoal && <GoalEditor onClose={() => setEditGoal(false)} />}
     </section>
+  );
+}
+
+/** Change the calorie goal + pace (same answers as in the health questions). */
+function GoalEditor({ onClose }: { onClose: () => void }) {
+  const { t, locale } = useBloom();
+  const { profile, ibd, saveProfile, all } = useHealth();
+  const [goal, setGoal] = useState<CalorieGoal>(profile?.goal ?? 'keep');
+  const [pace, setPace] = useState<CaloriePace>(profile?.pace ?? 'normal');
+  const preview = energyGoal({ ...(profile ?? {}), goal, pace }, latestWeight(all, toISODate(new Date())), { ibd });
+  return (
+    <Modal
+      title={t('hlCalGoal')}
+      onClose={onClose}
+      width={460}
+      footer={
+        <>
+          <span className="spacer" />
+          <Button variant="ghost" onClick={onClose}>
+            {t('cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              if (profile) {
+                const { id: _i, createdAt: _c, updatedAt: _u, deletedAt: _d, ownerId: _o, visibility: _v, ...rest } = profile;
+                saveProfile({ ...rest, goal, pace: goal === 'lose' || goal === 'gain' ? pace : null });
+              }
+              onClose();
+            }}
+          >
+            {t('save')}
+          </Button>
+        </>
+      }
+    >
+      <div className="hl-form">
+        <Pills label={t('hlQGoal')} value={goal} onChange={(v) => v && setGoal(v)} options={(['lose', 'keep', 'gain', 'recomp'] as const).map((x) => ({ value: x, label: t(`hlGoal_${x}` as StringKey) }))} />
+        {goal === 'lose' && (
+          <Pills label={t('hlQPace')} value={pace} onChange={(v) => v && setPace(v)} options={(['gentle', 'normal', 'fast'] as const).map((x) => ({ value: x, label: t(`hlPaceLose_${x}` as StringKey) }))} />
+        )}
+        {goal === 'gain' && (
+          <Pills label={t('hlQPace')} value={pace === 'fast' ? 'fast' : 'normal'} onChange={(v) => v && setPace(v)} options={(['normal', 'fast'] as const).map((x) => ({ value: x, label: t(`hlPaceGain_${x}` as StringKey) }))} />
+        )}
+        {preview && (
+          <p className="hl-cal-preview">
+            <strong className="hl-num-font">{t('hlKcalPerDay', { n: preview.target.toLocaleString(locale) })}</strong>
+            <span className="muted small"> · {t('hlProteinGoal', { n: preview.protein.toLocaleString(locale) })}</span>
+          </p>
+        )}
+        {preview && <EnergyNotes goal={preview} />}
+      </div>
+    </Modal>
   );
 }
 

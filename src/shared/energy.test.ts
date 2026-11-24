@@ -1,0 +1,61 @@
+// Calorie + protein goal (sources in health.ts next to energyGoal).
+import { describe, expect, it } from 'vitest';
+import { energyGoal, energySummary } from './health';
+
+describe('energyGoal', () => {
+  it('Mifflin-St Jeor x activity, 500 kcal deficit, 1.6 g/kg protein', () => {
+    // BMR = 10*62 + 6.25*165 - 5*27 - 161 = 1355.25; x 1.55 = 2100.6
+    const g = energyGoal({ age: 27, sex: 'female', heightCm: 165, activity: 'light', goal: 'lose', pace: 'normal' }, 62)!;
+    expect(g.bmr).toBe(1360);
+    expect(g.burn).toBe(2100);
+    expect(g.target).toBe(1600);
+    expect(g.protein).toBe(99);
+    expect(g.kgPerWeek).toBe(-0.45);
+    expect(g.notes).toEqual([]);
+  });
+
+  it('build muscle: +20% above the daily burn', () => {
+    // BMR = 800 + 1125 - 150 + 5 = 1780; x 1.4 = 2492; x 1.2 = 2990
+    const g = energyGoal({ age: 30, sex: 'male', heightCm: 180, activity: 'sedentary', goal: 'gain', pace: 'fast' }, 80)!;
+    expect(g.burn).toBe(2490);
+    expect(g.target).toBe(2990);
+    expect(g.protein).toBe(128);
+  });
+
+  it('keep weight and recomposition eat what they burn; keep weight uses 0.8 g/kg protein', () => {
+    const keep = energyGoal({ age: 30, sex: 'male', heightCm: 180, activity: 'active', goal: 'keep' }, 80)!;
+    const recomp = energyGoal({ age: 30, sex: 'male', heightCm: 180, activity: 'active', goal: 'recomp' }, 80)!;
+    expect(keep.target).toBe(keep.burn);
+    expect(recomp.target).toBe(recomp.burn);
+    expect(keep.protein).toBe(64);
+    expect(recomp.protein).toBe(128);
+  });
+
+  it('never more than ~1% of body weight a week, never under 1200 kcal (women)', () => {
+    // burn ~1481; a 750 deficit is capped to 550 (1% of 50 kg); 931 < 1200 -> 1200
+    const g = energyGoal({ age: 50, sex: 'female', heightCm: 155, activity: 'sedentary', goal: 'lose', pace: 'fast' }, 50)!;
+    expect(g.target).toBe(1200);
+    expect(g.notes).toEqual(['capped', 'floor']);
+  });
+
+  it('no fat-loss goal under BMI 18.5 or under 18; needs age, sex, height and weight', () => {
+    expect(energyGoal({ age: 25, sex: 'female', heightCm: 165, activity: 'light', goal: 'lose' }, 48)!.goal).toBe('keep');
+    expect(energyGoal({ age: 25, sex: 'female', heightCm: 165, activity: 'light', goal: 'lose' }, 48)!.notes).toContain('underweight');
+    const teen = energyGoal({ age: 16, sex: 'male', heightCm: 175, activity: 'active', goal: 'gain' }, 60)!;
+    expect(teen.goal).toBe('keep');
+    expect(teen.notes).toContain('teen');
+    expect(energyGoal({ age: 25, sex: 'female', activity: 'light' }, 60)).toBeNull();
+    expect(energyGoal({ age: 25, sex: 'female', heightCm: 165 }, null)).toBeNull();
+  });
+
+  it('summary: average of logged days vs burn and goal', () => {
+    const s = energySummary(
+      [
+        { date: '2026-11-20', value: 1500 },
+        { date: '2026-11-21', value: 1700 },
+      ],
+      { burn: 2100, target: 1600 },
+    )!;
+    expect(s).toEqual({ days: 2, avg: 1600, vsBurn: -500, vsTarget: 0, kgPerWeek: -0.45 });
+  });
+});
