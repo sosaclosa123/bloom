@@ -184,10 +184,12 @@ export function SeasonBackdrop({ month, count = 26 }: { month: number; count?: n
             animationDuration: `${p.dur}s`,
             animationDelay: `${p.delay}s`,
             ['--sway' as string]: `${p.sway}px`,
-            ['--spin' as string]: p.spin,
           }}
         >
-          <svg viewBox="0 0 24 24" width="100%" height="100%" style={{ animationDuration: `${p.dur / 3}s`, animationDelay: `${p.delay}s` }} dangerouslySetInnerHTML={{ __html: p.shape }} />
+          {/* The spin is on a wrapper: a spinning <svg> itself can't run on the GPU. */}
+          <i className={p.spin < 0 ? 'bg-spin ccw' : 'bg-spin'} style={{ animationDuration: `${p.dur / 3}s`, animationDelay: `${p.delay}s` }}>
+            <svg viewBox="0 0 24 24" width="100%" height="100%" dangerouslySetInnerHTML={{ __html: p.shape }} />
+          </i>
         </span>
       ))}
     </div>

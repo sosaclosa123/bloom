@@ -9,6 +9,7 @@ import { Icon, Toggle } from './common';
 import { newDayEntry } from './drafts';
 import { STICKERS } from './stickerDesigns';
 import { useBloom } from './store';
+import { isPhone } from '../platform/api';
 
 export const STICKER_MIN = 20;
 export const STICKER_MAX = 120;
@@ -175,6 +176,20 @@ export function StickerLayer({ date, entry, repeating = [], selectedId, onSelect
   const [ask, setAsk] = useState<{ key: string; rect: DOMRect; run: (scope: Scope) => void } | null>(null);
   const latest = useRef(entry);
   latest.current = entry;
+  // Phone (owner, Nov 2026): stickers keep their PC look but scaled to the
+  // phone's narrower day squares (PC squares are ~150 px wide).
+  const [scale, setScale] = useState(1);
+  const hasAny = (entry?.stickers?.length ?? 0) + repeating.length > 0;
+  useEffect(() => {
+    const el = layer.current;
+    if (!isPhone || !el) return;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      if (w > 0) setScale(Math.min(1, Math.max(0.3, w / 150)));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasAny]);
   const items: Item[] = [
     ...(entry?.stickers ?? []).map((st) => ({ st, key: st.id, event: null })),
     ...repeating.map((r) => ({ st: r.st, key: stickerKey(r.st.id, date, true), event: r.event })),
@@ -243,7 +258,7 @@ export function StickerLayer({ date, entry, repeating = [], selectedId, onSelect
       if (mode === 'move') {
         cur = { ...st, x: clamp(st.x + (ev.clientX - sx) / rect.width, 0, 1), y: clamp(st.y + (ev.clientY - sy) / rect.height, 0, 1) };
       } else {
-        const d = Math.max(ev.clientX - sx, ev.clientY - sy) * 2;
+        const d = (Math.max(ev.clientX - sx, ev.clientY - sy) * 2) / scale;
         cur = { ...st, size: Math.round(clamp(st.size + d, STICKER_MIN, STICKER_MAX)) };
       }
       setLive({ key: it.key, st: cur });
@@ -265,7 +280,8 @@ export function StickerLayer({ date, entry, repeating = [], selectedId, onSelect
       {items.map((it) => {
         const st = live && live.key === it.key ? live.st : it.st;
         const sel = selectedId === it.key && !st.locked;
-        const half = st.size / 2;
+        const px = Math.round(st.size * scale);
+        const half = px / 2;
         return (
           <div
             key={it.key}
@@ -273,8 +289,8 @@ export function StickerLayer({ date, entry, repeating = [], selectedId, onSelect
             className={`placed-sticker ${st.locked ? 'locked' : ''} ${sel ? 'selected' : ''} ${it.event ? 'repeating' : ''}`}
             title={it.event ? t('stickerRepeatsWith', { e: it.event.title || '—' }) : undefined}
             style={{
-              width: st.size,
-              height: st.size,
+              width: px,
+              height: px,
               // Keep the whole sticker inside the square whatever its size.
               left: `clamp(${half}px, ${st.x * 100}%, calc(100% - ${half}px))`,
               top: `clamp(${half}px, ${st.y * 100}%, calc(100% - ${half}px))`,
@@ -283,7 +299,7 @@ export function StickerLayer({ date, entry, repeating = [], selectedId, onSelect
             onPointerDown={(e) => startDrag(e, it, 'move')}
             onClick={(e) => !st.locked && e.stopPropagation()}
           >
-            <StickerArt kind={st.kind} size={st.size} />
+            <StickerArt kind={st.kind} size={px} />
             {it.event && <span className="sticker-repeat-badge" aria-hidden="true"><Icon name="repeat" size={9} /></span>}
             {st.locked && (
               <button

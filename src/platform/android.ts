@@ -9,6 +9,7 @@ import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { LocalNotifications, type LocalNotificationSchema } from '@capacitor/local-notifications';
 import { formatDuration, translate, type StringKey } from '../i18n/strings';
 import { alertsDueBetween } from '../shared/alerts';
+import { autoBackupDue, autoBackupName, backupsToDelete, type AutoBackupState } from '../shared/backup';
 import type { FiredAlert, Language, Snapshot } from '../shared/types';
 import type { KV, PhotoStore, PlatformAPI, UpdateState, WebOptions } from './api';
 
@@ -332,9 +333,81 @@ export async function createAndroid(makeWeb: (o: WebOptions) => PlatformAPI): Pr
     }
   };
 
+  // ---- weekly automatic backup (owner: on by default, can be turned off)
+  // Documents/Bloom (stays if the app is removed); if Android doesn't allow
+  // that, the app's own folder (Android/data/app.bloom.calendar/files/Bloom).
+  const BK_LAST = 'bloom-phone-backup-last';
+  const bkListeners = new Set<(s: AutoBackupState) => void>();
+  const bkOn = () => snap.settings.phoneBackup !== false;
+  let bkWhere: string = 'Documents/Bloom';
+  let bkError: string | null = null;
+  const bkState = (): AutoBackupState => ({ folder: bkOn() ? bkWhere : null, last: Number(kv.getItem(BK_LAST)) || null, error: bkError });
+  const bkEmit = () => bkListeners.forEach((l) => l(bkState()));
+  const writeIn = async (directory: Directory) => {
+    const data = JSON.stringify(await base.load());
+    await Filesystem.writeFile({ path: `Bloom/${autoBackupName(new Date())}`, data, directory, encoding: Encoding.UTF8, recursive: true });
+    const { files } = await Filesystem.readdir({ path: 'Bloom', directory });
+    for (const name of backupsToDelete(files.map((f) => f.name))) await Filesystem.deleteFile({ path: `Bloom/${name}`, directory }).catch(() => {});
+  };
+  let bkRunning = false;
+  const runBackup = async (): Promise<AutoBackupState> => {
+    if (bkRunning) return bkState();
+    bkRunning = true;
+    try {
+      try {
+        await writeIn(Directory.Documents);
+        bkWhere = 'Documents/Bloom';
+      } catch {
+        // Older Android: ask for storage once, else the app's own folder.
+        const p = await Filesystem.requestPermissions().catch(() => null);
+        try {
+          if (p?.publicStorage !== 'granted') throw new Error('no-permission');
+          await writeIn(Directory.Documents);
+          bkWhere = 'Documents/Bloom';
+        } catch {
+          await writeIn(Directory.External);
+          bkWhere = 'Android/data/app.bloom.calendar/files/Bloom';
+        }
+      }
+      kv.setItem(BK_LAST, String(Date.now()));
+      bkError = null;
+    } catch (e) {
+      console.error('bloom: backup failed', e);
+      bkError = 'write-failed';
+    } finally {
+      bkRunning = false;
+    }
+    bkEmit();
+    return bkState();
+  };
+  const backupIfDue = () => {
+    if (bkOn() && autoBackupDue(Number(kv.getItem(BK_LAST)) || null, Date.now())) void runBackup();
+  };
+  setTimeout(backupIfDue, 15000);
+  setInterval(backupIfDue, 3 * 3600000);
+  void App.addListener('appStateChange', ({ isActive }) => isActive && backupIfDue());
+  const autoBackup: PlatformAPI['autoBackup'] = {
+    get: async () => bkState(),
+    choose: async () => {
+      await base.updateSettings({ phoneBackup: true });
+      return runBackup();
+    },
+    run: () => runBackup(),
+    off: async () => {
+      await base.updateSettings({ phoneBackup: false });
+      bkEmit();
+      return bkState();
+    },
+    onChange: (cb) => {
+      bkListeners.add(cb);
+      return () => bkListeners.delete(cb);
+    },
+  };
+
   return {
     ...base,
     kind: 'android',
+    autoBackup,
     os: 'android',
     openDoc: async (p) => {
       const data = await filePhotos.get(p.fileName);

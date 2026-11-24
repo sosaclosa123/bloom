@@ -263,7 +263,7 @@ function AutoBackupSettings() {
   return (
     <div className="ab">
       <h4 className="settings-h">{t('abTitle')}</h4>
-      <p className="muted">{t('abIntro')}</p>
+      <p className="muted">{t(platform.kind === 'android' ? 'abPhoneIntro' : 'abIntro')}</p>
       {st.folder ? (
         <>
           <div className="ab-folder">
@@ -285,9 +285,11 @@ function AutoBackupSettings() {
             >
               {t('abNow')}
             </Button>
-            <Button variant="ghost" onClick={async () => setSt(await ab.choose())}>
-              {t('abChange')}
-            </Button>
+            {platform.kind !== 'android' && (
+              <Button variant="ghost" onClick={async () => setSt(await ab.choose())}>
+                {t('abChange')}
+              </Button>
+            )}
             <Button variant="ghost" onClick={async () => setSt(await ab.off())}>
               {t('abOff')}
             </Button>
@@ -296,7 +298,7 @@ function AutoBackupSettings() {
       ) : (
         <div className="row">
           <Button variant="primary" icon="plus" onClick={async () => setSt(await ab.choose())}>
-            {t('abChoose')}
+            {t(platform.kind === 'android' ? 'abPhoneOn' : 'abChoose')}
           </Button>
         </div>
       )}

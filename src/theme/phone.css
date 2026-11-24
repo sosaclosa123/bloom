@@ -111,18 +111,19 @@
   flex-direction: column;
   min-height: 0;
 }
+.phone .main {
+  position: relative;
+  overflow: hidden; /* the day panel slides in from below without covering the tabs */
+}
+/* The month keeps its full size at all times; opening a day only MOVES things
+   (GPU transforms): rows slide up together and the day panel slides over the
+   rest. Nothing is re-laid-out or repainted while it animates (the old
+   size animation repainted all 42 squares every frame = stutter on phones). */
 .phone .content {
   min-height: 0;
   padding: 0 6px 6px;
-  /* The month: full height, or small (just the squares) while a day is open. */
-  flex: 1 1 calc(24px + 6 * var(--cell-compact) + 6px);
-  transition: flex-grow var(--phone-anim) var(--phone-ease);
-}
-.phone .content:has(.month[style*='--rows: 5']) {
-  flex-basis: calc(24px + 5 * var(--cell-compact) + 6px);
-}
-.phone.day-open .content {
-  flex-grow: 0;
+  flex: 1;
+  touch-action: pan-y;
 }
 
 /* ------------------------------------------------------------ month (full) */
@@ -199,12 +200,29 @@
 }
 
 /* ------------------------------------------------------------ month (small) */
+/* Each row moves up by (full height - small height) x its row number, so every
+   row shows just its top part (the next row covers the rest). --shrink is
+   measured by MonthView; --row is set on each square. */
+.phone .cell {
+  transform: translateY(0);
+  transition: transform var(--phone-anim) var(--phone-ease);
+  will-change: transform;
+  /* The squares' entrance animation must not hold on to `transform` after it ends. */
+  animation-fill-mode: backwards;
+}
+.phone.day-open .cell {
+  transform: translateY(calc(var(--row, 0) * var(--shrink, 0px) * -1));
+}
 /* Labels switch to dots in one step (no fade per label: hundreds of fading
    labels made every animation frame slow on phones). */
 .phone.day-open .cell > :not(.cell-top):not(.cell-dots),
 .phone.day-open .cell-top > :not(.daynum) {
   opacity: 0;
   pointer-events: none;
+}
+/* A line between the small rows (their own bottom line is covered). */
+.phone.day-open .cell {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--day-ink, #000) 18%, transparent);
 }
 .cell-dots {
   display: none;
@@ -213,7 +231,8 @@
   position: absolute;
   z-index: 1;
   inset-inline: 4px;
-  bottom: 6px;
+  /* In the top part that stays visible when the rows close up. */
+  top: calc(var(--cell-compact) - 12px);
   display: flex;
   gap: 3px;
   opacity: 0;
@@ -231,21 +250,32 @@
 .phone .cell.selected {
   box-shadow: inset 0 0 0 2px var(--month-ink, var(--accent));
 }
+/* Small month: the frame only around the visible top part. */
+.phone.day-open .cell.selected::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--cell-compact);
+  box-shadow: inset 0 0 0 2px var(--month-ink, var(--accent));
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 3;
+}
 
 /* ------------------------------------------------------------ day panel */
 .phone .phone-sheet {
-  position: relative;
-  flex: 1 1 0;
-  min-height: 0;
+  /* Over the month, from just under the small month to the bottom
+     (--sheet-top is measured by MonthView). */
+  position: absolute;
+  inset: var(--sheet-top, 45%) 0 0 0;
+  z-index: 5;
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border-radius: 20px 20px 0 0;
-  box-shadow: 0 -6px 20px rgba(40, 30, 40, 0.1);
+  box-shadow: 0 -6px 20px rgba(40, 30, 40, 0.12);
   border-top: 1px solid var(--border);
-  transition:
-    flex-grow var(--phone-anim) var(--phone-ease),
-    transform var(--phone-anim) var(--phone-ease);
+  transition: transform var(--phone-anim) var(--phone-ease);
   animation: phone-sheet-in var(--phone-anim) var(--phone-ease) backwards;
   overflow: hidden;
   will-change: transform;
@@ -253,13 +283,11 @@
 }
 @keyframes phone-sheet-in {
   from {
-    flex-grow: 0;
-    transform: translateY(40px);
+    transform: translateY(100%);
   }
 }
 .phone .phone-sheet.closing {
-  flex-grow: 0;
-  transform: translateY(60px);
+  transform: translateY(100%);
   pointer-events: none;
 }
 .phone-grab {

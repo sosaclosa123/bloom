@@ -143,6 +143,21 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Phone: how far each row moves up when a day opens (full height - small
+  // height) and where the day panel starts (under the small month).
+  useLayoutEffect(() => {
+    const grid = gridRef.current;
+    if (!phone || !grid) return;
+    const cell = grid.querySelector<HTMLElement>('.cell');
+    const main = grid.closest<HTMLElement>('.main');
+    if (!cell || !main) return;
+    const small = parseFloat(getComputedStyle(grid).getPropertyValue('--cell-compact')) || 42;
+    const full = cell.getBoundingClientRect().height;
+    grid.style.setProperty('--shrink', `${Math.max(0, full - small)}px`);
+    const top = grid.getBoundingClientRect().top - main.getBoundingClientRect().top + rows * small + 4;
+    main.style.setProperty('--sheet-top', `${Math.round(top)}px`);
+  }, [phone, rows, size]);
+
   return (
     <div className={`month calendar-light season-${seasonOf(m)}`} style={{ ['--rows' as string]: rows, ['--month-ink' as string]: monthInk(m, false) }}>
       <div className="month-weekdays">
@@ -189,7 +204,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
             <div
               key={iso}
               className={cls}
-              style={{ ['--i' as string]: cellIdx, ['--cell-bg' as string]: dayColor(d), ['--day-ink' as string]: inkOf(monthColor(d.getMonth()), 'strong'), ['--heb-ink' as string]: inkOf(monthColor(d.getMonth()), 'medium') }}
+              style={{ ['--i' as string]: cellIdx, ['--row' as string]: Math.floor(cellIdx / 7), ['--cell-bg' as string]: dayColor(d), ['--day-ink' as string]: inkOf(monthColor(d.getMonth()), 'strong'), ['--heb-ink' as string]: inkOf(monthColor(d.getMonth()), 'medium') }}
               role="button"
               tabIndex={0}
               data-date={iso}

@@ -4302,6 +4302,7 @@ input[type='time'] {
   position: absolute;
   top: -40px;
   display: block;
+  will-change: transform, opacity;
 }
 
 /* To-do chip on the calendar: a bit bigger, and it opens the list right above it. */

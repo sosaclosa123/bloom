@@ -277,7 +277,10 @@ export function App() {
 
   // Phone: swipe the calendar sideways to change month / week / year.
   const contentRef = useRef<HTMLDivElement>(null);
-  useSwipe(contentRef, isPhone && tab === 'calendar', settings.language === 'he', (dir) => go(dir));
+  useSwipe(contentRef, isPhone && tab === 'calendar', settings.language === 'he', (dir) => {
+    if (openDay) setOpenDay(null); // a new month: the open day closes
+    go(dir);
+  });
 
   const findEvent = (id: string) => snap.events.find((e) => e.id === id);
   const findReminder = (id: string) => snap.reminders.find((r) => r.id === id);
@@ -355,7 +358,7 @@ export function App() {
                 selectedSticker={selectedSticker}
                 onSelectSticker={setSelectedSticker}
                 phone={isPhone}
-                frozen={isPhone && !!openDay}
+                frozen={false}
               />
             ) : (
               <WeekView
