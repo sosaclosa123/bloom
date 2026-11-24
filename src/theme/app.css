@@ -8669,3 +8669,18 @@ button.hl-pill:hover {
 .hl-recipe-name {
   flex: 1 1 calc(150px * var(--fs-scale, 1));
 }
+
+/* Wallet rows: name + pill share one block; when it's narrow (phone) the
+   pill goes under the name instead of squeezing it to one letter a line. */
+.wl-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  text-align: start;
+}
+.wl-row-main .wl-row-title {
+  flex: 1 1 calc(7.5em * var(--fs-scale, 1));
+}

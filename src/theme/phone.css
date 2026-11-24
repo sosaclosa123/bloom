@@ -570,3 +570,8 @@
 .phone .cell {
   contain: layout paint;
 }
+
+/* ------------------------------------------------------------ more room for page cards (Wallet, Health) */
+.phone .wallet-body {
+  padding-inline: 8px;
+}

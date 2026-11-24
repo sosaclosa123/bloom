@@ -332,10 +332,13 @@ function SpendingList({ all, side, month, onEdit }: { all: MoneyItem[]; side: Vi
                   <span className="wl-x" aria-hidden="true">
                     <Icon name="close" size={12} />
                   </span>
-                  <span className="wl-row-title" dir="auto">
-                    {r.title || '—'}
+                  {/* Name + pill together: on a narrow screen the pill goes under the name. */}
+                  <span className="wl-row-main">
+                    <span className="wl-row-title" dir="auto">
+                      {r.title || '—'}
+                    </span>
+                    <span className="wl-tag cancelled">{t('wlCancelledTag')}</span>
                   </span>
-                  <span className="wl-tag cancelled">{t('wlCancelledTag')}</span>
                   <span className="wl-row-amount" dir="ltr">
                     {fmt(r.amount)}
                   </span>
@@ -343,14 +346,16 @@ function SpendingList({ all, side, month, onEdit }: { all: MoneyItem[]; side: Vi
               ) : (
                 <button type="button" className="wl-row" onClick={r.open}>
                   <span className="wl-row-date">{day(r.date)}</span>
-                  <span className="wl-row-title" dir="auto">
-                    {r.title || '—'}
-                  </span>
-                  {r.tag && (
-                    <span className="wl-tag">
-                      <Icon name="repeat" size={11} /> {r.tag}
+                  <span className="wl-row-main">
+                    <span className="wl-row-title" dir="auto">
+                      {r.title || '—'}
                     </span>
-                  )}
+                    {r.tag && (
+                      <span className="wl-tag">
+                        <Icon name="repeat" size={11} /> {r.tag}
+                      </span>
+                    )}
+                  </span>
                   <span className="wl-row-amount" dir="ltr">
                     {fmt(r.amount)}
                   </span>
