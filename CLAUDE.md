@@ -288,9 +288,9 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   folder backups, custom reminder sounds). Backup "Save" = share sheet.
 
 ## In progress
-- Android app: built + tested in the browser and CI (see `ANDROID_PLAN.md`).
-  Next: owner adds the 2 GitHub secrets, a signed test APK on the branch,
-  owner installs it on a phone, then merge to `main` (= first release with APK).
+- Android app released (first APK with v0.2.x on main, Nov 2026). Waiting
+  for the owner's first real-phone feedback (install, sync, reminders,
+  update notice); fix what they report.
 
 ## Open ideas
 - (none right now)

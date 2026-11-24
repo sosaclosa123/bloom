@@ -28,7 +28,7 @@ Owner's choices (2026-11-23):
       permissions (notifications, exact alarm, install packages), icons
 - [x] 5. CI: Android job (debug APK built OK on the branch, run 63) (APK signed with keystore from GitHub secrets),
       attach `Bloom-X.Y.Z.apk` to the release
-- [ ] 6. Owner: add the 2 GitHub secrets (simple steps), first install
+- [x] 6. Owner added the 2 GitHub secrets; released to main (owner chose "Release now"); waiting for phone feedback
 - [x] 7. Update CLAUDE.md + docs/HISTORY.md
 
 ## Notes / gotchas
