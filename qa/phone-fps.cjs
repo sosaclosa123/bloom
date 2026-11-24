@@ -18,6 +18,7 @@ const RATE = Number(process.env.CPU || 4);
     localStorage.setItem('bloom-view', 'month');
   }, SAMPLE);
   await p.reload();
+  if (process.env.STYLE) await p.addStyleTag({ content: process.env.STYLE });
   await p.waitForTimeout(1500);
   const cdp = await ctx.newCDPSession(p);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: RATE });
@@ -53,7 +54,9 @@ const RATE = Number(process.env.CPU || 4);
     res.push(await measure('idle (particles)', async () => {}, 1000));
     res.push(await measure('open new event', () => p.locator('.phone-fab').click()));
     res.push(await measure('close window', () => p.keyboard.press('Escape')));
-    res.push(await measure('swipe month', () => p.locator('.phone-header .icon-btn').nth(1).click()));
+    res.push(await measure('next month', () => p.locator('.phone-header .icon-btn').nth(1).click()));
+    await p.locator('.phone-header .icon-btn').nth(0).click();
+    await p.waitForTimeout(500);
   }
   await b.close();
 })();

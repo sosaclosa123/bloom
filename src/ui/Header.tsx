@@ -43,7 +43,7 @@ export function Header(p: Props) {
     const cal = p.tab === 'calendar';
     return (
       <header className="header phone-header">
-        <SeasonLayer month={cal ? p.anchor.getMonth() : new Date().getMonth()} />
+        <SeasonLayer month={cal ? p.anchor.getMonth() : new Date().getMonth()} count={10} />
         <div className="ph-row">
           {cal && <IconButton icon={rtl ? 'chevronRight' : 'chevronLeft'} label={t('prev')} onClick={p.onPrev} />}
           <h1 className={`period-title ${cal ? 'is-month' : ''}`} style={cal ? { color: monthInk(p.anchor.getMonth(), dark) } : undefined}>

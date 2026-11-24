@@ -138,7 +138,7 @@
 .phone .cell {
   padding: 3px 2px 2px;
   gap: 1px;
-  transition: background var(--dur-fast), box-shadow var(--dur-fast);
+  transition: none;
 }
 .phone .cell-top {
   gap: 2px;
@@ -199,11 +199,8 @@
 }
 
 /* ------------------------------------------------------------ month (small) */
-.phone .cell > :not(.cell-top):not(.cell-dots),
-.phone .cell-top > :not(.daynum),
-.phone .cell-dots {
-  transition: opacity 180ms ease;
-}
+/* Labels switch to dots in one step (no fade per label: hundreds of fading
+   labels made every animation frame slow on phones). */
 .phone.day-open .cell > :not(.cell-top):not(.cell-dots),
 .phone.day-open .cell-top > :not(.daynum) {
   opacity: 0;
@@ -248,22 +245,21 @@
   border-top: 1px solid var(--border);
   transition:
     flex-grow var(--phone-anim) var(--phone-ease),
-    transform var(--phone-anim) var(--phone-ease),
-    opacity var(--phone-anim) ease;
+    transform var(--phone-anim) var(--phone-ease);
   animation: phone-sheet-in var(--phone-anim) var(--phone-ease) backwards;
   overflow: hidden;
+  will-change: transform;
+  contain: layout paint;
 }
 @keyframes phone-sheet-in {
   from {
     flex-grow: 0;
-    transform: translateY(36px);
-    opacity: 0;
+    transform: translateY(40px);
   }
 }
 .phone .phone-sheet.closing {
   flex-grow: 0;
-  transform: translateY(48px);
-  opacity: 0;
+  transform: translateY(60px);
   pointer-events: none;
 }
 .phone-grab {
@@ -494,4 +490,83 @@
 /* To-do / note chips don't fit the narrow week columns (they show in the day panel). */
 .phone .week-day-head .day-chips {
   display: none;
+}
+
+/* ------------------------------------------------------------ never wider / taller than the phone
+   (found by qa/phone-menus.cjs: Settings, Search, tall editors, sticker picker,
+   Health tile pop-ups were partly off screen or under the bottom tabs) */
+.phone .scrim {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+.phone .scrim > .modal,
+.phone .scrim > .search {
+  width: 100% !important;
+  min-width: 0;
+  max-width: 100%;
+  max-height: 100%;
+  min-height: 0;
+}
+.phone .scrim > .modal {
+  align-self: end;
+}
+.phone .scrim.top > .search {
+  align-self: start;
+}
+.phone .modal-body {
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+.phone .settings,
+.phone .settings-body {
+  min-width: 0;
+}
+.phone .segmented {
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+/* Sticker picker: a sheet just above the bottom tabs. */
+.phone .sticker-picker {
+  left: 8px !important;
+  right: 8px !important;
+  top: auto !important;
+  bottom: calc(var(--tabbar-h) + var(--sa-bottom) + 8px) !important;
+  width: auto;
+  max-height: calc(100dvh - var(--tabbar-h) - var(--sa-bottom) - var(--sa-top) - 24px);
+  overflow-y: auto;
+  animation: phone-up var(--phone-anim) var(--phone-ease);
+}
+
+/* Health Today tiles (mood, sleep, energy): their pop-up becomes a sheet above the tabs. */
+.phone .hl-pop {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  inset-inline: 8px;
+  top: auto;
+  bottom: calc(var(--tabbar-h) + var(--sa-bottom) + 8px);
+  min-width: 0;
+  max-height: calc(100dvh - var(--tabbar-h) - var(--sa-bottom) - var(--sa-top) - 24px);
+  overflow-y: auto;
+  z-index: 60;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ------------------------------------------------------------ lighter effects (smooth on phones) */
+/* The drifting leaves behind the pages: no blur / color filters on a phone
+   (a full-screen blur is redrawn every frame), same leaves and colors. */
+.phone .season-bg,
+.phone .season-bg svg {
+  filter: none;
+}
+/* Pop-up backgrounds: plain dim, no blur (blur behind a moving sheet is slow). */
+.phone .scrim,
+.phone .scrim:has(.hl-day-modal) {
+  backdrop-filter: none;
+  animation: fade var(--phone-anim) ease;
+}
+.phone .month,
+.phone .cell {
+  contain: layout paint;
 }

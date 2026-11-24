@@ -80,19 +80,32 @@ export function isDailyNudge(o: EventOccurrence): boolean {
   return o.event.repeat === 'daily' && o.event.start.slice(11) === o.event.end.slice(11) && o.event.remindBefore.length > 0;
 }
 
+// Date formatters are slow to create (phones especially), and the calendar
+// formats ~100 dates per redraw: keep one per locale + style.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function fmt(locale: string, key: string, opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const k = `${locale}|${key}`;
+  let f = formatters.get(k);
+  if (!f) formatters.set(k, (f = new Intl.DateTimeFormat(locale, opts)));
+  return f;
+}
+
 export function formatTime(d: Date, locale: string) {
-  return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false });
+  return fmt(locale, 'time', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+}
+
+/** "Thursday 19 November" */
+export function formatLongDay(d: Date, locale: string) {
+  return fmt(locale, 'longday', { weekday: 'long', day: 'numeric', month: 'long' }).format(d);
 }
 
 export function formatDayTitle(date: ISODate, locale: string) {
-  return parseISODate(date).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
+  return formatLongDay(parseISODate(date), locale);
 }
 
 export function weekdayNames(locale: string, weekStart: 0 | 1, style: 'short' | 'narrow' | 'long' = 'short') {
-  // 2023-01-01 was a Sunday.
-  return Array.from({ length: 7 }, (_, i) =>
-    new Date(2023, 0, 1 + ((i + weekStart) % 7)).toLocaleDateString(locale, { weekday: style }),
-  );
+  const f = fmt(locale, `wd-${style}`, { weekday: style });
+  return Array.from({ length: 7 }, (_, i) => f.format(new Date(2023, 0, 1 + ((i + weekStart) % 7))));
 }
 
 

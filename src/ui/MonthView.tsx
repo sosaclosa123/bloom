@@ -3,7 +3,7 @@ import { addDays, monthGrid, sameDay, toISODate } from '../shared/dates';
 import { hebrewDateLabel } from '../shared/holidays';
 import type { EventOccurrence } from '../shared/recurrence';
 import type { ISODate } from '../shared/types';
-import { countdownsOn, formatTime, isDailyNudge, useRangeData, weekdayNames } from './calendarData';
+import { countdownsOn, formatLongDay, formatTime, isDailyNudge, useRangeData, weekdayNames } from './calendarData';
 import { newDayEntry, nextStatus } from './drafts';
 import { Icon } from './common';
 import { dayColor, inkOf, monthColor, monthInk, seasonOf } from './season';
@@ -52,9 +52,14 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
   const cut = frozen ? lastCut.current : sameKey ? fit.cut : {};
   if (!frozen && sameKey) lastCut.current = fit.cut;
   const passes = useRef(0);
+  // Phone: once a fit check found nothing to change for this key, skip it on
+  // later redraws (each check measures every square; slow on a phone).
+  const settled = useRef(false);
   useLayoutEffect(() => {
     const el = gridRef.current;
     if (!el || frozen) return;
+    if (!sameKey) settled.current = false;
+    if (phone && sameKey && settled.current) return;
     if (!sameKey) passes.current = 0;
     if (passes.current > 12) return; // safety: never loop forever
     const next = { ...cut };
@@ -84,25 +89,41 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
     if (changed) {
       passes.current += 1;
       setFit({ key: fitKey, cut: next });
-    } else passes.current = 0;
+    } else {
+      passes.current = 0;
+      settled.current = true;
+    }
   });
+  // Phone: while the month is small (a day is open) or animating, sizes are
+  // ignored; afterwards it is only measured again if it really ended up a
+  // different size (usually it's back to exactly the size it had before).
+  const frozenRef = useRef(frozen);
+  frozenRef.current = frozen;
+  const fitSize = useRef({ w: 0, h: 0 });
+  const recheck = useRef<() => void>(() => {});
+  useLayoutEffect(() => {
+    if (!frozen) recheck.current();
+  }, [frozen]);
   useLayoutEffect(() => {
     const el = gridRef.current;
     if (!el) return;
-    let w = 0;
-    let h = 0;
     let wait: ReturnType<typeof setTimeout> | undefined;
-    const ro = new ResizeObserver(([e]) => {
-      const { width, height } = e.contentRect;
-      if (Math.abs(width - w) > 0.5 || Math.abs(height - h) > 0.5) {
-        w = width;
-        h = height;
-        // Phone: the month grows/shrinks with an animation; measure once it has settled.
-        if (phone) {
-          clearTimeout(wait);
-          wait = setTimeout(() => setSize((n) => n + 1), 120);
-        } else setSize((n) => n + 1);
+    const settle = () => {
+      if (frozenRef.current) return;
+      const width = el.clientWidth;
+      const height = el.clientHeight;
+      const f = fitSize.current;
+      if (Math.abs(width - f.w) > 0.5 || Math.abs(height - f.h) > 0.5) {
+        fitSize.current = { w: width, h: height };
+        setSize((n) => n + 1);
       }
+    };
+    recheck.current = settle;
+    const ro = new ResizeObserver(() => {
+      if (phone) {
+        clearTimeout(wait);
+        wait = setTimeout(settle, 120);
+      } else settle();
     });
     ro.observe(el);
     // Fonts often finish loading after the first layout (slower PCs, Windows
@@ -173,7 +194,7 @@ export function MonthView({ anchor, selected, onOpenDay, onOpenEvent, onOpenNote
               tabIndex={0}
               data-date={iso}
               data-fit-max={basePills + 3}
-              aria-label={d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
+              aria-label={formatLongDay(d, locale)}
               onClick={() => onOpenDay(iso)}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpenDay(iso))}
             >

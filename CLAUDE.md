@@ -57,7 +57,10 @@ Auto-update: electron-updater from GitHub Releases.
 - `npm run build` (typecheck + web + electron), `npx vitest run`
 - Preview for browser tests: `npx vite preview --port 4173`
 - Phone layout check: `qa/run.sh phone.cjs` (browser with `?phone`; EN/HE,
-  light/dark, 360/412 wide; shots in `qa/shots/phone-*`).
+  light/dark, 360/412 wide; shots in `qa/shots/phone-*`),
+  `phone-menus.cjs` (opens every menu/pop-up/window at 320/360/412 wide and
+  fails if any part is off screen or covered), `phone-fps.cjs` (frame rate of
+  the phone animations with the CPU slowed 4x).
 - Electron tests: Playwright `_electron`, `xvfb-run`, env `BLOOM_USER_DATA`
   for a temp data folder; `--hidden` = launched at login, `--glance` forces
   the startup window.
@@ -87,8 +90,15 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   uid)`), so account data lives only online + in backups. Restoring a backup
   while signed out shows it in the offline data. First sign-in after this
   change adopts the old single file as the account's copy. Account settings
-  offer "Add this computer's offline items to my account". Settings stay per
-  computer in every profile. Tests: `src/sync/profiles.test.ts`.
+  offer "Add this computer's offline items to my account". Tests:
+  `src/sync/profiles.test.ts`.
+- **Settings follow the account** (owner, Nov 2026): language, theme, week
+  start, holidays, Hebrew dates, default reminder, snooze, currency, month
+  colors and every Health switch sync through one private document
+  (`ACCOUNT_SETTINGS` in `src/sync/engine.ts`). Per device: text size, start
+  with Windows, tray, startup window, game mode, volume, sound, backup folder.
+  First sync: a PC's settings beat a new phone's defaults; afterwards the
+  newest change of each setting wins. Tests: `src/sync/prefs.test.ts`.
 - **Day info (busy dot, notes, to-dos, stickers) is always private.** Saves go
   to the person's own private day record (`asPrivateDay`); the UI shows one
   record per date (`personalDays`). Never edit a shared day record.
@@ -133,8 +143,8 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   calendar (test: `src/sync/health.test.ts`). No share toggle. Never shown in
   Search, the calendar, Scheduled (a doctor visit adds a private calendar event
   only if asked).
-- Health settings are **per computer, default OFF**: `healthEnabled`,
-  `healthIbd`, `healthMedNames`. Rail heart tab always visible, dimmed when off
+- Health settings are **default OFF** and follow the account (see above):
+  `healthEnabled`, `healthIbd`, `healthMedNames`. Rail heart tab always visible, dimmed when off
   ("Health is off · Turn on in Settings"). Her PC keeps both off.
 - **IBD off = every IBD part completely hidden** (IBD card, flare timeline, food
   insights, IBD tests like calprotectin, IBD profile questions, symptoms trend).

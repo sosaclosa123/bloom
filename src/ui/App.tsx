@@ -309,7 +309,7 @@ export function App() {
         <div className="main">
           <div className="content" ref={contentRef}>
             {/* Calendar: the season of the month on screen. Other pages: today's season. */}
-            <SeasonBackdrop month={tab === 'calendar' ? anchor.getMonth() : new Date().getMonth()} />
+            <SeasonBackdrop month={tab === 'calendar' ? anchor.getMonth() : new Date().getMonth()} count={isPhone ? 12 : undefined} />
             {missed.length > 0 && (
               <div className="missed-bar" role="status">
                 <Icon name="gamepad" size={16} />

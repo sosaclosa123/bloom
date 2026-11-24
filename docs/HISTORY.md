@@ -89,6 +89,14 @@ up to date when something important changes.
 - Don't run prettier on whole files (huge diffs); edit surgically.
 - Long-running `vite preview` gets killed by the session; `qa/run.sh` starts
   and stops it per run.
+- Android v0.2.65 (first phone feedback): the CSP in `index.html` blocked
+  api.github.com (update check looked "offline": add any new online host to
+  connect-src); Android WebView scaled all text with the phone's font size
+  (fixed with setTextZoom(100) in MainActivity); grid items in `.scrim` grew to
+  their content's width (settings tabs, search) -> `minmax(0, 1fr)`; Health
+  tile pop-ups hid under the bottom tabs; animations stuttered because of
+  per-label fades, a full-screen blur and `toLocale*String` calls (slow; use
+  cached `Intl.DateTimeFormat`, see calendarData.ts).
 - Monthly->yearly switch used to keep charging monthly until the first yearly
   date; now old part ends after today, yearly starts at next payment.
 
