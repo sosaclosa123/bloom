@@ -50,6 +50,7 @@ export function startSync(): Promise<SyncEngine | null> {
       hasPhoto: (f) => platform.hasPhoto(f),
       writePhoto: (f, d) => platform.writePhoto(f, d),
       switchProfile: (uid, forget) => platform.switchProfile(uid, forget),
+      applySettings: (patch) => platform.updateSettings(patch),
       getItem: (k) => {
         try {
           return localStorage.getItem(k);
@@ -65,7 +66,8 @@ export function startSync(): Promise<SyncEngine | null> {
         }
       },
     };
-    engine = new SyncEngine(createFirebaseBackend(firebaseConfig!), port);
+    // A PC's settings win over a brand-new phone's defaults the first time (see engine.ts).
+    engine = new SyncEngine(createFirebaseBackend(firebaseConfig!), port, { prefsFirstWeight: platform.kind === 'desktop' ? 2 : 1 });
     engine.start();
     return engine;
   })();

@@ -9,7 +9,7 @@
 //  - Journal photos are uploaded/downloaded alongside their entry.
 // Platform-independent: the desktop app and a future phone app both use it.
 import { COLLECTIONS, normalizeSnapshot } from '../shared/db';
-import type { CollectionName, Collections, HealthItem, JournalEntry, PhotoRef, Snapshot, SyncMeta } from '../shared/types';
+import type { CollectionName, Collections, HealthItem, JournalEntry, PhotoRef, Settings, Snapshot, SyncMeta } from '../shared/types';
 import type { AuthUser, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } from './backend';
 
 /** Sounds are audio files on this PC, so they don't sync. */
@@ -17,6 +17,39 @@ export const SYNCED: CollectionName[] = COLLECTIONS.filter((c) => c !== 'sounds'
 
 /** Collections that only ever live in the person's own area, never in the shared calendar. */
 export const ALWAYS_PRIVATE: CollectionName[] = ['health'];
+
+/**
+ * Settings that follow the account to every PC and phone (owner's choice,
+ * Nov 2026), kept in one private document. Everything else stays per device:
+ * text size, start with Windows, tray, startup window, game mode, volume,
+ * reminder sound and the backup folder.
+ */
+export const ACCOUNT_SETTINGS = [
+  'language',
+  'theme',
+  'weekStart',
+  'holidays',
+  'holidaysIsrael',
+  'showHebrewDate',
+  'defaultRemindBefore',
+  'snoozeOptions',
+  'currency',
+  'monthColors',
+  'healthEnabled',
+  'healthIbd',
+  'healthMedNames',
+  'healthWaterNudge',
+  'healthWeighDay',
+  'healthStickerBook',
+  'healthGoals',
+  'healthChallenges',
+  'healthFoodOnline',
+] as const satisfies readonly (keyof Settings)[];
+type AccountKey = (typeof ACCOUNT_SETTINGS)[number];
+/** One setting's agreed value (JSON text) and when it was last changed. */
+type PrefVersions = Partial<Record<AccountKey, { v: string; t: number }>>;
+const PREFS_COLL = 'prefs' as CollectionName;
+const PREFS_ID = 'settings';
 
 export interface LocalPort {
   snapshot(): Snapshot;
@@ -28,6 +61,8 @@ export interface LocalPort {
   writePhoto(fileName: string, dataUrl: string): Promise<void>;
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+  /** Settings that changed on another device of this account. */
+  applySettings?(patch: Partial<Settings>): Promise<void>;
   /**
    * Show the signed-in account's data (uid) or this computer's offline data
    * (null). `forget` = an account whose local copy is deleted (signing out).
@@ -76,19 +111,35 @@ export class SyncEngine {
   private loaded = new Set<string>(); // scopes whose first snapshot arrived
 
   private pushDelay: number;
+  /**
+   * Weight of this device's settings the first time an account syncs them:
+   * a PC (2) beats a new phone (1), so installing the phone app never resets
+   * the PC's settings; any real change later (time stamp) beats both.
+   */
+  private prefsFirstWeight: number;
+  private prefs: PrefVersions = {};
+  /** Values last seen in this device's settings (to tell a local change from a remote one). */
+  private prefsLocal: Partial<Record<AccountKey, string>> = {};
+  private prefsPush = false;
   constructor(
     private backend: SyncBackend,
     private port: LocalPort,
-    opts: { pushDelay?: number } = {},
+    opts: { pushDelay?: number; prefsFirstWeight?: number } = {},
   ) {
     this.pushDelay = opts.pushDelay ?? 800;
+    this.prefsFirstWeight = opts.prefsFirstWeight ?? 1;
   }
 
   // ---------------------------------------------------------------- public
 
   start() {
     this.unsubs.push(this.backend.onAuth((u) => void this.onUser(u)));
-    this.unsubs.push(this.port.onChange(() => this.schedulePush()));
+    this.unsubs.push(
+      this.port.onChange((s) => {
+        this.notePrefsChange(s.settings);
+        this.schedulePush();
+      }),
+    );
   }
 
   stop() {
@@ -136,7 +187,7 @@ export class SyncEngine {
   /** Upload everything now and wait for it. Returns how many things are still not online. */
   async flush(): Promise<number> {
     if (this.pushTimer) clearTimeout(this.pushTimer);
-    for (let i = 0; i < 3 && this.unsyncedCount() > 0; i++) {
+    for (let i = 0; i < 3 && (this.unsyncedCount() > 0 || this.prefsPush); i++) {
       while (this.pushing) await new Promise((r) => setTimeout(r, 50));
       await this.push();
     }
@@ -208,6 +259,7 @@ export class SyncEngine {
     this.set({ user, status: 'connecting', error: null });
     this.known = this.readJSON(`bloom-sync-known-${user.uid}`, {});
     this.uploaded = new Set(this.readJSON<string[]>(`bloom-sync-photos-${user.uid}`, []));
+    this.loadPrefs(user.uid);
     try {
       let profile = await this.backend.getProfile(user.uid);
       if (!profile) {
@@ -260,8 +312,14 @@ export class SyncEngine {
 
   private async onRemote(scope: Scope, items: RemoteItem[]) {
     const sk = scopeKey(scope);
+    const first = !this.loaded.has(sk);
     const incoming: Partial<Record<CollectionName, SyncMeta[]>> = {};
+    let prefsDoc: RemoteItem | null = null;
     for (const it of items) {
+      if (it.coll === PREFS_COLL) {
+        if (scope.kind === 'user' && it.id === PREFS_ID) prefsDoc = it;
+        continue;
+      }
       if (!SYNCED.includes(it.coll)) continue;
       // Health is never taken from a shared calendar (it can only be in our own area).
       if (scope.kind === 'space' && ALWAYS_PRIVATE.includes(it.coll)) continue;
@@ -274,7 +332,9 @@ export class SyncEngine {
     }
     this.saveKnown();
     if (Object.keys(incoming).length) await this.port.applyRemote(incoming as Partial<Collections>);
+    if (scope.kind === 'user' && (prefsDoc || first)) await this.mergePrefs(prefsDoc);
     this.loaded.add(sk);
+    if (scope.kind === 'user' && this.prefsPush) this.schedulePush(0);
     // Fetch photos of journal entries and documents of doctor visits we just received.
     const withFiles = [...((incoming.journal ?? []) as JournalEntry[]), ...((incoming.health ?? []) as SyncMeta[]).map((h) => ({ deletedAt: h.deletedAt, photos: filesOf('health', h) }))];
     for (const e of withFiles) {
@@ -357,6 +417,15 @@ export class SyncEngine {
         }
       }
 
+      // Account settings: one private document, only once this account's own area has loaded.
+      const uid = this.state.user.uid;
+      let prefsSent = false;
+      if (this.prefsPush && this.loaded.has(`u:${uid}`)) {
+        const t = Math.max(0, ...Object.values(this.prefs).map((p) => p!.t));
+        add({ kind: 'user', uid }, { coll: PREFS_COLL, id: PREFS_ID, updatedAt: t, data: { ...this.prefs } }, false);
+        prefsSent = true;
+      }
+
       if (batches.size) this.set({ status: 'syncing' });
       for (const job of photoJobs) {
         const data = await this.port.readPhoto(job.fileName);
@@ -371,6 +440,7 @@ export class SyncEngine {
         for (let i = 0; i < b.items.length; i += 400) await this.backend.put(b.scope, b.items.slice(i, i + 400));
         for (const [key, t, sk] of b.marks) this.known[key] = { t, s: sk };
       }
+      if (prefsSent) this.prefsPush = false;
       this.saveKnown();
       this.set({ status: 'synced', error: null, lastSync: Date.now() });
     } catch (e) {
@@ -383,6 +453,69 @@ export class SyncEngine {
         this.schedulePush(0);
       }
     }
+  }
+
+  // ---------------------------------------------------------------- account settings
+
+  private prefsKey() {
+    return `bloom-sync-prefs-${this.state.user?.uid}`;
+  }
+
+  /** On sign-in: the versions agreed before, plus this device's own values for any never synced. */
+  private loadPrefs(uid: string) {
+    this.prefs = this.readJSON<PrefVersions>(`bloom-sync-prefs-${uid}`, {});
+    const s = this.port.snapshot().settings;
+    this.prefsLocal = {};
+    for (const k of ACCOUNT_SETTINGS) {
+      const v = JSON.stringify(s[k] ?? null);
+      this.prefsLocal[k] = v;
+      if (!this.prefs[k]) this.prefs[k] = { v, t: this.prefsFirstWeight };
+    }
+    this.prefsPush = false;
+    this.port.setItem(`bloom-sync-prefs-${uid}`, JSON.stringify(this.prefs));
+  }
+
+  /** A setting changed on this device: it now wins everywhere (newest change wins). */
+  private notePrefsChange(s: Settings) {
+    if (!this.state.user) return;
+    let changed = false;
+    for (const k of ACCOUNT_SETTINGS) {
+      const v = JSON.stringify(s[k] ?? null);
+      if (v === this.prefsLocal[k]) continue;
+      this.prefsLocal[k] = v;
+      if (this.prefs[k]?.v === v) continue; // it came from another device
+      this.prefs[k] = { v, t: Math.max(Date.now(), (this.prefs[k]?.t ?? 0) + 1) };
+      changed = true;
+    }
+    if (changed) {
+      this.prefsPush = true;
+      this.port.setItem(this.prefsKey(), JSON.stringify(this.prefs));
+    }
+  }
+
+  /** Settings from online: take every newer one; send ours where ours is newer (or nothing is online yet). */
+  private async mergePrefs(doc: RemoteItem | null) {
+    const remote = (doc?.data ?? {}) as PrefVersions;
+    const patch: Partial<Record<AccountKey, unknown>> = {};
+    let ours = false;
+    for (const k of ACCOUNT_SETTINGS) {
+      const r = remote[k];
+      const l = this.prefs[k];
+      if (r && typeof r.t === 'number' && typeof r.v === 'string' && (!l || r.t >= l.t)) {
+        if (!l || l.v !== r.v || l.t !== r.t) this.prefs[k] = { v: r.v, t: r.t };
+        if (this.prefsLocal[k] !== r.v) {
+          try {
+            patch[k] = JSON.parse(r.v);
+            this.prefsLocal[k] = r.v;
+          } catch {
+            /* ignore a broken value */
+          }
+        }
+      } else if (l) ours = true;
+    }
+    if (ours) this.prefsPush = true;
+    this.port.setItem(this.prefsKey(), JSON.stringify(this.prefs));
+    if (Object.keys(patch).length) await this.port.applySettings?.(patch as Partial<Settings>);
   }
 
   // ---------------------------------------------------------------- helpers
