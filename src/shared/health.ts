@@ -292,17 +292,67 @@ export function energyGoal(p: Partial<HealthProfile> | undefined, weightKg: numb
   };
 }
 
-/** Average of logged days in a range compared with the goal (days with no food logged are skipped). */
-export function energySummary(dayKcal: { date: string; value: number }[], g: Pick<EnergyGoal, 'burn' | 'target'>) {
-  if (!dayKcal.length) return null;
-  const avg = dayKcal.reduce((a, d) => a + d.value, 0) / dayKcal.length;
+/**
+ * A day counts only when it's over and looks fully logged (owner, Nov 2026:
+ * "it always seems as if I burned lots of calories"): today isn't finished,
+ * and a day with under 40% of the daily burn logged (e.g. < ~900 kcal when
+ * burning 2,300) is most likely missing meals, which would look like a big
+ * deficit. Both are left out of averages (the card says how many).
+ */
+export const LOW_DAY_SHARE = 0.4;
+
+function countedDays(dayKcal: { date: string; value: number }[], burn: number, today: string) {
+  const finished = dayKcal.filter((d) => d.date < today);
+  const counted = finished.filter((d) => d.value >= burn * LOW_DAY_SHARE);
+  return { counted, skipped: finished.length - counted.length };
+}
+
+/** Average of fully logged, finished days in a range compared with the goal (null = none). */
+export function energySummary(dayKcal: { date: string; value: number }[], g: Pick<EnergyGoal, 'burn' | 'target'>, today: string) {
+  const { counted, skipped } = countedDays(dayKcal, g.burn, today);
+  if (!counted.length) return null;
+  const avg = counted.reduce((a, d) => a + d.value, 0) / counted.length;
   return {
-    days: dayKcal.length,
+    days: counted.length,
+    skipped,
     avg: Math.round(avg),
     vsBurn: Math.round(avg - g.burn),
     vsTarget: Math.round(avg - g.target),
     kgPerWeek: Math.round((((avg - g.burn) * 7) / KCAL_PER_KG) * 100) / 100,
   };
+}
+
+export interface CalorieBalance {
+  /** Each counted day: eaten minus burn (+ = surplus/gaining, - = deficit/losing). */
+  days: { date: string; value: number }[];
+  skipped: number;
+  /** Average balance a day, and about how much weight that is a week (kg). */
+  avg: number | null;
+  kgPerWeek: number | null;
+  /** The goal's balance a day (e.g. -500 to lose fat; 0 = keep weight). */
+  goal: number;
+}
+
+/** Calorie balance per day (owner, Nov 2026): over = gaining, under = losing, and by how much. */
+export function calorieBalance(dayKcal: { date: string; value: number }[], g: Pick<EnergyGoal, 'burn' | 'target'>, today: string): CalorieBalance {
+  const { counted, skipped } = countedDays(dayKcal, g.burn, today);
+  const days = counted.map((d) => ({ date: d.date, value: Math.round(d.value - g.burn) }));
+  const avg = days.length ? Math.round(days.reduce((a, d) => a + d.value, 0) / days.length) : null;
+  return {
+    days,
+    skipped,
+    avg,
+    kgPerWeek: avg == null ? null : Math.round(((avg * 7) / KCAL_PER_KG) * 100) / 100,
+    goal: Math.round(g.target - g.burn),
+  };
+}
+
+/** One day's balance, told plainly: null = nothing logged; "partial" = probably not everything logged. */
+export function dayBalance(eaten: number | null, burn: number): { state: 'none' | 'partial' | 'surplus' | 'deficit' | 'even'; value: number } {
+  if (!eaten) return { state: 'none', value: 0 };
+  const value = Math.round(eaten - burn);
+  if (eaten < burn * LOW_DAY_SHARE) return { state: 'partial', value };
+  return { state: Math.abs(value) < 100 ? 'even' : value > 0 ? 'surplus' : 'deficit', value };
 }
 
 // ---------------------------------------------------------------- bathroom log (IBD)

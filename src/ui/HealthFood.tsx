@@ -7,7 +7,7 @@ import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
 import { autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, packWeight, parseOff, piecesToGrams, pieceWeight, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
-import { energyGoal, energySummary, FOOD_TAGS, forDate, healthOf, latestWeight } from '../shared/health';
+import { calorieBalance, dayBalance, energyGoal, energySummary, FOOD_TAGS, forDate, healthOf, LOW_DAY_SHARE, latestWeight } from '../shared/health';
 import { foodSeries, type FoodMetric } from '../shared/healthExtras';
 import type { CalorieGoal, CaloriePace, FoodLabel, HealthFood, HealthFoodPack, HealthRecipe, ISODate, RecipeItem } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented } from './common';
@@ -87,6 +87,7 @@ export function FoodTab({ date, isToday, goalMl }: { date: ISODate; isToday: boo
         <WaterTodayCard date={date} goalMl={goalMl} />
         <MyMealsCard date={date} isToday={isToday} />
         <FoodHistoryCard date={date} />
+        <CalorieBalanceCard date={date} />
       </div>
       {editing && <FoodEditor init={editing} onClose={() => setEditing(null)} />}
     </div>
@@ -117,7 +118,7 @@ function FoodHistoryCard({ date }: { date: ISODate }) {
   const goal = energyGoal(profile, latestWeight(all, date), { ibd });
   const [editGoal, setEditGoal] = useState(false);
   const kcalPoints = useMemo(() => (metric === 'kcal' ? points : foodSeries(all, 'kcal', from, date)), [metric, points, all, from, date]);
-  const sum = goal ? energySummary(kcalPoints, goal) : null;
+  const sum = goal ? energySummary(kcalPoints, goal, toISODate(new Date())) : null;
   const n = (v: number) => Math.round(v).toLocaleString(locale);
   const signed = (v: number) => (v > 0 ? `+${n(v)}` : v < 0 ? `−${n(-v)}` : '0');
   const chartGoal =
@@ -214,6 +215,156 @@ function FoodHistoryCard({ date }: { date: ISODate }) {
       {goal && <p className="muted small hl-cal-src">{t('hlGoalSources')} · {t('hlNotAdvice')}</p>}
       {day && <DaySummary date={day} onClose={() => setDay(null)} />}
       {editGoal && <GoalEditor onClose={() => setEditGoal(false)} />}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- calorie balance (owner, Nov 2026)
+
+/** Is this balance good for the person's goal? (lose: deficit; gain: surplus; keep/recomp: about even) */
+function balanceTone(goal: CalorieGoal, v: number): 'good' | 'bad' | 'neutral' {
+  if (goal === 'lose') return v <= -100 ? 'good' : v >= 100 ? 'bad' : 'neutral';
+  if (goal === 'gain') return v >= 100 ? 'good' : v <= -100 ? 'bad' : 'neutral';
+  return Math.abs(v) < 250 ? 'good' : 'bad';
+}
+
+/**
+ * What you ate minus what you burn, per day: over = gaining, under = losing,
+ * and by how much; a line chart of it (0 = keep weight, dashed = your goal).
+ * Today and days with too little logged are left out of averages.
+ */
+function CalorieBalanceCard({ date }: { date: ISODate }) {
+  const { t, locale } = useBloom();
+  const { all, profile, ibd } = useHealth();
+  const [range, setRange] = useState<7 | 30 | 90 | 365 | 0>(7);
+  const [day, setDay] = useState<ISODate | null>(null);
+  const today = toISODate(new Date());
+  const goal = energyGoal(profile, latestWeight(all, date), { ibd });
+  const from = range === 0 ? '0000-01-01' : toISODate(addDays(parseISODate(date), -(range - 1)));
+  const kcal = useMemo(() => foodSeries(all, 'kcal', from, date), [all, from, date]);
+  const eatenOn = (d: ISODate) => foodSeries(all, 'kcal', d, d)[0]?.value ?? null;
+  const n = (v: number) => Math.round(Math.abs(v)).toLocaleString(locale);
+  const signed = (v: number) => (v > 0 ? `+${n(v)}` : v < 0 ? `−${n(v)}` : '0');
+  if (!goal) {
+    return (
+      <section className="w-card hl-balance">
+        <CardHead sticker="important" title={t('hlBalTitle')} />
+        <div className="hl-cal-goal">
+          <span className="muted small">{t('hlNoGoal')}</span>
+          <button type="button" className="link-btn" onClick={() => requestHealthRedo()}>
+            {t('hlStart')}
+          </button>
+        </div>
+      </section>
+    );
+  }
+  const bal = calorieBalance(kcal, goal, today);
+  const isToday = date === today;
+  const eaten = eatenOn(date);
+  const prevDate = toISODate(addDays(parseISODate(date), -1));
+  const prev = dayBalance(eatenOn(prevDate), goal.burn);
+  const stateText = (b: ReturnType<typeof dayBalance>) =>
+    b.state === 'none' ? t('hlBalNone') : b.state === 'partial' ? t('hlBalPartial') : b.state === 'surplus' ? t('hlBalSurplus') : b.state === 'deficit' ? t('hlBalDeficit') : t('hlBalEven');
+  const DayBox = ({ label, b }: { label: string; b: ReturnType<typeof dayBalance> }) => (
+    <div className={`hl-bal-box ${b.state === 'surplus' || b.state === 'deficit' || b.state === 'even' ? balanceTone(goal.goal, b.value) : 'muted-box'}`}>
+      <span className="hl-bal-label">{label}</span>
+      <b className="hl-num-font" dir="ltr">
+        {b.state === 'none' ? '—' : t('hlKcal', { n: signed(b.value) })}
+      </b>
+      <span className="hl-bal-state">{stateText(b)}</span>
+    </div>
+  );
+  // Today (not over yet): how much is left before it turns into a surplus, and the goal.
+  const todayLeft = goal.burn - (eaten ?? 0);
+  const goalLeft = goal.target - (eaten ?? 0);
+  const todayPill =
+    goal.goal === 'gain'
+      ? goalLeft > 0
+        ? { tone: 'neutral', text: t('hlBalToGo', { n: n(goalLeft) }) }
+        : { tone: 'good', text: t('hlBalOnTrack') }
+      : goalLeft >= 0
+        ? { tone: 'good', text: t('hlBalOnTrack') }
+        : { tone: 'bad', text: t('hlBalOverGoal', { n: n(-goalLeft) }) };
+  const goalLabel = t(`hlGoal_${goal.goal}` as StringKey);
+  return (
+    <section className="w-card hl-balance">
+      <CardHead sticker="important" title={t('hlBalTitle')} />
+      <p className="muted small hl-bal-burn">
+        {t('hlBalBurn', { burn: n(goal.burn), bmr: n(goal.bmr), act: t(`hlAct_${profile?.activity ?? 'sedentary'}` as StringKey) })} · {t('hlBalGoal', { g: goal.goal === 'lose' || goal.goal === 'gain' ? `${goalLabel} (${signed(bal.goal)})` : goalLabel })}
+      </p>
+      <div className="hl-bal-boxes">
+        {isToday ? (
+          <div className={`hl-bal-box ${todayPill.tone}`}>
+            <span className="hl-bal-label">{t('hlBalToday')}</span>
+            <b className="hl-num-font" dir="ltr">
+              {n(eaten ?? 0)} / {n(goal.burn)}
+            </b>
+            <span className="hl-bal-state">{todayLeft >= 0 ? t('hlBalLeft', { n: n(todayLeft) }) : t('hlBalOverKeep', { n: n(-todayLeft) })}</span>
+            <span className={`hl-bal-pill ${todayPill.tone}`}>{todayPill.text}</span>
+          </div>
+        ) : (
+          <DayBox label={t('hlBalThatDay')} b={dayBalance(eaten, goal.burn)} />
+        )}
+        <DayBox label={isToday ? t('hlBalYesterday') : t('hlBalDayBefore')} b={prev} />
+      </div>
+      <Segmented
+        value={range}
+        onChange={setRange}
+        label={t('hlBalTitle')}
+        options={[
+          { value: 7, label: t('hlWeek') },
+          { value: 30, label: t('hlNDays', { n: 30 }) },
+          { value: 90, label: t('hlNDays', { n: 90 }) },
+          { value: 365, label: t('hlYear') },
+          { value: 0, label: t('hlFromStart') },
+        ]}
+      />
+      {bal.days.length === 0 ? (
+        <p className="empty-note hl-chart-empty">{t('hlNoData')}</p>
+      ) : (
+        <div className="hl-chart-box">
+          <LineChart
+            onPick={setDay}
+            dateLabel={(d) => parseISODate(d).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+            label={t('hlBalTitle')}
+            points={bal.days}
+            fmt={(v) => t('hlKcal', { n: signed(v) })}
+            refLine={{ value: 0, label: t('hlBalZero') }}
+            goal={bal.goal !== 0 ? { value: bal.goal, label: t('hlGoalLine', { v: signed(bal.goal) }) } : undefined}
+          />
+          <p className="hl-legend-line">{t('hlBalLegend')}</p>
+        </div>
+      )}
+      {bal.avg != null && (
+        <div className="hl-cal-sum">
+          <span className={`hl-bal-${balanceTone(goal.goal, bal.avg)}`}>
+            <b dir="ltr">{t('hlKcal', { n: signed(bal.avg) })}</b>
+            {t('hlAvgDay')}
+          </span>
+          <span className={`hl-bal-${balanceTone(goal.goal, bal.avg)}`}>
+            <b>
+              <bdi dir="ltr">
+                {bal.kgPerWeek! > 0 ? '+' : bal.kgPerWeek! < 0 ? '−' : ''}
+                {Math.abs(bal.kgPerWeek!).toLocaleString(locale)}
+              </bdi>{' '}
+              {t('hlUnitKg')}
+            </b>
+            {t('hlPerWeekKg')}
+          </span>
+          <span>
+            <b>{bal.days.length}</b>
+            {t('hlBalDays')}
+          </span>
+        </div>
+      )}
+      <p className="muted small hl-cal-days">
+        {t('hlBalNote')}
+        {bal.skipped > 0 && <> {t('hlBalSkipped', { n: bal.skipped, k: n(goal.burn * LOW_DAY_SHARE) })}</>}
+      </p>
+      <p className="muted small hl-cal-src">
+        {t('hlGoalSources')} · {t('hlNotAdvice')}
+      </p>
+      {day && <DaySummary date={day} onClose={() => setDay(null)} />}
     </section>
   );
 }

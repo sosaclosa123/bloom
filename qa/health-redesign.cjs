@@ -45,6 +45,12 @@ const ok = (x) => !/hl-subtabs|OFFSCREEN button\. "(Today|Body|Medicines|Goals|I
         { ...m('bd'), kind: 'body', date, weightKg: 62, exerciseMin: 30, steps: 4200 },
         { ...m('ts'), kind: 'test', date, name: 'Vitamin B12', value: 410, unit: 'pg/mL', ibd: false, note: '' },
       ];
+      // Past days for the calorie balance: deficits, a surplus, and one half-logged day.
+      [1900, 1500, 2600, 600, 1700, 1400, 2100, 1600, 1550].forEach((k, i) => {
+        const dd = new Date(n.getFullYear(), n.getMonth(), n.getDate() - (i + 1));
+        const ds = `${dd.getFullYear()}-${pad(dd.getMonth() + 1)}-${pad(dd.getDate())}`;
+        d.health.push({ ...f(`past${i}`, 'meal', 'lunch', 'Lunch', 300, k, 40), date: ds });
+      });
       d.settings = { ...d.settings, language: lang, healthEnabled: true, theme, fontSize: size };
       localStorage.clear();
       localStorage.setItem('bloom-data-v1', JSON.stringify(d));
@@ -81,6 +87,10 @@ const ok = (x) => !/hl-subtabs|OFFSCREEN button\. "(Today|Body|Medicines|Goals|I
     await esc();
     await tab(1);
     await shot('food');
+    // Calorie balance card (Food tab, side column).
+    await p.locator('.hl-balance').scrollIntoViewIfNeeded();
+    await shot('balance');
+    await p.locator('.hl-balance').screenshot({ path: `shots/hr-balance-card-${tag}.png` });
     await p.locator('.hl-meals-card .link-btn').click();
     await p.waitForTimeout(300);
     await p.locator('.hl-recipe input').first().fill(lang === 'he' ? 'טוסט וביצה' : 'Toast & egg');

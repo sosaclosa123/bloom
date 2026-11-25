@@ -152,6 +152,13 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   and use sticker art, not emoji (same for Wallet goals and payments).
 - Reminders must never pull her out of a full-screen game (game mode;
   popups never take focus). Reminders also post a Windows notification.
+- **One reminder per series** (owner, Nov 2026): water, the same medicine,
+  the same event (`seriesOf`). A new one while the last is still unanswered
+  replaces it and shows "Missed N" (`stackAlerts` in src/shared/alerts.ts,
+  tests `stack.test.ts`). PC: one pop-up card + the Windows notification is
+  replaced. Phone: `StackReceiver.java` (alarm ~3 s after each fires) removes
+  the older ones from the shade and updates the newest ("Missed N"), its
+  buttons keep working; the app sends the series via `setStacks`.
 - Startup "Coming up" window: next 5 events, on the Start button's side,
   stays until closed, setting to turn off (default on).
 - Text size setting (small/medium/large); day squares never cut text
@@ -185,8 +192,9 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   switch to bed/wake times; visit questions checklist; Doctor report (30/90
   days, print / PDF, IBD parts only when IBD on); streak chips; monthly
   summary card (first week of a month). Settings > Health, all OFF by default:
-  water reminders (even pace over waking hours, ~one glass per nudge, none in
-  the last 1.5 h before bed, dropped while gaming), weekly weigh-in day, My goals
+  water reminders (even pace, ~one glass per nudge, only between the set
+  hours: default 09:00-00:00, `healthWaterFrom`/`healthWaterTo`, account
+  setting; dropped while gaming), weekly weigh-in day, My goals
   (N times every N days/weeks/months, stays done until the next period),
   7-day challenges, Achievements book ("הישגים"; dimmed book button in the Health top bar;
   22 families / 120+ badges from day 1 to 5+ years; IBD ones only with IBD).
@@ -272,6 +280,14 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
 - Food tab side: **History** line chart (same `LineChart`): Calories /
   Carbohydrates / Fat / Protein per day; Week / 30 / 90 days / Year / From the
   start; click a dot = day pop-up (`foodSeries` in healthExtras.ts).
+- **Calorie balance card** (owner chose the demo, Nov 2026; Food tab side,
+  under History): per day eaten minus burn (+ surplus = gaining, - deficit =
+  losing); today so far vs burn + goal pill; yesterday; line chart (0 = keep
+  weight dotted, goal dashed); avg a day, about kg/week, days counted. Green
+  = good for the goal. **Today and days under 40% of burn logged are left
+  out of averages** (owner chose; that was why "vs. burn" looked too high);
+  the History summary uses the same rule (`calorieBalance`, `energySummary`,
+  `LOW_DAY_SHARE` in health.ts, tests energy.test.ts).
 - Icons: only names in `paths` (common.tsx) exist (pencil = "pen"); a missing
   name type-checks but draws nothing.
 - **Doctor visits = full history**, never filtered by the chosen day, scrolls
@@ -363,11 +379,18 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   **Phone Wallet = layout A** (owner): tabs This month | Year | Savings |
   Payments (remembered), "+ Purchase" opens the purchase window; the PC
   Wallet keeps its two columns. Check: `qa/phone-wallet.cjs`.
+  **Keyboard** (target SDK 36 = edge-to-edge, `adjustResize` alone doesn't
+  help): `useKeyboard` (phone.tsx) + native `bloomKeyboard` event (how much
+  the keyboard covers): `kb-open` on <html>, tabs/+ hide, windows sit above
+  the keyboard, the day panel fills the page while typing in it, the box is
+  scrolled into view. Check: `qa/phone-keyboard.cjs` (resize + overlay).
 
 ## In progress
-- Sync reliability fix released (Nov 2026). Waiting for the owner's feedback.
-  Old phone versions don't write `serverAt`: the PC gets their changes on the
-  12-hourly full download or "Sync now", so the phone must be updated.
+- Round 4 (owner, Nov 2026): water hours, calorie balance card, phone
+  keyboard, one reminder per series ("Missed N"), full bug check. Built +
+  tested on the work branch; native parts (keyboard, StackReceiver) only
+  compile in CI (no Android SDK here): run the test APK build. Then show
+  the owner and release when told.
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas

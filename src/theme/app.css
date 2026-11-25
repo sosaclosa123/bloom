@@ -8733,3 +8733,62 @@ button.hl-pill:hover {
   width: auto;
   min-width: 0;
 }
+
+/* Health > Food: calorie balance (eaten minus burn; green = good for your goal). */
+.hl-bal-burn {
+  margin: 0 0 var(--space-2);
+}
+.hl-bal-boxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.hl-bal-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2, color-mix(in srgb, var(--text) 4%, transparent));
+}
+.hl-bal-label,
+.hl-bal-state {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.hl-bal-box > b {
+  font-size: calc(19px * var(--fs-scale, 1));
+}
+.hl-bal-box.good > b,
+.hl-bal-good b {
+  color: var(--bal-good);
+}
+.hl-bal-box.bad > b,
+.hl-bal-bad b {
+  color: var(--danger);
+}
+.hl-bal-pill {
+  margin-top: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.hl-bal-pill.good {
+  background: color-mix(in srgb, var(--bal-good) 16%, transparent);
+  color: var(--bal-good);
+}
+.hl-bal-pill.bad {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+:root {
+  --bal-good: #2f8f5b;
+}
+[data-theme='dark'] {
+  --bal-good: #6fcf97;
+}

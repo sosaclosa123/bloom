@@ -1,6 +1,6 @@
 // Calorie + protein goal (sources in health.ts next to energyGoal).
 import { describe, expect, it } from 'vitest';
-import { energyGoal, energySummary } from './health';
+import { calorieBalance, dayBalance, energyGoal, energySummary } from './health';
 
 describe('energyGoal', () => {
   it('Mifflin-St Jeor x activity, 500 kcal deficit, 1.6 g/kg protein', () => {
@@ -48,14 +48,43 @@ describe('energyGoal', () => {
     expect(energyGoal({ age: 25, sex: 'female', heightCm: 165 }, null)).toBeNull();
   });
 
-  it('summary: average of logged days vs burn and goal', () => {
+  it('summary: average of finished, fully logged days vs burn and goal', () => {
     const s = energySummary(
       [
         { date: '2026-11-20', value: 1500 },
         { date: '2026-11-21', value: 1700 },
+        { date: '2026-11-22', value: 600 }, // only a snack logged: left out
+        { date: '2026-11-25', value: 300 }, // today, not over yet: left out
       ],
       { burn: 2100, target: 1600 },
+      '2026-11-25',
     )!;
-    expect(s).toEqual({ days: 2, avg: 1600, vsBurn: -500, vsTarget: 0, kgPerWeek: -0.45 });
+    expect(s).toEqual({ days: 2, skipped: 1, avg: 1600, vsBurn: -500, vsTarget: 0, kgPerWeek: -0.45 });
+  });
+
+  it('balance: eaten minus burn per day, average and kg a week', () => {
+    const b = calorieBalance(
+      [
+        { date: '2026-11-20', value: 1600 },
+        { date: '2026-11-21', value: 2600 },
+        { date: '2026-11-22', value: 500 },
+        { date: '2026-11-25', value: 900 },
+      ],
+      { burn: 2100, target: 1600 },
+      '2026-11-25',
+    );
+    expect(b.days).toEqual([
+      { date: '2026-11-20', value: -500 },
+      { date: '2026-11-21', value: 500 },
+    ]);
+    expect(b.skipped).toBe(1);
+    expect(b.avg).toBe(0);
+    expect(b.kgPerWeek).toBe(0);
+    expect(b.goal).toBe(-500);
+    expect(dayBalance(1600, 2100)).toEqual({ state: 'deficit', value: -500 });
+    expect(dayBalance(2400, 2100)).toEqual({ state: 'surplus', value: 300 });
+    expect(dayBalance(2150, 2100).state).toBe('even');
+    expect(dayBalance(400, 2100).state).toBe('partial');
+    expect(dayBalance(null, 2100).state).toBe('none');
   });
 });
