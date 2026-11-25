@@ -386,11 +386,10 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   scrolled into view. Check: `qa/phone-keyboard.cjs` (resize + overlay).
 
 ## In progress
-- Round 4 (owner, Nov 2026): water hours, calorie balance card, phone
-  keyboard, one reminder per series ("Missed N"), full bug check. Built +
-  tested on the work branch; native parts (keyboard, StackReceiver) only
-  compile in CI (no Android SDK here): run the test APK build. Then show
-  the owner and release when told.
+- Round 4 released (Nov 2026): water hours, calorie balance card, phone
+  keyboard, one reminder per series ("Missed N"). Waiting for the owner's
+  feedback; the keyboard + "Missed N" native parts were only tested by
+  simulation + CI compile, so ask how they behave on the real phone.
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas
