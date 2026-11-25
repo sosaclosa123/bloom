@@ -365,10 +365,9 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   Wallet keeps its two columns. Check: `qa/phone-wallet.cjs`.
 
 ## In progress
-- Sync reliability fix (owner: phone changes not on the PC) built + tested
-  on the work branch; release when the owner says. Tell the owner to update
-  the phone app too (old versions don't write `serverAt`; the PC still gets
-  their changes on the 12-hourly full download or "Sync now").
+- Sync reliability fix released (Nov 2026). Waiting for the owner's feedback.
+  Old phone versions don't write `serverAt`: the PC gets their changes on the
+  12-hourly full download or "Sync now", so the phone must be updated.
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas
