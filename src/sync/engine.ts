@@ -39,6 +39,8 @@ export const ACCOUNT_SETTINGS = [
   'healthIbd',
   'healthMedNames',
   'healthWaterNudge',
+  'healthWaterFrom',
+  'healthWaterTo',
   'healthWeighDay',
   'healthStickerBook',
   'healthGoals',

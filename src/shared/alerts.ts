@@ -5,7 +5,7 @@ import { occurrencesBetween } from './recurrence';
 import { alive } from './db';
 import { medDueOn, profileOf } from './health';
 import { behindPace, dayFacts, nudgePlan } from './healthExtras';
-import type { FiredAlert, HealthCheckin, HealthMed, HealthMedTaken, Snapshot } from './types';
+import type { FiredAlert, HealthMed, HealthMedTaken, Snapshot } from './types';
 
 type AlertData = Pick<Snapshot, 'events' | 'reminders'> & Partial<Pick<Snapshot, 'health' | 'settings'>>;
 
@@ -113,14 +113,14 @@ export function healthNudgesBetween(data: AlertData, from: number, to: number): 
     const at = (min: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(min / 60), min % 60).getTime();
     if (s.healthWaterNudge) {
       const f = dayFacts(all, date, !!s.healthIbd);
-      const c = all.find((x): x is HealthCheckin => x.kind === 'checkin' && x.date === date);
       const glass = profileOf(all)?.glassMl || 250;
-      const plan = nudgePlan(f.waterGoalMl, glass, c?.wake || '08:00', '23:00');
+      const plan = nudgePlan(f.waterGoalMl, glass, s.healthWaterFrom || '09:00', s.healthWaterTo || '00:00');
       for (const slot of plan.slots) {
         const due = at(slot);
         if (due <= from || due > to || !behindPace(plan, f.waterGoalMl, glass, f.waterMl, slot)) continue;
-        const hhmm = `${String(Math.floor(slot / 60)).padStart(2, '0')}:${String(slot % 60).padStart(2, '0')}`;
-        out.push({ key: `water@${date}T${hhmm}`, sourceId: 'water', kind: 'water', title: '', when: `${date}T${hhmm}`, dueAt: due, minutesBefore: 0, sound: s.defaultSound });
+        // A nudge at midnight or later belongs to this day's plan but happens on the next date.
+        const when = toLocalDateTime(new Date(due));
+        out.push({ key: `water@${date}T${slot}`, sourceId: 'water', kind: 'water', title: '', when, dueAt: due, minutesBefore: 0, sound: s.defaultSound });
       }
     }
     if (s.healthWeighDay != null && d.getDay() === s.healthWeighDay) {
@@ -138,4 +138,33 @@ export function nextAlertTime(data: AlertData, now: number): number | null {
   const week = 7 * 86400000;
   const due = alertsDueBetween(data, now, now + week);
   return due.length ? due[0].dueAt : null;
+}
+
+// ---------------------------------------------------------------- one card per series
+
+/**
+ * Alerts that repeat (water nudges, the same medicine, the same event's
+ * reminders) form a series. Owner (Nov 2026): when a new one comes while the
+ * last is still unanswered, show ONE card/notification with "Missed N"
+ * instead of a pile of them.
+ */
+export const seriesOf = (a: Pick<FiredAlert, 'kind' | 'sourceId'>) => (a.kind === 'water' || a.kind === 'weigh' ? a.kind : `${a.kind}:${a.sourceId}`);
+
+/** Adds new alerts to those on screen: each series keeps only its newest, counting the ones it replaced. */
+export function stackAlerts(shown: FiredAlert[], incoming: FiredAlert[]): FiredAlert[] {
+  const out = [...shown];
+  const keys = new Set(shown.map((a) => a.key));
+  for (const a of [...incoming].sort((x, y) => x.dueAt - y.dueAt)) {
+    if (keys.has(a.key)) continue;
+    keys.add(a.key);
+    const i = out.findIndex((x) => seriesOf(x) === seriesOf(a));
+    if (i < 0) {
+      out.push(a);
+      continue;
+    }
+    const old = out[i];
+    out.splice(i, 1);
+    out.push({ ...a, missed: (old.missed ?? 0) + 1 + (a.missed ?? 0) });
+  }
+  return out;
 }

@@ -18,6 +18,7 @@ import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 
 import { basename, extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { COLLECTIONS, merge, newMeta, normalizeSnapshot, remove, updateSettings, upsert, uuid } from '../src/shared/db';
+import { seriesOf, stackAlerts } from '../src/shared/alerts';
 import type { CollectionName, Collections, FiredAlert, HealthCheckin, HealthMedTaken, PhotoRef, RecordOf, Settings, Snapshot, SoundMeta } from '../src/shared/types';
 import { gameDetectionStatus, isGaming, setOwnWindowCheck } from './gameMode';
 import { AutoBackup } from './autoBackup';
@@ -288,26 +289,36 @@ function sendPopup() {
 // Also post a real Windows notification (stays in the Action Center).
 // Silent, because Bloom plays its own reminder sound.
 const liveToasts = new Set<Notification>();
+/** The Windows notification showing for each series (a newer one replaces it). */
+const toastBySeries = new Map<string, Notification>();
 function showToasts(alerts: FiredAlert[]) {
   if (!Notification.isSupported()) return;
   const he = store.get().settings.language === 'he';
   const list = alerts.slice(0, 3);
   for (const a of list) {
     const time = a.when.slice(11, 16);
+    const missed = a.missed ? (he ? ` · פוספסו ${a.missed}` : ` · Missed ${a.missed}`) : '';
     const body =
-      a.minutesBefore > 0
+      (a.minutesBefore > 0
         ? he
           ? `מתחיל ב-${time}`
           : `Starts at ${time}`
-        : time;
+        : time) + missed;
     try {
       // Medication reminders stay generic ("Medication") unless names were turned on.
       const title =
         a.title ||
         (a.kind === 'med' ? (he ? 'תרופה' : 'Medication') : a.kind === 'water' ? (he ? 'הגיע הזמן לכוס מים' : 'Time for a glass of water') : a.kind === 'weigh' ? (he ? 'שקילה שבועית' : 'Weekly weigh-in') : 'Bloom');
+      // Only one per series: the older one goes away (its count is in "Missed N").
+      const series = seriesOf(a);
+      toastBySeries.get(series)?.close();
       const n = new Notification({ title, body, silent: true, icon: join(DIST, 'icon.png') });
       liveToasts.add(n);
-      const done = () => liveToasts.delete(n);
+      toastBySeries.set(series, n);
+      const done = () => {
+        liveToasts.delete(n);
+        if (toastBySeries.get(series) === n) toastBySeries.delete(series);
+      };
       n.on('click', () => {
         done();
         showMain(a.when.slice(0, 10));
@@ -321,9 +332,11 @@ function showToasts(alerts: FiredAlert[]) {
 }
 
 function showAlerts(alerts: FiredAlert[], reason: DeliveryReason) {
-  showToasts(alerts);
-  const keys = new Set(popupAlerts.map((a) => a.key));
-  popupAlerts = [...popupAlerts, ...alerts.filter((a) => !keys.has(a.key))];
+  // One card per series (water, a medicine, an event): a new one replaces the
+  // unanswered one and shows "Missed N" (owner, Nov 2026).
+  const before = new Set(popupAlerts.map((a) => a.key));
+  popupAlerts = stackAlerts(popupAlerts, alerts);
+  showToasts(popupAlerts.filter((a) => !before.has(a.key)));
   popupReason = reason;
   ensurePopup();
   sendPopup();

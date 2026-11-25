@@ -633,3 +633,25 @@
   justify-content: center;
   min-height: 44px;
 }
+
+/* ------------------------------------------------------------ typing (keyboard open)
+   Owner: "the keyboard pops up and hides everything". While typing, what is
+   being edited moves up with the keyboard: windows sit right above it, the
+   tabs and "+" hide, and the day panel takes the whole page (see useKeyboard). */
+:root.kb-open {
+  --sa-bottom: 0px;
+}
+:root.kb-open .app.phone {
+  height: calc(100% - var(--kb, 0px));
+}
+:root.kb-open .phone .rail,
+:root.kb-open .phone .phone-fab {
+  display: none;
+}
+:root.kb-open .phone .scrim {
+  bottom: var(--kb, 0px);
+}
+:root.kb-open .phone .phone-sheet:focus-within {
+  inset: 0;
+  border-radius: 0;
+}

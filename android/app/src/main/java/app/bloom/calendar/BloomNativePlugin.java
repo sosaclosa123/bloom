@@ -5,14 +5,20 @@ import android.content.Intent;
 import android.net.Uri;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
+import android.view.View;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import androidx.core.content.FileProvider;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsAnimationCompat;
+import androidx.core.view.WindowInsetsCompat;
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.File;
+import java.util.List;
 
 /**
  * Small native helpers for the phone app:
@@ -20,10 +26,85 @@ import java.io.File;
  *    installing a downloaded update (.apk) — Android then asks "Install?".
  *  - shareFile: the Android share sheet (save a backup to Drive, Files, ...).
  *  - printHtml: Android's print screen for a page (doctor report; "Save as PDF").
+ *  - the keyboard: tells the page how much of it the keyboard covers
+ *    (window event "bloomKeyboard" { height, open }), so what is being typed
+ *    in can move up above it (useKeyboard in src/ui/phone.tsx).
  * Paths are file:// URIs from @capacitor/filesystem (app files or cache).
  */
 @CapacitorPlugin(name = "BloomNative")
 public class BloomNativePlugin extends Plugin {
+
+    @Override
+    public void load() {
+        super.load();
+        View web = getBridge().getWebView();
+        ViewCompat.setWindowInsetsAnimationCallback(
+            web,
+            new WindowInsetsAnimationCompat.Callback(WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+                @Override
+                public WindowInsetsCompat onProgress(WindowInsetsCompat insets, List<WindowInsetsAnimationCompat> running) {
+                    return insets;
+                }
+
+                @Override
+                public WindowInsetsAnimationCompat.BoundsCompat onStart(WindowInsetsAnimationCompat a, WindowInsetsAnimationCompat.BoundsCompat bounds) {
+                    sendKeyboard();
+                    return bounds;
+                }
+
+                @Override
+                public void onEnd(WindowInsetsAnimationCompat a) {
+                    // Once the app has been resized (or not), measure again.
+                    web.post(() -> sendKeyboard());
+                }
+            }
+        );
+    }
+
+    /** Which notification belongs to which series (water, a medicine, an event), for "Missed N" (StackReceiver). */
+    @PluginMethod
+    public void setStacks(PluginCall call) {
+        try {
+            JSObject items = call.getObject("items", new JSObject());
+            StackReceiver.save(getContext(), items, call.getString("missed", "Missed {n}"));
+            call.resolve();
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    /** Tidy up now (the app came back): one notification per series. */
+    @PluginMethod
+    public void collapseStacks(PluginCall call) {
+        StackReceiver.collapse(getContext());
+        call.resolve();
+    }
+
+    private String lastKeyboard = "";
+
+    /** How much of the page the keyboard covers right now (CSS px), measured on screen. */
+    private void sendKeyboard() {
+        try {
+            View web = getBridge().getWebView();
+            WindowInsetsCompat w = ViewCompat.getRootWindowInsets(web);
+            if (w == null) return;
+            boolean open = w.isVisible(WindowInsetsCompat.Type.ime());
+            int ime = open ? w.getInsets(WindowInsetsCompat.Type.ime()).bottom : 0;
+            View root = web.getRootView();
+            int[] at = new int[2];
+            web.getLocationOnScreen(at);
+            int webBottom = at[1] + web.getHeight();
+            int keyboardTop = root.getHeight() - ime;
+            float density = getContext().getResources().getDisplayMetrics().density;
+            int covered = open ? Math.max(0, Math.round((webBottom - keyboardTop) / density)) : 0;
+            String data = "{ \"height\": " + covered + ", \"open\": " + open + " }";
+            if (data.equals(lastKeyboard)) return;
+            lastKeyboard = data;
+            getBridge().triggerWindowJSEvent("bloomKeyboard", data);
+        } catch (Exception e) {
+            // never break typing because of this
+        }
+    }
 
     private Uri contentUri(String path) {
         String p = path.startsWith("file://") ? Uri.parse(path).getPath() : path;

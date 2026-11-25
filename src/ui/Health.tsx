@@ -36,6 +36,16 @@ export function HealthSettings() {
           <p className="muted small">{t('hlMedNamesHint')}</p>
           <Toggle checked={settings.healthWaterNudge} label={t('hlSetWater')} onChange={(healthWaterNudge) => setSettings({ healthWaterNudge })} />
           <p className="muted small">{t('hlSetWaterHint')}</p>
+          {settings.healthWaterNudge && (
+            <div className="hl-set-row hl-set-hours">
+              <span>{t('hlSetWaterHours')}</span>
+              <span className="hl-set-hours-in">
+                <input type="time" aria-label={t('hlSetWaterFrom')} value={settings.healthWaterFrom || '09:00'} onChange={(e) => e.target.value && setSettings({ healthWaterFrom: e.target.value })} />
+                <span aria-hidden="true">–</span>
+                <input type="time" aria-label={t('hlSetWaterTo')} value={settings.healthWaterTo || '00:00'} onChange={(e) => e.target.value && setSettings({ healthWaterTo: e.target.value })} />
+              </span>
+            </div>
+          )}
           <label className="hl-set-row">
             <span>{t('hlSetWeigh')}</span>
             <select

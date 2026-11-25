@@ -85,11 +85,15 @@ describe('sticker book', () => {
 });
 
 describe('water nudges', () => {
-  it('about one glass per nudge, spread over the waking day, none near bedtime', () => {
-    const p = nudgePlan(1600, 250, '08:00', '23:00'); // 13.5 h window, 7 glasses
+  it('about one glass per nudge, spread over the chosen hours', () => {
+    const p = nudgePlan(1600, 250, '08:00', '21:30'); // 13.5 h window, 7 glasses
     expect(p.intervalMin).toBe(116);
     expect(Math.max(...p.slots)).toBeLessThanOrEqual(21 * 60 + 30);
-    expect(nudgePlan(3500, 250).intervalMin).toBe(58);
+    // Default (owner): 09:00 to midnight; never before 09:00 or after 00:00.
+    const d = nudgePlan(2000, 250);
+    expect(Math.min(...d.slots)).toBeGreaterThan(9 * 60);
+    expect(Math.max(...d.slots)).toBeLessThanOrEqual(24 * 60);
+    expect(nudgePlan(3500, 250).intervalMin).toBe(64); // 15 h (09:00-00:00) / 14 glasses
     expect(nudgePlan(1200, 500).intervalMin).toBe(180); // never less often than every 3 h
     // At 12:00 the even pace is ~474 ml: 0 ml -> behind, 400 ml -> fine.
     expect(behindPace(p, 1600, 250, 0, 12 * 60)).toBe(true);

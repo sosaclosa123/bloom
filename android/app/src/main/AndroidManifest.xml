@@ -26,6 +26,9 @@
 
         </activity>
 
+        <!-- One notification per series with "Missed N" (StackReceiver.java). -->
+        <receiver android:name=".StackReceiver" android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

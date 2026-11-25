@@ -469,6 +469,9 @@ export interface Settings {
   healthMedNames: boolean;
   /** Health extras (this computer only, all off by default). */
   healthWaterNudge: boolean;
+  /** Water nudges only between these times ("HH:MM"; to <= from = next day). Default 09:00-00:00. */
+  healthWaterFrom?: string;
+  healthWaterTo?: string;
   /** Weekly weigh-in reminder: weekday 0-6 (Sunday = 0) or null = off. */
   healthWeighDay: number | null;
   healthStickerBook: boolean;
@@ -509,6 +512,8 @@ export const DEFAULT_SETTINGS: Settings = {
   healthIbd: false,
   healthMedNames: false,
   healthWaterNudge: false,
+  healthWaterFrom: '09:00',
+  healthWaterTo: '00:00',
   healthWeighDay: null,
   healthStickerBook: false,
   healthGoals: false,
@@ -554,4 +559,6 @@ export interface FiredAlert {
   minutesBefore: number;
   sound: string;
   missedWhileGaming?: boolean;
+  /** Earlier alerts of the same series still unanswered when this one came (shown as "Missed N"). */
+  missed?: number;
 }

@@ -46,6 +46,7 @@ export function AlertCards({ alerts, reason, lang, snoozeOptions, onSnooze, onDi
               <div className="alert-meta">
                 <span>{whenLabel}</span>
                 {lead && <span className="alert-lead">{lead}</span>}
+                {!!a.missed && <span className="alert-missed">{t('alertMissed', { n: a.missed })}</span>}
               </div>
               <div className="alert-title">
                 {a.title || (a.kind === 'med' ? t('hlMedication') : a.kind === 'water' ? t('hlNudgeWater') : a.kind === 'weigh' ? t('hlNudgeWeigh') : t('reminder'))}

@@ -8,7 +8,7 @@ import { registerPlugin, SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { LocalNotifications, type LocalNotificationSchema } from '@capacitor/local-notifications';
 import { formatDuration, translate, type StringKey } from '../i18n/strings';
-import { alertsDueBetween } from '../shared/alerts';
+import { alertsDueBetween, seriesOf } from '../shared/alerts';
 import { autoBackupDue, autoBackupName, backupsToDelete, type AutoBackupState } from '../shared/backup';
 import type { FiredAlert, Language, Snapshot } from '../shared/types';
 import type { KV, PhotoStore, PlatformAPI, UpdateState, WebOptions } from './api';
@@ -17,6 +17,9 @@ interface BloomNativePlugin {
   openFile(o: { path: string; mime: string }): Promise<void>;
   shareFile(o: { path: string; mime: string; title?: string }): Promise<void>;
   printHtml(o: { html: string; title: string }): Promise<void>;
+  /** Which notification is in which series, for one notification per series with "Missed N". */
+  setStacks(o: { items: Record<string, { s: string; at: number }>; missed: string }): Promise<void>;
+  collapseStacks(): Promise<void>;
 }
 const Native = registerPlugin<BloomNativePlugin>('BloomNative');
 
@@ -185,6 +188,7 @@ export async function createAndroid(makeWeb: (o: WebOptions) => PlatformAPI): Pr
     if (!isActive) void kv.flush();
     hiddenListeners.forEach((l) => l(!isActive));
     if (isActive) {
+      void Native.collapseStacks().catch(() => {});
       void reschedule(true);
       if (Date.now() - lastCheck > 6 * 3600000) void checkUpdate();
     }
@@ -236,6 +240,11 @@ export async function createAndroid(makeWeb: (o: WebOptions) => PlatformAPI): Pr
           extra: { alert: a },
         }));
         if (notifications.length) await LocalNotifications.schedule({ notifications });
+        // One notification per series on screen ("Missed N"; StackReceiver.java).
+        await Native.setStacks({
+          items: Object.fromEntries(list.map((a) => [String(idOf(a.key)), { s: seriesOf(a), at: a.dueAt }])),
+          missed: tr('alertMissed', { n: '{n}' }),
+        }).catch(() => {});
       } catch (e) {
         console.error('bloom: scheduling reminders failed', e);
         lastSig = '';

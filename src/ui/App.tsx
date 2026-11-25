@@ -5,6 +5,7 @@ import { newMeta, personalDays } from '../shared/db';
 import { expandEvents, type EventOccurrence } from '../shared/recurrence';
 import type { CalendarEvent, Countdown, FiredAlert, HealthCheckin, ISODate, Reminder } from '../shared/types';
 import { AlertCards } from './AlertCards';
+import { stackAlerts } from '../shared/alerts';
 import type { ReminderOccurrence } from './calendarData';
 import { Button, Icon, Toasts } from './common';
 import { DayDrawer, type DrawerTab } from './DayDrawer';
@@ -28,7 +29,7 @@ import { SeasonBackdrop } from './season';
 import { WeekView } from './WeekView';
 import { YearView } from './YearView';
 import { useWindowControls } from './windowControls';
-import { PHONE_ANIM_MS, PhoneDaySheet, useSwipe } from './phone';
+import { PHONE_ANIM_MS, PhoneDaySheet, useKeyboard, useSwipe } from './phone';
 
 type ModalState =
   | { kind: 'event'; ev: CalendarEvent; isNew: boolean }
@@ -152,7 +153,7 @@ export function App() {
         setAnchor(parseISODate(date));
         setOpenDay(date);
       }),
-      platform.onInPageAlert((a) => setPageAlerts((p) => [...p, ...a])),
+      platform.onInPageAlert((a) => setPageAlerts((p) => stackAlerts(p, a))),
     ];
     return () => offs.forEach((off) => off());
   }, []);
@@ -277,6 +278,7 @@ export function App() {
 
   // Phone: swipe the calendar sideways to change month / week / year.
   const contentRef = useRef<HTMLDivElement>(null);
+  useKeyboard(isPhone);
   useSwipe(contentRef, isPhone && tab === 'calendar', settings.language === 'he', (dir) => {
     if (openDay) setOpenDay(null); // a new month: the open day closes
     go(dir);

@@ -154,3 +154,76 @@ export function useSwipe(ref: React.RefObject<HTMLElement | null>, enabled: bool
     };
   }, [ref, enabled, rtl]);
 }
+
+/**
+ * Keyboard on the phone (owner, Nov 2026: "the keyboard hides everything").
+ * Whatever is being typed in moves up above the keyboard:
+ *  - `--kb` = the part of the page the keyboard still covers. Android
+ *    either makes the app shorter (then nothing is covered) or lays the
+ *    keyboard over it (then the app is shortened here by that much); the
+ *    native side measures it (`bloomKeyboard` event), a browser shrinks the
+ *    visual viewport.
+ *  - `kb-open` on <html>: tabs hide, windows sit right above the keyboard and
+ *    the day panel takes the whole page while typing in it (phone.css).
+ *  - the box being typed in is scrolled into view.
+ */
+export function useKeyboard(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+    const root = document.documentElement;
+    let full = window.innerHeight; // app height without a keyboard (per orientation)
+    let wide = window.innerWidth;
+    let native = 0; // part of the page the keyboard covers, measured by Android (CSS px)
+    let nativeOpen = false;
+    let open = false;
+    const typing = () => {
+      const el = document.activeElement as HTMLElement | null;
+      return !!el && (el.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=date]):not([type=time]), textarea, select, [contenteditable="true"]') || el.isContentEditable);
+    };
+    const reveal = () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && typing()) el.scrollIntoView({ block: 'center', inline: 'nearest' });
+    };
+    const update = () => {
+      if (window.innerWidth !== wide) {
+        wide = window.innerWidth; // turned sideways: start over
+        full = window.innerHeight;
+      }
+      if (!typing() && window.innerHeight > full) full = window.innerHeight;
+      const shrunk = Math.max(0, full - window.innerHeight); // already made room (Android resized the app)
+      const vv = window.visualViewport;
+      const browserKb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+      const covered = Math.max(0, Math.round(Math.max(native, browserKb)));
+      const isOpen = nativeOpen || covered > 80 || shrunk > 120;
+      root.style.setProperty('--kb', `${isOpen ? covered : 0}px`);
+      root.classList.toggle('kb-open', isOpen && typing());
+      if (isOpen && !open) setTimeout(reveal, 60);
+      open = isOpen;
+    };
+    const onNative = (e: Event) => {
+      const d = e as Event & { height?: number; open?: boolean };
+      native = Number(d.height) || 0;
+      nativeOpen = !!d.open;
+      update();
+    };
+    const onFocus = () => {
+      update();
+      if (open) setTimeout(reveal, 60);
+    };
+    const onBlur = () => setTimeout(update, 0);
+    window.addEventListener('bloomKeyboard', onNative);
+    window.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('resize', update);
+    document.addEventListener('focusin', onFocus);
+    document.addEventListener('focusout', onBlur);
+    return () => {
+      window.removeEventListener('bloomKeyboard', onNative);
+      window.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('resize', update);
+      document.removeEventListener('focusin', onFocus);
+      document.removeEventListener('focusout', onBlur);
+      root.classList.remove('kb-open');
+      root.style.removeProperty('--kb');
+    };
+  }, [enabled]);
+}

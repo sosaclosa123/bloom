@@ -371,20 +371,25 @@ export interface NudgePlan {
   start: number; // minutes after midnight
   end: number;
   intervalMin: number;
-  slots: number[]; // minutes after midnight
+  slots: number[]; // minutes after midnight of the plan's day (1440 = midnight at its end)
 }
 
 const toMin = (x: string) => +x.slice(0, 2) * 60 + +x.slice(3, 5);
 
-export function nudgePlan(goalMl: number, glassMl: number, wake = '08:00', bed = '23:00'): NudgePlan {
-  const start = toMin(wake);
-  let end = toMin(bed) - 90; // the last 1.5 h before bed: no nudges
+/**
+ * Water nudges between `from` and `to` (owner, Nov 2026: 09:00 to 00:00 by
+ * default, changeable in Settings > Health). `to` at or before `from` = the
+ * next day (00:00 = midnight).
+ */
+export function nudgePlan(goalMl: number, glassMl: number, from = '09:00', to = '00:00'): NudgePlan {
+  const start = toMin(from);
+  let end = toMin(to);
   if (end <= start) end += 1440;
-  end = Math.min(end, start + 18 * 60);
+  end = Math.min(end, start + 1439);
   const glasses = Math.max(1, Math.ceil(goalMl / Math.max(100, glassMl)));
   const intervalMin = Math.round(Math.min(180, Math.max(45, (end - start) / glasses)));
   const slots: number[] = [];
-  for (let t = start + intervalMin; t <= end; t += intervalMin) slots.push(t % 1440);
+  for (let t = start + intervalMin; t <= end; t += intervalMin) slots.push(t);
   return { start, end, intervalMin, slots };
 }
 

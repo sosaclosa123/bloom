@@ -7,6 +7,7 @@ const files = new Map<string, string>();
 // Shared folders (Documents / the app's own folder) get a prefix; app data doesn't.
 const at = (path: string, directory?: string) => (directory === 'DOCUMENTS' || directory === 'EXTERNAL' ? `${directory}:${path}` : path);
 let documentsBlocked = false;
+const stacks: unknown[] = [];
 const scheduled: { id: number; title: string; schedule: { at: Date } }[] = [];
 const listeners: Record<string, (x: unknown) => void> = {};
 
@@ -71,7 +72,7 @@ vi.mock('@capacitor/app', () => ({
   },
 }));
 vi.mock('@capacitor/core', () => ({
-  registerPlugin: () => ({ openFile: async () => {}, shareFile: async () => {} }),
+  registerPlugin: () => ({ openFile: async () => {}, shareFile: async () => {}, setStacks: async (o: unknown) => void stacks.push(o), collapseStacks: async () => {} }),
   SystemBars: { setStyle: async () => {} },
   SystemBarsStyle: { Dark: 'DARK', Light: 'LIGHT' },
 }));
@@ -147,6 +148,8 @@ describe('createAndroid', () => {
     await p.upsert('events', event('2026-11-19T12:00'));
     await vi.advanceTimersByTimeAsync(2000);
     expect(scheduled.map((n) => n.title)).toEqual(['Dentist']);
+    // The native side learns the series (for one notification + "Missed N").
+    expect(JSON.stringify(stacks.at(-1))).toContain('"s":"event:');
     expect(scheduled[0].schedule.at.getTime()).toBe(new Date('2026-11-19T11:45').getTime());
     // Saved to a file, and read back by the next start.
     expect([...files.keys()].some((k) => k.startsWith('kv/snap'))).toBe(true);
