@@ -5,6 +5,7 @@
 // Values are per 100 g; a logged item stores its own grams and totals.
 
 import type { FoodLabel, HealthFood, HealthRecipe, RecipeItem } from './types';
+import { densityOf, ilFacts, nutriScore, redLabels, type Grade, type RedLabel } from './nutrition';
 export interface FoodProduct {
   id: string; // 'il:<code>' or 'off:<barcode>'
   source: 'il' | 'off';
@@ -17,6 +18,15 @@ export interface FoodProduct {
   carbs: number;
   sugars?: number;
   fiber?: number;
+  /** Saturated fat (g) and sodium (mg) per 100 g, when known. */
+  satFat?: number;
+  sodium?: number;
+  /** Healthy score (Nutri-Score 2023, see nutrition.ts) and Israeli red labels. */
+  grade?: Grade | null;
+  red?: RedLabel[];
+  /** Liquid: amounts in ml; grams per ml (null = unknown, 1 g/ml estimate). */
+  liquid?: boolean;
+  density?: number | null;
   /** Typical portions: label + grams. */
   portions: { label: string; grams: number }[];
   barcode?: string;
@@ -29,8 +39,8 @@ export interface FoodProduct {
 export interface FoodsIL {
   source: string;
   units: Record<string, [string, string]>; // code -> [he, en]
-  /** code, Hebrew, English, kcal, protein, fat, carbs, portions, sugars, fiber (per 100 g) */
-  foods: [number, string, string, number, number, number, number, [number, number][], number?, number?][];
+  /** code, Hebrew, English, kcal, protein, fat, carbs, portions, sugars, fiber, saturated fat, sodium mg (per 100 g) */
+  foods: [number, string, string, number, number, number, number, [number, number][], number?, number?, number?, number?][];
 }
 
 const norm = (s: string) =>
@@ -44,7 +54,9 @@ const norm = (s: string) =>
     .trim();
 
 export function ilProduct(db: FoodsIL, row: FoodsIL['foods'][number], lang: 'en' | 'he'): FoodProduct {
-  const [code, he, en, kcal, protein, fat, carbs, portions, sugars, fiber] = row;
+  const [code, he, en, kcal, protein, fat, carbs, portions, sugars, fiber, satFat, sodium] = row;
+  const per = { kcal, protein, fat, carbs, sugars, fiber, satFat, sodium };
+  const facts = ilFacts(code, en, he, per);
   return {
     id: `il:${code}`,
     source: 'il',
@@ -57,6 +69,12 @@ export function ilProduct(db: FoodsIL, row: FoodsIL['foods'][number], lang: 'en'
     carbs,
     sugars: sugars ?? undefined,
     fiber: fiber ?? undefined,
+    satFat: satFat ?? undefined,
+    sodium: sodium ?? undefined,
+    grade: nutriScore(per, facts)?.grade ?? null,
+    red: redLabels(per, facts),
+    liquid: !!facts.liquid,
+    density: densityOf(portions),
     portions: portions
       .filter(([u]) => db.units[u])
       .map(([u, grams]) => ({ label: db.units[u][lang === 'he' ? 0 : 1], grams })),

@@ -447,9 +447,15 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
     the bottom: Recipes, Plan, Shopping, Taste. Each opens its own clean
     page/window. Same on the phone.
   - **Build phases (check off; pause every ~15 min):**
-    - [ ] 1 Data: refetch MoH with saturated_fat + sodium; ml (density from
-          MoH cup grams / 240 ml, else 1.0); healthy score (Nutri-Score
-          style) + Israeli red labels (verify thresholds); tests.
+    - [x] 1 Data: foods-il.json now has saturated fat + sodium (rows: ...,
+          sugars, fiber, satFat, sodiumMg); `src/shared/nutrition.ts`
+          (tested): Nutri-Score 2023 (thresholds from Open Food Facts'
+          reference code, raw.githubusercontent.com reachable; wikipedia /
+          pubmed / santepubliquefrance are blocked here), A/B healthy, C no
+          mark, D/E less healthy; Israeli red labels (solid 400 mg Na / 10 g
+          sugar / 4 g sat; liquid 300 / 5 / 3; plain single foods exempt);
+          liquid detection + density (cup grams / 240). `ilProduct` fills
+          grade, red, liquid, density. NEXT: phase 2 UI.
     - [ ] 2 Food UI: ml, cups/spoons, label entry ("my product"), + oil,
           exact mark + day ± range, healthy mark (tap = change), red labels,
           recent + favorites, repeat meal / copy day, macro + fiber/sugar

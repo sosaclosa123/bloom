@@ -1,7 +1,11 @@
 // Builds src/data/foods-il.json from the Israeli Ministry of Health national
 // nutrition database (data.gov.il, "מאגר התזונה הלאומי הישראלי", open data):
-// food names (Hebrew + English), kcal / protein / fat / carbs / sugars / fiber per 100 g, and
-// typical portion weights. Run: node scripts/fetch-foods-il.mjs
+// food names (Hebrew + English), kcal / protein / fat / carbs / sugars / fiber /
+// saturated fat (g) / sodium (mg) per 100 g, and typical portion weights
+// (cups, spoons, slices…). Row: [code, he, en, kcal, protein, fat, carbs,
+// portions, sugars, fiber, satFat, sodiumMg]. The code's first digits are the
+// food group (1 milk, 2 meat/fish, 3 eggs, 4 legumes/nuts, 5 grains, 6 fruit,
+// 7 vegetables, 8 fats/oils, 9 sweets/drinks). Run: node scripts/fetch-foods-il.mjs
 import { writeFileSync } from 'node:fs';
 
 const API = 'https://data.gov.il/api/3/action/datastore_search';
@@ -42,14 +46,14 @@ for (const w of weights) {
   const g = Number(w.mishkal);
   if (!(g > 0)) continue;
   const list = byFood.get(String(w.mmitzrach)) ?? [];
-  if (list.length < 6) list.push([Number(w.mida), Math.round(g * 10) / 10]);
+  if (list.length < 10) list.push([Number(w.mida), Math.round(g * 10) / 10]);
   byFood.set(String(w.mmitzrach), list);
 }
 const n = (x) => (x == null || x === '' ? 0 : Math.round(Number(x) * 10) / 10);
 const rows = [];
 for (const f of foods) {
   if (f.food_energy == null || f.food_energy === '') continue;
-  rows.push([f.smlmitzrach, String(f.shmmitzrach).trim(), String(f.english_name ?? '').trim(), n(f.food_energy), n(f.protein), n(f.total_fat), n(f.carbohydrates), byFood.get(String(f.Code)) ?? [], n(f.total_sugars), n(f.total_dietary_fiber)]);
+  rows.push([f.smlmitzrach, String(f.shmmitzrach).trim(), String(f.english_name ?? '').trim(), n(f.food_energy), n(f.protein), n(f.total_fat), n(f.carbohydrates), byFood.get(String(f.Code)) ?? [], n(f.total_sugars), n(f.total_dietary_fiber), n(f.saturated_fat), Math.round(Number(f.sodium) || 0)]);
 }
 const out = { source: 'Israel Ministry of Health, national nutrition database (data.gov.il)', fetched: new Date().toISOString().slice(0, 10), units: unitMap, foods: rows };
 writeFileSync(new URL('../src/data/foods-il.json', import.meta.url), JSON.stringify(out));
