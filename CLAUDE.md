@@ -412,6 +412,35 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
     (typical weights, "≈").
   - Shared data needs new Firestore rules (owner pastes them) + a design
     demo before building.
+- **Round 5 also = Recipes / Kitchen (owner, Nov 2026; build TOGETHER with
+  the Food upgrade, one release; check-in pause every ~15 min).** NO AI:
+  built-in recipe database + rules (filters + scoring), offline. Recipes
+  are original (no copying sites), nutrition computed per gram from MoH data
+  (USDA cross-check); accurate amounts (real-recipe quantities).
+  - Suggest by: time of day / what's eaten today (calories left, protein
+    left, fiber), variety (already fried -> grilled/baked; no same protein
+    twice a day), taste profile, ratings; "Another one" button; real
+    research rules (MoH guidelines, protein ~0.4 g/kg per meal, veg+fiber
+    daily, limit fried, WHO sugars).
+  - Kosher only: never meat + dairy; after dairy wait 30 min, after meat
+    wait 6 h (real clock, from logged food). Parve alternatives (margarine
+    for butter, non-dairy cream…); NO vegan meat substitutes.
+  - Taste profile setup (cuisines e.g. Middle Eastern, spice level,
+    dislikes/allergies, kitchen tools, servings). "Never suggest X" button
+    per ingredient (e.g. tofu): never again; recipes swap it for a real,
+    working substitute.
+  - Easy/medium/hard + short/long time filters; clear step-by-step; Cook
+    mode (big steps + timer per step) -> one tap logs it to Food.
+  - Rate + learn (thumbs up/down). My own recipes (create; nutrition from
+    ingredients: kcal, sugars, protein, etc.).
+  - Weekly plan + shopping list; shopping list items can be marked
+    out / in stock manually (finished chicken -> mark; re-mark when bought).
+  - "What can I make?" (pick what's in the fridge), Craving swap (healthier
+    version of the craved dish), Batch cooking = toggle + number of meals
+    (covers cooking for two); amounts scale accurately.
+  - Ingredients/products must be available in Israel (general items ok).
+  - Owner asked: show WHERE each part goes (no messy layout, less eye
+    stress) as a demo before building.
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas
