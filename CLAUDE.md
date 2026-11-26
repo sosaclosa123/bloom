@@ -439,8 +439,33 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
     version of the craved dish), Batch cooking = toggle + number of meals
     (covers cooking for two); amounts scale accurately.
   - Ingredients/products must be available in Israel (general items ok).
-  - Owner asked: show WHERE each part goes (no messy layout, less eye
-    stress) as a demo before building.
+  - **Layout = "Mix A + B" (owner chose; the first busy demo was rejected as
+    messy: keep it MINIMAL, few words, lots of space):** Health tab
+    "Kitchen" opens to ONE meal idea (sticker, name, "35 min · 520 kcal ·
+    46 g protein", buttons Cook it / Other), "Why this?" behind a small ⓘ,
+    a small "I'm craving… · My fridge" link under it, and 4 small icons at
+    the bottom: Recipes, Plan, Shopping, Taste. Each opens its own clean
+    page/window. Same on the phone.
+  - **Build phases (check off; pause every ~15 min):**
+    - [ ] 1 Data: refetch MoH with saturated_fat + sodium; ml (density from
+          MoH cup grams / 240 ml, else 1.0); healthy score (Nutri-Score
+          style) + Israeli red labels (verify thresholds); tests.
+    - [ ] 2 Food UI: ml, cups/spoons, label entry ("my product"), + oil,
+          exact mark + day ± range, healthy mark (tap = change), red labels,
+          recent + favorites, repeat meal / copy day, macro + fiber/sugar
+          goals, eating out S/M/L, weekly food report.
+    - [ ] 3 Shared: public food library + healthy corrections (Firestore,
+          new rules for the owner to paste), online search default ON,
+          phone camera barcode.
+    - [ ] 4 Bigger offline DB: Israeli Open Food Facts products (barcodes).
+    - [ ] 5 Recipes DB (original, ingredients = MoH ids + grams, steps,
+          kosher type meat/dairy/parve, time, difficulty, cuisine, method,
+          meal type, substitutions).
+    - [ ] 6 Kitchen: suggestion engine (rules + scoring + kosher clock),
+          taste profile, never-suggest + swaps, cook mode + log it, ratings,
+          my recipes, craving swap, fridge, batch toggle + meals count, week
+          plan, shopping list + pantry (out / bought).
+    - [ ] 7 QA everything (PC + phone, EN/HE, light/dark), release.
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas
