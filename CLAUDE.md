@@ -386,10 +386,32 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
   scrolled into view. Check: `qa/phone-keyboard.cjs` (resize + overlay).
 
 ## In progress
-- Round 4 released (Nov 2026): water hours, calorie balance card, phone
-  keyboard, one reminder per series ("Missed N"). Waiting for the owner's
-  feedback; the keyboard + "Missed N" native parts were only tested by
-  simulation + CI compile, so ask how they behave on the real phone.
+- Round 4 released (0.2.74). Keyboard + "Missed N" only simulated: ask the
+  owner how they behave on the real phone.
+- **Round 5 = Food upgrade (owner chose, Nov 2026; NOT started, owner wants
+  to explain one more feature first, then build all together).** Every
+  part must be really accurate and logical (owner). PC + phone.
+  - ml for drinks AND liquid foods (e.g. Modulen), not only grams.
+  - Healthy / not healthy: auto by logic first (Nutri-Score-style from the
+    MoH data: sugars, sat fat, sodium, fiber, protein; refetch with
+    `saturated_fat`, `sodium` from data.gov.il), separate small mark next to
+    the pill (green "Healthy" / orange "Less healthy"), tap to change; a
+    correction is remembered and shared with all Bloom users (only food
+    name + healthy/not, never who/when).
+  - Accuracy: cups/spoons/slices (MoH portions in foods-il.json `units`),
+    copy from package label (still look up the product data first; label
+    edits = "my product"), cooking-oil quick add, exact-mark per line
+    (weighed/label/barcode = exact, pieces/typical = "≈") + day ± range.
+  - Knowledge: shared product library (all users, name + nutrition only),
+    bigger offline DB (Israeli Open Food Facts products with barcodes,
+    built in), online search ON by default, phone camera barcode scan.
+  - Features: recent + favorites first, repeat a meal / copy a day, macro
+    goals (carbs/fat split from the calorie goal), Israeli red-label marks
+    (sugar/salt/sat fat) + day count, weekly food report, fiber + sugar
+    goals (fiber 25-30 g; WHO free sugars < 10% kcal), eating out S/M/L
+    (typical weights, "≈").
+  - Shared data needs new Firestore rules (owner pastes them) + a design
+    demo before building.
 - Owner rule: every feature always goes to BOTH the PC and the phone app.
 
 ## Open ideas
