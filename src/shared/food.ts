@@ -4,7 +4,7 @@
 //  - Online (if turned on): Open Food Facts products, also by barcode.
 // Values are per 100 g; a logged item stores its own grams and totals.
 
-import type { FoodLabel, HealthFood, HealthRecipe, RecipeItem } from './types';
+import type { FoodLabel, HealthFood, HealthMyProduct, HealthRecipe, RecipeItem } from './types';
 import { densityOf, ilFacts, markOf, nutriScore, redLabels, type Grade, type RedLabel } from './nutrition';
 export interface FoodProduct {
   id: string; // 'il:<code>' or 'off:<barcode>'
@@ -34,6 +34,8 @@ export interface FoodProduct {
   pieceG?: number | null;
   /** Weight of the whole box / pack when the data says so. */
   packG?: number | null;
+  /** Values from your own package label ("my product"). */
+  mine?: boolean;
 }
 
 export interface FoodsIL {
@@ -52,6 +54,15 @@ const norm = (s: string) =>
     .replace(/[,()\-/]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+/** Olive oil in the MoH database (for "+ oil"). */
+export const OLIVE_OIL = 82104000;
+
+/** A MoH food by its code. */
+export function ilByCode(db: FoodsIL, code: number, lang: 'en' | 'he'): FoodProduct | null {
+  const row = db.foods.find((r) => r[0] === code);
+  return row ? ilProduct(db, row, lang) : null;
+}
 
 export function ilProduct(db: FoodsIL, row: FoodsIL['foods'][number], lang: 'en' | 'he'): FoodProduct {
   const [code, he, en, kcal, protein, fat, carbs, portions, sugars, fiber, satFat, sodium] = row;
@@ -484,4 +495,51 @@ export function healthMark(
   const auto = gradeOfFood(f);
   const mine = prefs.find((p) => p.key === foodKey(f) && p.healthy);
   return mine ? { mark: mine.healthy!, auto, own: true } : { mark: markOf(auto), auto, own: false };
+}
+
+// ---------------------------------------------------------------- "my product": values from the package label
+
+/** A product with your label values instead of the database's (or your own product). Label values = measured, so amounts are exact. */
+export function withMine(base: FoodProduct | null, mine: HealthMyProduct): FoodProduct {
+  const per = mine.per100;
+  const liquid = mine.liquid ?? base?.liquid ?? false;
+  const code = base?.source === 'il' ? Number(base.id.slice(3)) : null;
+  const facts = code ? { ...ilFacts(code, base!.name, base!.nameAlt, per), liquid } : { kind: liquid ? ('drink' as const) : ('food' as const), fvl: 0, liquid };
+  return {
+    id: mine.key,
+    source: base?.source ?? 'il',
+    portions: [],
+    ...base,
+    name: mine.name || base?.name || '',
+    nameAlt: base?.nameAlt ?? '',
+    brand: mine.brand ?? base?.brand ?? '',
+    kcal: per.kcal,
+    protein: per.protein,
+    fat: per.fat,
+    carbs: per.carbs,
+    sugars: per.sugars ?? undefined,
+    fiber: per.fiber ?? undefined,
+    satFat: per.satFat ?? undefined,
+    sodium: per.sodium ?? undefined,
+    grade: nutriScore(per, facts)?.grade ?? null,
+    red: redLabels(per, facts),
+    liquid,
+    density: base?.density ?? (liquid ? 1 : null),
+    pieceG: mine.pieceG ?? base?.pieceG ?? null,
+    packG: mine.packG ?? base?.packG ?? null,
+    barcode: mine.barcode ?? base?.barcode,
+    mine: true,
+  };
+}
+
+/** Your own products whose name matches a search (all words), newest first. */
+export function searchMine(list: HealthMyProduct[], query: string): HealthMyProduct[] {
+  const words = norm(query).split(' ').filter(Boolean);
+  if (!words.length || norm(query).length < 2) return [];
+  return list
+    .filter((m) => {
+      const n = norm(`${m.name} ${m.brand ?? ''}`);
+      return words.every((w) => n.includes(w));
+    })
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 }

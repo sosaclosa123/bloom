@@ -5,12 +5,12 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
-import { amountUnits, foodKey, healthMark, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
+import { amountUnits, foodKey, healthMark, ilByCode, OLIVE_OIL, searchMine, withMine, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
 import { markOf } from '../shared/nutrition';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { calorieBalance, dayBalance, energyGoal, energySummary, FOOD_TAGS, foodTotals, macroGoals, forDate, healthOf, LOW_DAY_SHARE, latestWeight } from '../shared/health';
 import { foodSeries, type FoodMetric } from '../shared/healthExtras';
-import type { CalorieGoal, CaloriePace, FoodLabel, HealthFood, HealthFoodPack, HealthFoodPref, HealthRecipe, ISODate, RecipeItem } from '../shared/types';
+import type { CalorieGoal, CaloriePace, FoodLabel, HealthFood, HealthFoodPack, HealthFoodPref, HealthMyProduct, HealthRecipe, ISODate, RecipeItem } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented } from './common';
 import { CardHead, LineChart, NumBox, Pills, Popover, requestHealthRedo, Tip, useHealth, useWaterFmt } from './healthUi';
 import { EnergyNotes } from './HealthProfile';
@@ -980,7 +980,17 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
   useEffect(() => {
     void loadFoodsIL().then(setDb);
   }, []);
+  // Your own products ("my product", from package labels) come first and replace the database values.
+  const mines = useMemo(() => healthOf(all, 'myproduct'), [all]);
+  const mineFor = (p: FoodProduct) => {
+    const m = mines.find((x) => x.key === p.id);
+    return m ? withMine(p, m) : p;
+  };
+  const baseOf = (key: string) => (db && key.startsWith('il:') ? ilByCode(db, Number(key.slice(3)), lang) : null);
   const local = useMemo(() => (db && !pick ? searchIL(db, text, lang, 8, { drinks: drink }) : []), [db, text, lang, pick, drink]);
+  const own = useMemo(() => (pick ? [] : searchMine(mines, text).slice(0, 4).map((m) => withMine(baseOf(m.key), m))), [mines, text, pick, db, lang]);
+  const [labelFor, setLabelFor] = useState<{ base: FoodProduct | null; name: string } | null>(null);
+  const [oilOpen, setOilOpen] = useState(false);
   // Online on: real products are looked up by themselves after a short pause in typing.
   useEffect(() => {
     setOnline(null);
@@ -1086,7 +1096,7 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
     onAdded?.();
   };
   // Real products (online, with a brand) first, then the general database entries.
-  const results = [...(Array.isArray(online) ? online.slice(0, 6) : []), ...local];
+  const results = [...own, ...[...(Array.isArray(online) ? online.slice(0, 6) : []), ...local].map(mineFor)].filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i);
   const isWater = drink && /^(water|מים)$/i.test(text.trim());
 
   return (
@@ -1124,10 +1134,17 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
                     {p.brand && <span className="muted"> · {p.brand}</span>}
                   </span>
                   <span className="hl-fr-kcal">{t(drink ? 'hlKcalPer100ml' : 'hlKcalPer100', { n: Math.round(p.kcal) })}</span>
-                  <span className={`hl-fr-src ${p.source}`}>{p.source === 'il' ? t('hlSrcIL') : t('hlSrcOFF')}</span>
+                  <span className={`hl-fr-src ${p.mine ? 'mine' : p.source}`}>{p.mine ? t('hlSrcMine') : p.source === 'il' ? t('hlSrcIL') : t('hlSrcOFF')}</span>
                 </button>
               ))}
-              {results.length === 0 && online !== 'loading' && !isWater && <p className="hl-fr-empty">{t('hlFoodNoMatch')}</p>}
+              {results.length === 0 && online !== 'loading' && !isWater && (
+                <p className="hl-fr-empty">
+                  {t('hlFoodNoMatch')}{' '}
+                  <button type="button" className="link-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setLabelFor({ base: null, name: text.trim() })}>
+                    {t('hlCopyLabel')}
+                  </button>
+                </p>
+              )}
               {settings.healthFoodOnline ? (
                 online === 'loading' ? (
                   <p className="hl-fr-empty">{t('hlSearching')}</p>
@@ -1153,6 +1170,13 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
         </label>
       )}
       {pick && <NutritionLabel p={pick} grams={useGrams} liquid={!!pick.liquid} amount={useGrams ? amountText({ grams: useGrams, ml: unit?.kind === 'ml' ? qty : null, qty, unit: unit?.kind === 'portion' ? unit.label : unit?.kind, exact: unit?.exact }, t, locale) : null} />}
+      {pick && (
+        <div className="hl-food-links">
+          <button type="button" className="link-btn" onClick={() => setLabelFor({ base: pick, name: pick.name })}>
+            <Icon name="pen" size={12} /> {t('hlFixValues')}
+          </button>
+        </div>
+      )}
       {pick ? (
         <div className="hl-portion hl-amount">
           <NumBox value={qty} onChange={setQty} min={unit?.kind === 'g' || unit?.kind === 'ml' ? 1 : 0.25} max={unit?.kind === 'g' || unit?.kind === 'ml' ? 5000 : 500} step={unit?.kind === 'g' || unit?.kind === 'ml' ? 1 : 0.25} label={t('hlPortion')} />
@@ -1188,12 +1212,24 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
             <Tip text={t('hlKcalManualHint')}>
               <NumBox value={manualProtein} onChange={setManualProtein} min={0} max={1000} step={0.5} unit={t('hlProteinUnit')} label={t('hlProteinFix')} />
             </Tip>
+            <button type="button" className="link-btn" onClick={() => setLabelFor({ base: null, name: text.trim() })}>
+              <Icon name="pen" size={12} /> {t('hlCopyLabel')}
+            </button>
           </div>
         )
       )}
       {pick && boxOpen && <MyBox key={pick.id} product={pick} mine={mine} onSaved={() => setBoxOpen(false)} />}
       {text.trim() && <TagPicker tags={tags} open={tagsOpen} onOpen={setTagsOpen} onChange={setTags} />}
       <div className="hl-food-actions">
+        {!onItem && (
+          <span className="hl-oil-wrap">
+            <button type="button" className="link-btn" data-pop-anchor aria-expanded={oilOpen} onClick={() => setOilOpen(!oilOpen)}>
+              + {t('hlOil')}
+            </button>
+            {oilOpen && db && <OilPicker db={db} date={date} isToday={isToday} onDone={() => setOilOpen(false)} />}
+          </span>
+        )}
+        <span className="spacer" />
         {(pick || text) && (
           <Button variant="ghost" onClick={reset}>
             {t('cancel')}
@@ -1205,6 +1241,20 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
       </div>
       <button type="submit" hidden />
     </form>
+    {labelFor && (
+      <LabelEditor
+        base={labelFor.base}
+        name={labelFor.name}
+        onClose={() => setLabelFor(null)}
+        onSaved={(p) => {
+          setLabelFor(null);
+          if (pick) {
+            setPick(p);
+            setTitle((x) => x);
+          } else choose(p);
+        }}
+      />
+    )}
     {scan && (
       <BarcodeModal
         onClose={() => setScan(false)}
@@ -1288,6 +1338,155 @@ function NutritionLabel({ p, grams, liquid, amount }: { p: FoodProduct; grams: n
 }
 
 // ---------------------------------------------------------------- my box: weight + pieces, remembered per product
+
+// ---------------------------------------------------------------- "+ oil": the cooking oil that's easy to forget
+
+/** Olive oil from the MoH data in its own spoons (teaspoon / tablespoon); a spoon is an estimate (≈). */
+function OilPicker({ db, date, isToday, onDone }: { db: FoodsIL; date: ISODate; isToday: boolean; onDone: () => void }) {
+  const { t, locale, save, settings } = useBloom();
+  const oil = ilByCode(db, OLIVE_OIL, settings.language);
+  if (!oil) return null;
+  const spoons = oil.portions.filter((p) => p.unit === 400 || p.unit === 300);
+  const add = (grams: number, qty: number, unit: string) => {
+    const n = nutrientsFor(oil, grams);
+    save('health', {
+      ...newMeta(),
+      kind: 'food',
+      date,
+      time: isToday ? nowTime() : '',
+      meal: isToday ? mealFor(new Date().getHours()) : 'lunch',
+      label: 'meal',
+      text: t('hlOilLine'),
+      product: oil.name,
+      productId: oil.id,
+      tags: ['fatty'],
+      grams,
+      qty,
+      unit,
+      exact: false,
+      ...n,
+      per100: { kcal: oil.kcal, protein: oil.protein, fat: oil.fat, carbs: oil.carbs, sugars: oil.sugars ?? null, fiber: oil.fiber ?? null, satFat: oil.satFat ?? null, sodium: oil.sodium ?? null },
+      source: 'il',
+      grade: oil.grade ?? null,
+      red: oil.red ?? [],
+    } satisfies HealthFood);
+    onDone();
+  };
+  return (
+    <Popover onClose={onDone} className="hl-oil-pop">
+      <span className="hl-goal-label">{t('hlOilTitle')}</span>
+      <div className="hl-dot-picks">
+        {spoons.flatMap((sp) =>
+          (sp.unit === 400 ? [1] : [1, 2]).map((q) => (
+            <button type="button" key={`${sp.unit}-${q}`} onClick={() => add(Math.round(sp.grams * q * 10) / 10, q, sp.label)}>
+              {q} {sp.label} · ≈ {t('hlKcal', { n: Math.round((oil.kcal * sp.grams * q) / 100).toLocaleString(locale) })}
+            </button>
+          )),
+        )}
+      </div>
+    </Popover>
+  );
+}
+
+// ---------------------------------------------------------------- "my product": copy the values from the package label
+
+/**
+ * The package label's values per 100 g / 100 ml (owner: the app looks the
+ * product up first; this fixes it, or adds one the database doesn't have).
+ * Saved as "my product" and used every time from then on.
+ */
+function LabelEditor({ base, name, onClose, onSaved }: { base: FoodProduct | null; name: string; onClose: () => void; onSaved: (p: FoodProduct) => void }) {
+  const { t, save } = useBloom();
+  const { all } = useHealth();
+  const key = base && !base.id.startsWith('my:') ? base.id : (base?.id ?? `my:${newMeta().id}`);
+  const existing = healthOf(all, 'myproduct').find((m) => m.key === key) ?? null;
+  const [v, setV] = useState({
+    name: existing?.name ?? base?.name ?? name,
+    brand: existing?.brand ?? base?.brand ?? '',
+    liquid: existing?.liquid ?? base?.liquid ?? false,
+    kcal: base?.kcal ?? null,
+    protein: base?.protein ?? null,
+    carbs: base?.carbs ?? null,
+    sugars: base?.sugars ?? null,
+    fat: base?.fat ?? null,
+    satFat: base?.satFat ?? null,
+    fiber: base?.fiber ?? null,
+    sodium: base?.sodium ?? null,
+  } as { name: string; brand: string; liquid: boolean } & Record<'kcal' | 'protein' | 'carbs' | 'sugars' | 'fat' | 'satFat' | 'fiber' | 'sodium', number | null>);
+  const num = (k: 'kcal' | 'protein' | 'carbs' | 'sugars' | 'fat' | 'satFat' | 'fiber' | 'sodium', label: string, unit: string, max = 1000) => (
+    <Field label={label}>
+      <NumBox value={v[k]} onChange={(x) => setV({ ...v, [k]: x })} min={0} max={max} step={k === 'kcal' || k === 'sodium' ? 1 : 0.1} unit={unit} label={label} />
+    </Field>
+  );
+  const ok = !!v.name.trim() && v.kcal != null;
+  const g = t('hlUnitG');
+  return (
+    <Modal
+      title={t('hlLabelTitle')}
+      onClose={onClose}
+      width={480}
+      footer={
+        <>
+          <span className="spacer" />
+          <Button variant="ghost" onClick={onClose}>
+            {t('cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!ok}
+            onClick={() => {
+              const rec: HealthMyProduct = {
+                ...(existing ?? { ...newMeta(), visibility: 'private' as const }),
+                kind: 'myproduct',
+                key,
+                name: v.name.trim(),
+                brand: v.brand.trim() || undefined,
+                liquid: v.liquid,
+                per100: { kcal: v.kcal ?? 0, protein: v.protein ?? 0, fat: v.fat ?? 0, carbs: v.carbs ?? 0, sugars: v.sugars, fiber: v.fiber, satFat: v.satFat, sodium: v.sodium },
+                barcode: base?.barcode,
+              };
+              save('health', rec);
+              onSaved(withMine(base, rec));
+            }}
+          >
+            {t('save')}
+          </Button>
+        </>
+      }
+    >
+      <div className="hl-form">
+        <p className="muted small">{t('hlLabelHint')}</p>
+        <div className="hl-form-row">
+          <Field label={t('hlLabelName')}>
+            <input dir="auto" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} />
+          </Field>
+          <Field label={t('hlLabelBrand')}>
+            <input dir="auto" value={v.brand} onChange={(e) => setV({ ...v, brand: e.target.value })} />
+          </Field>
+        </div>
+        <Segmented
+          label={t('hlLabelPer')}
+          value={v.liquid ? 'ml' : 'g'}
+          onChange={(x) => setV({ ...v, liquid: x === 'ml' })}
+          options={[
+            { value: 'g', label: t('hlLblPer100') },
+            { value: 'ml', label: t('hlLblPer100ml') },
+          ]}
+        />
+        <div className="hl-form-row hl-label-grid">
+          {num('kcal', t('hlLblCalories'), t('hlKcalUnit'), 950)}
+          {num('protein', t('hlLblProtein'), g, 100)}
+          {num('carbs', t('hlLblCarbs'), g, 100)}
+          {num('sugars', t('hlLblSugars'), g, 100)}
+          {num('fat', t('hlLblFat'), g, 100)}
+          {num('satFat', t('hlLblSatFat'), g, 100)}
+          {num('fiber', t('hlLblFiber'), g, 100)}
+          {num('sodium', t('hlLblSodium'), t('hlUnitMg'), 40000)}
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
 function MyBox({ product, mine, onSaved }: { product: FoodProduct; mine: HealthFoodPack | null; onSaved: () => void }) {
   const { t, save, locale } = useBloom();

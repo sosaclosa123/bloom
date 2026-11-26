@@ -115,3 +115,21 @@ describe('healthy mark on a food line', async () => {
     expect(foodKey({ text: '  Rice Bowl ', productId: undefined })).toBe(foodKey({ text: 'rice bowl', productId: undefined }));
   });
 });
+
+describe('my product (values from the package label)', async () => {
+  const { ilProduct, searchMine, withMine } = await import('./food');
+  const meta = { id: 'x', createdAt: 1, updatedAt: 2, deletedAt: null, ownerId: 'local', visibility: 'private' as const, kind: 'myproduct' as const };
+  it('replaces the database values and keeps its portions; grade and red labels follow the new values', () => {
+    const base = ilProduct(foods as never, find(/^Cheese, cow milk, cheddar/) as never, 'en');
+    const fixed = withMine(base, { ...meta, key: base.id, name: base.name, per100: { kcal: 280, protein: 30, fat: 17, carbs: 1, sugars: 0, satFat: 11, sodium: 650 } });
+    expect(fixed).toMatchObject({ id: base.id, kcal: 280, protein: 30, mine: true });
+    expect(fixed.red).toEqual(['sodium', 'satFat']);
+    expect(fixed.portions).toEqual(base.portions);
+  });
+  it('a product the database does not have, found by name', () => {
+    const mine = { ...meta, key: 'my:1', name: 'Protein pudding', brand: 'Danone', per100: { kcal: 70, protein: 10, fat: 1.5, carbs: 4.5 } };
+    expect(withMine(null, mine)).toMatchObject({ name: 'Protein pudding', kcal: 70, liquid: false });
+    expect(searchMine([mine], 'pudding prot')).toHaveLength(1);
+    expect(searchMine([mine], 'yogurt')).toHaveLength(0);
+  });
+});

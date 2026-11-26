@@ -473,7 +473,16 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           start in pieces. DONE 2c: Totals card = kcal (≈ + "± N" from
           estimates) + Protein/Carbs/Fat(max)/Fiber/Sugars(max) bars vs
           `macroGoals` (health.ts, sourced, tested) + red-label food count
-          (`foodTotals`). NEXT: label entry ("my product"), + oil,
+          (`foodTotals`). DONE 2d: "Fix values" link under the nutrition
+          label + "Copy from the package" (typed food / nothing found) =
+          `LabelEditor` -> `myproduct` health record {key (product id or
+          my:<id>), name, brand, per100 incl. satFat/sodium, liquid};
+          `withMine`/`searchMine`/`ilByCode` (food.ts, tested): your
+          products come first ("Mine") and replace database values; "+ oil"
+          link = olive oil (MoH 82104000) by its own spoons, "≈". Eating out
+          S/M/L = the MoH small/medium/large portion units already in the
+          unit menu ("≈"). NEXT 2e: recent + favorites, repeat meal / copy
+          day; 2f weekly food report. Old list follows:
           exact mark + day ± range, healthy mark (tap = change), red labels,
           recent + favorites, repeat meal / copy day, macro + fiber/sugar
           goals, eating out S/M/L, weekly food report.

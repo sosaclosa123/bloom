@@ -372,6 +372,23 @@ export interface HealthFoodPref extends SyncMeta {
   fav?: boolean;
 }
 
+/**
+ * "My product" (owner, Nov 2026): values copied from the package label, for a
+ * product the database has wrong (key = that product's id) or doesn't have at
+ * all (key = 'my:<id>'). Used instead of the database values from then on.
+ */
+export interface HealthMyProduct extends SyncMeta {
+  kind: 'myproduct';
+  key: string;
+  name: string;
+  brand?: string;
+  per100: { kcal: number; protein: number; fat: number; carbs: number; sugars?: number | null; fiber?: number | null; satFat?: number | null; sodium?: number | null };
+  liquid?: boolean;
+  pieceG?: number | null;
+  packG?: number | null;
+  barcode?: string;
+}
+
 export interface HealthFoodPack extends SyncMeta {
   kind: 'foodpack';
   productId: string;
@@ -452,6 +469,7 @@ export type HealthItem =
   | HealthFood
   | HealthFoodPack
   | HealthFoodPref
+  | HealthMyProduct
   | HealthRecipe
   | HealthBody
   | HealthTest

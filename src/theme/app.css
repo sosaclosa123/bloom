@@ -8967,3 +8967,25 @@ button.hl-pill:hover {
   background: #d32f2f;
   vertical-align: -1px;
 }
+
+/* Add food: "Fix values" / "Copy from the package" and "+ oil" (small links). */
+.hl-food-links {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+.hl-food-actions {
+  align-items: center;
+}
+.hl-oil-wrap {
+  position: relative;
+}
+.hl-label-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+.hl-fr-src.mine {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent-text, var(--accent));
+}
