@@ -8816,3 +8816,104 @@ button.hl-pill:hover {
 .hl-exact.est {
   color: var(--text-muted);
 }
+
+/* Healthy / less healthy: one small dot on each food line (green / orange / none). */
+.hl-ft-meal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.hl-dot-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.hl-dot-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: -6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.hl-dot-btn:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.hl-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+}
+.hl-dot.healthy {
+  background: var(--bal-good);
+}
+.hl-dot.less {
+  background: #e08a2b;
+}
+.hl-dot.own {
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 0%, var(--surface)), 0 0 0 3px color-mix(in srgb, var(--text) 30%, transparent);
+}
+.hl-dot-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0;
+}
+.hl-dot-picks button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: start;
+  cursor: pointer;
+}
+.hl-dot-picks button.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+/* Nutrition label: healthy mark + Israeli red labels (red, white text, like the package). */
+.hl-label-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.hl-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 650;
+}
+.hl-mark.healthy {
+  background: color-mix(in srgb, var(--bal-good) 14%, transparent);
+  color: var(--bal-good);
+}
+.hl-mark.less {
+  background: color-mix(in srgb, #e08a2b 16%, transparent);
+  color: #b36412;
+}
+[data-theme='dark'] .hl-mark.less {
+  color: #f0a65a;
+}
+.hl-red {
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: #d32f2f;
+  color: #fff;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}

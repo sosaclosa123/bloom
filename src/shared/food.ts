@@ -5,7 +5,7 @@
 // Values are per 100 g; a logged item stores its own grams and totals.
 
 import type { FoodLabel, HealthFood, HealthRecipe, RecipeItem } from './types';
-import { densityOf, ilFacts, nutriScore, redLabels, type Grade, type RedLabel } from './nutrition';
+import { densityOf, ilFacts, markOf, nutriScore, redLabels, type Grade, type RedLabel } from './nutrition';
 export interface FoodProduct {
   id: string; // 'il:<code>' or 'off:<barcode>'
   source: 'il' | 'off';
@@ -350,14 +350,15 @@ export function amountUnits(
   if (pack) out.push({ key: 'box', kind: 'box', gramsEach: pack, exact: true });
   p.portions.forEach((x, i) => {
     // The whole package is already "box"; same weight twice would only confuse.
-    if (x.grams > 0 && !(pack && Math.abs(x.grams - pack) < 0.5)) out.push({ key: `p${i}`, kind: 'portion', gramsEach: x.grams, exact: false, label: x.label });
+    const same = (g: number | null | undefined) => !!g && Math.abs(x.grams - g) < 0.5;
+    if (x.grams > 0 && !same(pack) && !(piece && same(piece.grams) && PIECE_UNITS.includes(x.unit ?? -1))) out.push({ key: `p${i}`, kind: 'portion', gramsEach: x.grams, exact: false, label: x.label });
   });
   return out;
 }
 
 // A normal amount to start with (not a whole cup of oil): the data's medium /
 // regular portion, a piece, a slice, a spoon for fats and spreads, else 100 g.
-const START_UNITS = [802, 800, 803, 103, 100, 502, 500, 600, 603, 1226, 1224, 1209, 300, 301, 308, 400];
+const START_UNITS = [802, 800, 803, 905, 903, 911, 902, 103, 100, 502, 500, 600, 603, 1226, 1224, 1209, 300, 301, 308, 400];
 export function startGrams(p: Pick<FoodProduct, 'portions'>): number {
   for (const u of START_UNITS) {
     const hit = p.portions.find((x) => x.unit === u && x.grams > 0);
@@ -458,4 +459,29 @@ export function itemOf(f: HealthFood): RecipeItem {
 export function recipeFood(r: Pick<HealthRecipe, 'id' | 'name' | 'label' | 'items'>, portions: number): Pick<HealthFood, 'text' | 'label' | 'grams' | 'kcal' | 'protein' | 'fat' | 'carbs' | 'sugars' | 'per100' | 'source' | 'recipe'> {
   const tot = recipeTotals(r.items, portions);
   return { text: r.name, label: r.label, grams: tot.grams, kcal: tot.kcal, protein: tot.protein, fat: tot.fat, carbs: tot.carbs, sugars: tot.sugars, per100: null, source: 'recipe', recipe: { id: r.id, portions, items: r.items } };
+}
+
+// ---------------------------------------------------------------- healthy / less healthy mark (owner, Nov 2026)
+
+/** The key your own notes on a food are kept under: its product, else its name. */
+export const foodKey = (f: Pick<HealthFood, 'productId' | 'text'>) => f.productId || `name:${norm(f.text)}`;
+
+/** A line's automatic grade: saved when added, else worked out from its values (older lines, typed-in foods with numbers). */
+export function gradeOfFood(f: Pick<HealthFood, 'grade' | 'per100' | 'productId' | 'product' | 'text' | 'meal' | 'ml'>): Grade | null {
+  if (f.grade !== undefined && f.grade !== null) return f.grade;
+  const p = f.per100;
+  if (!p || !p.kcal) return null;
+  const code = f.productId?.startsWith('il:') ? Number(f.productId.slice(3)) : null;
+  const facts = code ? ilFacts(code, f.product ?? f.text, '', p) : { kind: f.meal === 'drink' || f.ml != null ? ('drink' as const) : ('food' as const), fvl: 0 };
+  return nutriScore(p, facts)?.grade ?? null;
+}
+
+/** Healthy / less healthy for a food line: your own choice for that food wins, else the automatic grade (A/B healthy, D/E less, C none). */
+export function healthMark(
+  f: Pick<HealthFood, 'grade' | 'per100' | 'productId' | 'product' | 'text' | 'meal' | 'ml'>,
+  prefs: { key: string; healthy?: 'healthy' | 'less' | null }[],
+): { mark: 'healthy' | 'less' | null; auto: Grade | null; own: boolean } {
+  const auto = gradeOfFood(f);
+  const mine = prefs.find((p) => p.key === foodKey(f) && p.healthy);
+  return mine ? { mark: mine.healthy!, auto, own: true } : { mark: markOf(auto), auto, own: false };
 }

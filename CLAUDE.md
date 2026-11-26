@@ -465,9 +465,13 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           tested; ml for liquids incl. Modulen; cup/spoon/slice from MoH =
           "≈"; food lines store ml/qty/unit/exact/grade/red + fiber/satFat/
           sodium; editor = one amount field in the line's own unit;
-          `amountText` shows "≈" for estimates). NEXT 2b: healthy dot on
-          lines + tap to change (`foodpref` health record: healthy/fav),
-          red-label count; then: label entry ("my product"), + oil,
+          `amountText` shows "≈" for estimates). DONE 2b: `HealthDot` on
+          every line (green/orange/none; tap = Healthy / Less / Automatic,
+          saved as `foodpref` {key, healthy}; `healthMark`/`gradeOfFood`/
+          `foodKey` in food.ts), nutrition label shows the mark + Israeli
+          red labels (עתיר סוכר/נתרן/שומן רווי). Tiny pieces (<5 g) don't
+          start in pieces. NEXT 2c: totals bars (`macroGoals`), red count,
+          ± range; then: label entry ("my product"), + oil,
           exact mark + day ± range, healthy mark (tap = change), red labels,
           recent + favorites, repeat meal / copy day, macro + fiber/sugar
           goals, eating out S/M/L, weekly food report.

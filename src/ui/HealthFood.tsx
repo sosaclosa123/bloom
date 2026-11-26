@@ -5,11 +5,12 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
-import { amountUnits, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
+import { amountUnits, foodKey, healthMark, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
+import { markOf } from '../shared/nutrition';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { calorieBalance, dayBalance, energyGoal, energySummary, FOOD_TAGS, forDate, healthOf, LOW_DAY_SHARE, latestWeight } from '../shared/health';
 import { foodSeries, type FoodMetric } from '../shared/healthExtras';
-import type { CalorieGoal, CaloriePace, FoodLabel, HealthFood, HealthFoodPack, HealthRecipe, ISODate, RecipeItem } from '../shared/types';
+import type { CalorieGoal, CaloriePace, FoodLabel, HealthFood, HealthFoodPack, HealthFoodPref, HealthRecipe, ISODate, RecipeItem } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented } from './common';
 import { CardHead, LineChart, NumBox, Pills, Popover, requestHealthRedo, Tip, useHealth, useWaterFmt } from './healthUi';
 import { EnergyNotes } from './HealthProfile';
@@ -473,6 +474,64 @@ export function FoodPill({ food, editable = true }: { food: HealthFood; editable
   );
 }
 
+/**
+ * Healthy / less healthy as one small dot on the line (owner chose): green,
+ * orange, or none (in between). Automatic from the Nutri-Score grade; tap to
+ * choose yourself, remembered for that food from then on.
+ */
+export function HealthDot({ food, editable = true }: { food: HealthFood; editable?: boolean }) {
+  const { t, save } = useBloom();
+  const { all } = useHealth();
+  const [open, setOpen] = useState(false);
+  const prefs = healthOf(all, 'foodpref');
+  const m = healthMark(food, prefs);
+  const label = m.mark === 'healthy' ? t('hlMarkHealthy') : m.mark === 'less' ? t('hlMarkLess') : t('hlMarkNone');
+  const choose = (healthy: 'healthy' | 'less' | null) => {
+    const key = foodKey(food);
+    const mine = prefs.find((p) => p.key === key);
+    const base: HealthFoodPref = mine ?? { ...newMeta(), visibility: 'private', kind: 'foodpref', key, name: food.product ?? food.text };
+    save('health', { ...base, healthy });
+    setOpen(false);
+  };
+  const dot = <span className={`hl-dot ${m.mark ?? 'none'} ${m.own ? 'own' : ''}`} aria-hidden="true" />;
+  if (!editable) return <span className="hl-dot-wrap" title={label}>{dot}</span>;
+  return (
+    <span className="hl-dot-wrap">
+      <button
+        type="button"
+        className="hl-dot-btn"
+        data-pop-anchor
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`${t('hlMarkTitle')}: ${label}`}
+        title={label}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
+      >
+        {dot}
+      </button>
+      {open && (
+        <Popover onClose={() => setOpen(false)} className="hl-dot-pop">
+          <span className="hl-goal-label">{t('hlMarkTitle')}</span>
+          <div className="hl-dot-picks" role="radiogroup" aria-label={t('hlMarkTitle')}>
+            {(['healthy', 'less'] as const).map((x) => (
+              <button type="button" key={x} role="radio" aria-checked={m.own && m.mark === x} className={m.own && m.mark === x ? 'on' : ''} onClick={(e) => (e.stopPropagation(), choose(x))}>
+                <span className={`hl-dot ${x}`} aria-hidden="true" /> {x === 'healthy' ? t('hlMarkHealthy') : t('hlMarkLess')}
+              </button>
+            ))}
+            <button type="button" role="radio" aria-checked={!m.own} className={!m.own ? 'on' : ''} onClick={(e) => (e.stopPropagation(), choose(null))}>
+              {t('hlMarkAuto', { g: m.auto ? m.auto.toUpperCase() : '–' })}
+            </button>
+          </div>
+          <span className="muted small">{t('hlMarkHint')}</span>
+        </Popover>
+      )}
+    </span>
+  );
+}
+
 /** A food with a new pill (Drink / Snack also set what kind of eating it was). */
 function withLabel(f: HealthFood, label: FoodLabel): HealthFood {
   const meal: HealthFood['meal'] = label === 'drink' ? 'drink' : label === 'snack' ? 'snack' : f.meal === 'drink' || f.meal === 'snack' ? mealFor(Number(f.time.slice(0, 2)) || 12) : f.meal;
@@ -519,6 +578,7 @@ export function FoodTable({
   const cells = (f: HealthFood) => (
     <>
       <span className="hl-ft-meal">
+        <HealthDot food={f} editable={pillEdit} />
         <FoodPill food={f} editable={pillEdit} />
       </span>
       <span className="hl-ft-name">
@@ -935,7 +995,8 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
     if (p.liquid) {
       setUnitKey('ml');
       setQty(250);
-    } else if (us.some((u) => u.key === 'piece' && u.exact)) {
+    } else if (us.some((u) => u.key === 'piece' && u.exact && (u.gramsEach ?? 0) >= 5)) {
+      // Counted foods (cookies, crackers) start at 1 piece; tiny pieces (a Bamba puff) start at a normal portion instead.
       setUnitKey('piece');
       setQty(1);
     } else {
@@ -1185,6 +1246,21 @@ function NutritionLabel({ p, grams, liquid, amount }: { p: FoodProduct; grams: n
           </dd>
         </div>
       </dl>
+      {(markOf(p.grade) || (p.red?.length ?? 0) > 0) && (
+        <div className="hl-label-marks">
+          {markOf(p.grade) && (
+            <span className={`hl-mark ${markOf(p.grade)}`}>
+              <span className={`hl-dot ${markOf(p.grade)}`} aria-hidden="true" /> {markOf(p.grade) === 'healthy' ? t('hlMarkHealthy') : t('hlMarkLess')}
+            </span>
+          )}
+          {/* Israeli Ministry of Health red labels. */}
+          {p.red?.map((r) => (
+            <span key={r} className="hl-red">
+              {t(`hlRed_${r}` as StringKey)}
+            </span>
+          ))}
+        </div>
+      )}
       <span className="hl-label-src">{t(p.source === 'il' ? 'hlLblFromMoH' : 'hlLblFromOFF')}</span>
     </div>
   );

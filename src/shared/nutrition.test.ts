@@ -103,3 +103,15 @@ describe('start amount', async () => {
     expect(startGrams({ portions: [] })).toBe(100);
   });
 });
+
+describe('healthy mark on a food line', async () => {
+  const { foodKey, healthMark } = await import('./food');
+  const cola = { text: 'Coke', productId: 'il:92410010', grade: 'e' as const, per100: null, meal: 'drink' as const };
+  it('automatic from the grade; your own choice wins; older lines get a grade from their values', () => {
+    expect(healthMark(cola, []).mark).toBe('less');
+    expect(healthMark(cola, [{ key: foodKey(cola), healthy: 'healthy' }])).toMatchObject({ mark: 'healthy', own: true, auto: 'e' });
+    const old = { text: 'Apple', productId: undefined, grade: undefined, per100: { kcal: 52, protein: 0.3, fat: 0.2, carbs: 14, sugars: 10, fiber: 2.4 }, meal: 'lunch' as const };
+    expect(healthMark(old, []).auto).not.toBeNull();
+    expect(foodKey({ text: '  Rice Bowl ', productId: undefined })).toBe(foodKey({ text: 'rice bowl', productId: undefined }));
+  });
+});
