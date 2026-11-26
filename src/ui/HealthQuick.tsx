@@ -7,7 +7,7 @@ import { dosesOn, energyGoal, forDate, healthOf, latestWeight, type WaterGoal } 
 import type { HealthBody, HealthTest, HealthVisit, ISODate, HealthFood } from '../shared/types';
 import { Button, Field, Modal } from './common';
 import { TestEditor, VisitEditor } from './HealthCards';
-import { FoodAdd, FoodEditor, FoodTable, MyMealsChips, proteinNum } from './HealthFood';
+import { FoodAdd, FoodEditor, FoodTable, MyMealsChips, proteinNum, RecentChips } from './HealthFood';
 import { CardHead, NumBox, useHealth, useWaterFmt } from './healthUi';
 import { StickerArt } from './Stickers';
 import { useBloom } from './store';
@@ -69,6 +69,7 @@ export function TodayFoodCard({ date, isToday }: { date: ISODate; isToday: boole
       {add && (
         <Modal title={t('hlAddFoodTitle')} onClose={() => setAdd(false)} width={560} className="hl-quick-food">
           <FoodAdd date={date} isToday={isToday} onAdded={() => setAdd(false)} />
+          <RecentChips date={date} isToday={isToday} onAdded={() => setAdd(false)} />
           <MyMealsChips date={date} isToday={isToday} onAdded={() => setAdd(false)} />
         </Modal>
       )}

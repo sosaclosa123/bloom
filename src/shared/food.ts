@@ -543,3 +543,49 @@ export function searchMine(list: HealthMyProduct[], query: string): HealthMyProd
     })
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
+
+// ---------------------------------------------------------------- recent + favorites, repeat a meal (owner, Nov 2026)
+
+/** Foods to eat again in one tap: favorites first, then the most recent, one per food (last 30 days). */
+export function recentFoods(foods: HealthFood[], prefs: { key: string; fav?: boolean }[], today: string, limit = 6): HealthFood[] {
+  const from = new Date(Date.parse(today) - 30 * 86400000).toISOString().slice(0, 10);
+  const favs = new Set(prefs.filter((p) => p.fav).map((p) => p.key));
+  const seen = new Set<string>();
+  const list = foods
+    .filter((f) => !f.deletedAt && !f.recipe && f.date >= from && f.date <= today)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time) || b.createdAt - a.createdAt)
+    .filter((f) => {
+      const k = foodKey(f);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  return [...list.filter((f) => favs.has(foodKey(f))), ...list.filter((f) => !favs.has(foodKey(f)))].slice(0, limit);
+}
+
+export interface PastMeal {
+  date: string;
+  meal: HealthFood['meal'];
+  items: HealthFood[];
+  kcal: number;
+}
+
+/** Earlier meals to repeat (the last 7 days before `date`), newest first; snacks and drinks of a day count as one. */
+export function pastMeals(foods: HealthFood[], date: string, limit = 8): PastMeal[] {
+  const from = new Date(Date.parse(date) - 7 * 86400000).toISOString().slice(0, 10);
+  const groups = new Map<string, PastMeal>();
+  for (const f of foods) {
+    if (f.deletedAt || f.date >= date || f.date < from) continue;
+    const meal: HealthFood['meal'] = f.meal === 'drink' ? 'snack' : f.meal;
+    const k = `${f.date}|${meal}`;
+    const g = groups.get(k) ?? { date: f.date, meal, items: [], kcal: 0 };
+    g.items.push(f);
+    g.kcal += f.kcal ?? 0;
+    groups.set(k, g);
+  }
+  const order = { breakfast: 0, lunch: 1, dinner: 2, snack: 3, drink: 3 };
+  return [...groups.values()].sort((a, b) => b.date.localeCompare(a.date) || order[a.meal] - order[b.meal]).slice(0, limit);
+}
+
+/** A copy of a food line for another day (new record; same amount and time). */
+export const copyFood = <T extends HealthFood>(f: T, date: string, meta: { id: string; createdAt: number; updatedAt: number }): T => ({ ...f, ...meta, date, deletedAt: null });

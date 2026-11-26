@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
-import { amountUnits, foodKey, healthMark, ilByCode, OLIVE_OIL, searchMine, withMine, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
+import { amountUnits, copyFood, foodKey, healthMark, pastMeals, recentFoods, ilByCode, OLIVE_OIL, searchMine, withMine, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
 import { markOf } from '../shared/nutrition';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { calorieBalance, dayBalance, energyGoal, energySummary, FOOD_TAGS, foodTotals, macroGoals, forDate, healthOf, LOW_DAY_SHARE, latestWeight } from '../shared/health';
@@ -75,11 +75,14 @@ export function FoodTab({ date, isToday, goalMl }: { date: ISODate; isToday: boo
         <section className="w-card hl-food">
           <CardHead sticker="restaurant" title={t('hlAddFoodTitle')} />
           <FoodAdd date={date} isToday={isToday} />
+          <RecentChips date={date} isToday={isToday} />
           <MyMealsChips date={date} isToday={isToday} />
         </section>
         {/* All food of the day in one list, a pill on every line. */}
         <section className="w-card hl-food">
-          <CardHead sticker="cooking" title={isToday ? t('hlTodayFood') : t('hlDayFood')} />
+          <CardHead sticker="cooking" title={isToday ? t('hlTodayFood') : t('hlDayFood')}>
+            <RepeatMeal date={date} />
+          </CardHead>
           {items.length === 0 ? <EmptyFood /> : <FoodList list={items} onEdit={setEditing} />}
         </section>
       </div>
@@ -858,9 +861,12 @@ export function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () =>
       }
     >
       <div className="hl-form">
-        <Field label={t('hlShowAs')}>
-          <input dir="auto" value={f.text} onChange={(e) => setF({ ...f, text: e.target.value })} />
-        </Field>
+        <div className="hl-fav-row">
+          <Field label={t('hlShowAs')}>
+            <input dir="auto" value={f.text} onChange={(e) => setF({ ...f, text: e.target.value })} />
+          </Field>
+          <FavStar food={init} />
+        </div>
         {f.product && f.product !== f.text && (
           <p className="muted small hl-product-of" dir="auto">
             {t('hlProductIs', { p: f.product })}
@@ -912,6 +918,27 @@ export function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () =>
         <TagPicker tags={f.tags} open={tagsOpen} onOpen={setTagsOpen} onChange={(tags) => setF({ ...f, tags })} />
       </div>
     </Modal>
+  );
+}
+
+/** ★ Favorite: the food comes first in "Again" (kept per food). */
+function FavStar({ food }: { food: HealthFood }) {
+  const { t, save } = useBloom();
+  const { all } = useHealth();
+  const key = foodKey(food);
+  const pref = healthOf(all, 'foodpref').find((p) => p.key === key);
+  const on = !!pref?.fav;
+  return (
+    <button
+      type="button"
+      className={`hl-fav ${on ? 'on' : ''}`}
+      aria-pressed={on}
+      title={t('hlFavorite')}
+      aria-label={t('hlFavorite')}
+      onClick={() => save('health', { ...(pref ?? { ...newMeta(), visibility: 'private' as const, kind: 'foodpref' as const, key, name: food.product ?? food.text }), fav: !on })}
+    >
+      {on ? '★' : '☆'}
+    </button>
   );
 }
 
@@ -1708,6 +1735,85 @@ export function MyMealsChips({ date, isToday, onAdded }: { date: ISODate; isToda
       </button>
       {create && <RecipeEditor onClose={() => setCreate(false)} />}
     </div>
+  );
+}
+
+/** Eat again in one tap (owner): favorites (★) first, then recent foods; same amount as last time. */
+export function RecentChips({ date, isToday, onAdded }: { date: ISODate; isToday: boolean; onAdded?: () => void }) {
+  const { t, locale, save } = useBloom();
+  const { all } = useHealth();
+  const prefs = healthOf(all, 'foodpref');
+  const today = toISODate(new Date());
+  const list = recentFoods(healthOf(all, 'food'), prefs, today, 6);
+  if (!list.length) return null;
+  const favs = new Set(prefs.filter((p) => p.fav).map((p) => p.key));
+  return (
+    <div className="hl-meal-chips hl-recent-chips">
+      <span className="hl-goal-label">{t('hlAgain')}</span>
+      {list.map((f) => (
+        <button
+          type="button"
+          key={f.id}
+          className="hl-meal-chip"
+          title={`${t('hlEatAgain')}: ${f.text}${f.grams ? ` · ${foodAmount(f, t, locale)}` : ''}`}
+          onClick={() => {
+            const meta = newMeta();
+            save('health', { ...copyFood(f, date, meta), time: isToday ? nowTime() : f.time, meal: f.meal === 'drink' || f.meal === 'snack' || !isToday ? f.meal : mealFor(new Date().getHours()) });
+            onAdded?.();
+          }}
+        >
+          {favs.has(foodKey(f)) ? <span aria-hidden="true">★</span> : <Icon name="plus" size={12} />}
+          <bdi>{f.text}</bdi>
+          {f.kcal != null && <b>{Math.round(f.kcal).toLocaleString(locale)}</b>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** "Repeat…": copy an earlier meal (or a whole day's snacks) to this day. */
+function RepeatMeal({ date }: { date: ISODate }) {
+  const { t, locale, save } = useBloom();
+  const { all } = useHealth();
+  const [open, setOpen] = useState(false);
+  const meals = pastMeals(healthOf(all, 'food'), date, 8);
+  if (!meals.length) return null;
+  const dayName = (d: string) => {
+    const diff = Math.round((Date.parse(date) - Date.parse(d)) / 86400000);
+    return diff === 1 ? t('hlYesterday') : parseISODate(d).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
+  };
+  const mealName = (m: HealthFood['meal']) => m === 'snack' || m === 'drink' ? t('hlSnacks') : t(`hlMeal_${m}` as StringKey);
+  return (
+    <span className="hl-oil-wrap">
+      <button type="button" className="link-btn" data-pop-anchor aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="repeat" size={12} /> {t('hlRepeatMeal')}
+      </button>
+      {open && (
+        <Popover onClose={() => setOpen(false)} className="hl-repeat-pop">
+          <span className="hl-goal-label">{t('hlRepeatTitle')}</span>
+          <div className="hl-dot-picks">
+            {meals.map((m) => (
+              <button
+                type="button"
+                key={`${m.date}-${m.meal}`}
+                onClick={() => {
+                  for (const f of m.items) save('health', copyFood(f, date, newMeta()));
+                  setOpen(false);
+                }}
+              >
+                <span>
+                  {dayName(m.date)} · {mealName(m.meal)}
+                </span>
+                <span className="muted small">
+                  {' '}
+                  {m.items.length === 1 ? m.items[0].text : t('hlNFoods', { n: m.items.length })} · {t('hlKcal', { n: Math.round(m.kcal).toLocaleString(locale) })}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Popover>
+      )}
+    </span>
   );
 }
 

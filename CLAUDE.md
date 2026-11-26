@@ -481,8 +481,13 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           products come first ("Mine") and replace database values; "+ oil"
           link = olive oil (MoH 82104000) by its own spoons, "≈". Eating out
           S/M/L = the MoH small/medium/large portion units already in the
-          unit menu ("≈"). NEXT 2e: recent + favorites, repeat meal / copy
-          day; 2f weekly food report. Old list follows:
+          unit menu ("≈"). DONE 2e: "Again" chips (`RecentChips`: ★
+          favorites first, then recent foods, one tap = same amount again;
+          in the Food tab and Today's Add food window), ★ in the food
+          editor (`FavStar`, foodpref.fav), "Repeat…" link on the day's
+          list (`RepeatMeal`: last 7 days' meals, copies all its foods)
+          (`recentFoods`/`pastMeals`/`copyFood`, tested). NEXT 2f: weekly
+          food report (link under Totals). Old list follows:
           exact mark + day ± range, healthy mark (tap = change), red labels,
           recent + favorites, repeat meal / copy day, macro + fiber/sugar
           goals, eating out S/M/L, weekly food report.

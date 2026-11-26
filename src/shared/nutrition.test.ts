@@ -133,3 +133,28 @@ describe('my product (values from the package label)', async () => {
     expect(searchMine([mine], 'yogurt')).toHaveLength(0);
   });
 });
+
+describe('recent, favorites and repeating a meal', async () => {
+  const { copyFood, foodKey, pastMeals, recentFoods } = await import('./food');
+  const line = (id: string, text: string, date: string, meal: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'drink', kcal: number, time = '12:00') =>
+    ({ id, createdAt: 1, updatedAt: 1, deletedAt: null, ownerId: 'local', visibility: 'private', kind: 'food', date, time, meal, text, tags: [], kcal }) as never;
+  const foods = [
+    line('1', 'Omelette', '2026-11-26', 'breakfast', 180, '08:00'),
+    line('2', 'Omelette', '2026-11-25', 'breakfast', 180, '08:00'),
+    line('3', 'Salad', '2026-11-25', 'lunch', 120),
+    line('4', 'Cola', '2026-11-25', 'drink', 210, '15:00'),
+    line('5', 'Old pizza', '2026-09-01', 'dinner', 800),
+  ];
+  it('recent: one per food, newest first, favorites first, nothing older than 30 days', () => {
+    expect(recentFoods(foods, [], '2026-11-26').map((f: { text: string }) => f.text)).toEqual(['Omelette', 'Cola', 'Salad']);
+    expect(recentFoods(foods, [{ key: foodKey({ text: 'Salad' }), fav: true }], '2026-11-26')[0]).toMatchObject({ text: 'Salad' });
+  });
+  it('past meals: by day and meal, drinks with snacks, only before the day', () => {
+    const m = pastMeals(foods, '2026-11-26');
+    expect(m.map((x) => `${x.date} ${x.meal} ${x.kcal}`)).toEqual(['2026-11-25 breakfast 180', '2026-11-25 lunch 120', '2026-11-25 snack 210']);
+  });
+  it('a copy is a new line on the new day', () => {
+    const c = copyFood(foods[2] as never, '2026-11-27', { id: 'new', createdAt: 5, updatedAt: 5 }) as { id: string; date: string; text: string };
+    expect(c).toMatchObject({ id: 'new', date: '2026-11-27', text: 'Salad' });
+  });
+});
