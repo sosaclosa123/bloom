@@ -9018,3 +9018,45 @@ button.hl-pill:hover {
 .hl-dot-picks button > .muted {
   margin-inline-start: auto;
 }
+
+/* Weekly food report. */
+.hl-week-link {
+  align-self: flex-end;
+  margin-top: 4px;
+}
+.hl-week-share {
+  display: flex;
+  height: 8px;
+  margin: 12px 0 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+.hl-week-share i.healthy {
+  background: var(--bal-good);
+}
+.hl-week-share i.less {
+  background: #e08a2b;
+}
+.hl-week-share-txt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0 0 8px;
+}
+.hl-week-list {
+  margin: 0;
+  padding-inline-start: 20px;
+}
+.hl-week-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: var(--fs-sm);
+}
+.hl-week-list li bdi {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

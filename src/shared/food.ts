@@ -589,3 +589,85 @@ export function pastMeals(foods: HealthFood[], date: string, limit = 8): PastMea
 
 /** A copy of a food line for another day (new record; same amount and time). */
 export const copyFood = <T extends HealthFood>(f: T, date: string, meta: { id: string; createdAt: number; updatedAt: number }): T => ({ ...f, ...meta, date, deletedAt: null });
+
+// ---------------------------------------------------------------- weekly food report (owner, Nov 2026)
+
+export interface WeekReport {
+  from: string;
+  to: string;
+  /** Finished, fully logged days in the week (same rule as the calorie balance). */
+  days: number;
+  avgKcal: number | null;
+  avgProtein: number | null;
+  /** Where the calories came from (most first), and the foods eaten most often. */
+  topKcal: { name: string; kcal: number }[];
+  mostEaten: { name: string; times: number }[];
+  /** Share of the week's calories from healthy / less healthy / in-between foods (%). */
+  healthyPct: number;
+  lessPct: number;
+  redFoods: number;
+  /** The day closest to the calorie goal and the one farthest from it. */
+  best: { date: string; kcal: number } | null;
+  worst: { date: string; kcal: number } | null;
+}
+
+/** The 7 days ending `to` (today counts only once it's over). `burn`/`target` from the calorie goal when known. */
+export function weekReport(
+  foods: HealthFood[],
+  prefs: { key: string; healthy?: 'healthy' | 'less' | null }[],
+  to: string,
+  today: string,
+  goal: { burn: number; target: number } | null,
+): WeekReport {
+  const day = (d: string, k: number) => new Date(Date.parse(d) + k * 86400000).toISOString().slice(0, 10);
+  const from = day(to, -6);
+  const list = foods.filter((f) => !f.deletedAt && f.date >= from && f.date <= to);
+  const byDay = new Map<string, number>();
+  for (const f of list) byDay.set(f.date, (byDay.get(f.date) ?? 0) + (f.kcal ?? 0));
+  const low = goal ? goal.burn * 0.4 : 0;
+  const counted = [...byDay].filter(([d, k]) => d < today && k > 0 && k >= low);
+  const countedSet = new Set(counted.map(([d]) => d));
+  const inCounted = list.filter((f) => countedSet.has(f.date));
+  const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+  const proteinByDay = counted.map(([d]) => inCounted.filter((f) => f.date === d).reduce((a, f) => a + (f.protein ?? 0), 0));
+  const groups = new Map<string, { name: string; kcal: number; times: number }>();
+  let healthy = 0;
+  let less = 0;
+  let total = 0;
+  for (const f of list) {
+    const k = foodKey(f);
+    const g = groups.get(k) ?? { name: f.text, kcal: 0, times: 0 };
+    g.kcal += f.kcal ?? 0;
+    g.times++;
+    groups.set(k, g);
+    const kcal = f.kcal ?? 0;
+    total += kcal;
+    const m = healthMark(f, prefs).mark;
+    if (m === 'healthy') healthy += kcal;
+    else if (m === 'less') less += kcal;
+  }
+  const all = [...groups.values()];
+  const dist = goal ? counted.map(([d, k]) => ({ date: d, kcal: Math.round(k), off: Math.abs(k - goal.target) })).sort((a, b) => a.off - b.off) : [];
+  return {
+    from,
+    to,
+    days: counted.length,
+    avgKcal: avg(counted.map(([, k]) => k)),
+    avgProtein: avg(proteinByDay),
+    topKcal: all
+      .filter((g) => g.kcal > 0)
+      .sort((a, b) => b.kcal - a.kcal)
+      .slice(0, 5)
+      .map(({ name, kcal }) => ({ name, kcal: Math.round(kcal) })),
+    mostEaten: all
+      .filter((g) => g.times > 1)
+      .sort((a, b) => b.times - a.times)
+      .slice(0, 5)
+      .map(({ name, times }) => ({ name, times })),
+    healthyPct: total ? Math.round((healthy / total) * 100) : 0,
+    lessPct: total ? Math.round((less / total) * 100) : 0,
+    redFoods: list.filter((f) => (f.red?.length ?? 0) > 0).length,
+    best: dist.length ? { date: dist[0].date, kcal: dist[0].kcal } : null,
+    worst: dist.length > 1 ? { date: dist[dist.length - 1].date, kcal: dist[dist.length - 1].kcal } : null,
+  };
+}

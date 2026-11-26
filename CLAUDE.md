@@ -456,7 +456,7 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           sugar / 4 g sat; liquid 300 / 5 / 3; plain single foods exempt);
           liquid detection + density (cup grams / 240). `ilProduct` fills
           grade, red, liquid, density. NEXT: phase 2 UI.
-    - [ ] 2 Food UI (owner approved demo food2: Add = one number + one unit
+    - [x] 2 Food UI (owner approved demo food2: Add = one number + one unit
           menu g/ml/cup/tbsp/piece/box, "Fix values" + "+ oil" small links;
           list = one small dot green/orange + ≈ for estimates; totals =
           kcal/protein/carbs/fat/fiber/sugar bars + red-label count + Week
@@ -486,11 +486,12 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           in the Food tab and Today's Add food window), ★ in the food
           editor (`FavStar`, foodpref.fav), "Repeat…" link on the day's
           list (`RepeatMeal`: last 7 days' meals, copies all its foods)
-          (`recentFoods`/`pastMeals`/`copyFood`, tested). NEXT 2f: weekly
-          food report (link under Totals). Old list follows:
-          exact mark + day ± range, healthy mark (tap = change), red labels,
-          recent + favorites, repeat meal / copy day, macro + fiber/sugar
-          goals, eating out S/M/L, weekly food report.
+          (`recentFoods`/`pastMeals`/`copyFood`, tested). DONE 2f: "Week
+          report ›" under Totals = `WeekReportModal` (`weekReport` in
+          food.ts, tested): avg kcal/protein of finished fully-logged days,
+          healthy/less % of calories bar, red-label count, top 5 calorie
+          sources, most eaten, closest/farthest day to goal. Phase 2 QA:
+          health-redesign + phone-menus pass. NEXT: phase 3.
     - [ ] 3 Shared: public food library + healthy corrections (Firestore,
           new rules for the owner to paste), online search default ON,
           phone camera barcode.

@@ -158,3 +158,24 @@ describe('recent, favorites and repeating a meal', async () => {
     expect(c).toMatchObject({ id: 'new', date: '2026-11-27', text: 'Salad' });
   });
 });
+
+describe('weekly food report', async () => {
+  const { weekReport } = await import('./food');
+  const line = (date: string, text: string, kcal: number, protein: number, grade: string | null, red: string[] = []) =>
+    ({ id: `${date}${text}`, createdAt: 1, updatedAt: 1, deletedAt: null, ownerId: 'local', visibility: 'private', kind: 'food', date, time: '12:00', meal: 'lunch', text, tags: [], kcal, protein, grade, red }) as never;
+  const foods = [
+    line('2026-11-20', 'Chicken', 600, 50, 'a'), line('2026-11-20', 'Rice', 900, 6, 'b'),
+    line('2026-11-21', 'Pizza', 1400, 40, 'd', ['sodium', 'satFat']), line('2026-11-21', 'Cola', 300, 0, 'e', ['sugar']),
+    line('2026-11-22', 'Chicken', 600, 50, 'a'), line('2026-11-22', 'Snack', 300, 2, 'e'), // 900 kcal = under 40% of 2300: left out
+    line('2026-11-26', 'Chicken', 600, 50, 'a'), // today: left out of averages
+  ];
+  it('averages only finished, fully logged days; top foods; healthy share; best and worst day', () => {
+    const r = weekReport(foods, [], '2026-11-26', '2026-11-26', { burn: 2300, target: 1800 });
+    expect(r).toMatchObject({ from: '2026-11-20', to: '2026-11-26', days: 2, avgKcal: 1600, avgProtein: 48, redFoods: 2 });
+    expect(r.topKcal[0]).toEqual({ name: 'Chicken', kcal: 1800 });
+    expect(r.mostEaten[0]).toEqual({ name: 'Chicken', times: 3 });
+    expect(r.healthyPct).toBe(Math.round(((600 * 3 + 900) / 4700) * 100)); // 2,700 of 4,700 kcal
+    expect(r.best).toEqual({ date: '2026-11-21', kcal: 1700 });
+    expect(r.worst).toEqual({ date: '2026-11-20', kcal: 1500 });
+  });
+});

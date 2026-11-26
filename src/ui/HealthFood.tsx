@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
-import { amountUnits, copyFood, foodKey, healthMark, pastMeals, recentFoods, ilByCode, OLIVE_OIL, searchMine, withMine, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
+import { amountUnits, weekReport, copyFood, foodKey, healthMark, pastMeals, recentFoods, ilByCode, OLIVE_OIL, searchMine, withMine, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
 import { markOf } from '../shared/nutrition';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { calorieBalance, dayBalance, energyGoal, energySummary, FOOD_TAGS, foodTotals, macroGoals, forDate, healthOf, LOW_DAY_SHARE, latestWeight } from '../shared/health';
@@ -723,6 +723,7 @@ function TotalsCard({ meals, snacks, drinks, date }: { meals: HealthFood[]; snac
   const unknown = allItems.filter((f) => f.kcal == null).length;
   const energy = energyGoal(profile, latestWeight(all, date), { ibd });
   const goals = energy ? macroGoals(energy) : null;
+  const [report, setReport] = useState(false);
   const num = (v: number) => (Math.round(v * 10) / 10).toLocaleString(locale);
   // One bar per nutrient vs. the day's goal (owner chose); sugars is a limit (orange), fiber a target (green).
   const rows: { key: 'protein' | 'carbs' | 'fat' | 'fiber' | 'sugars'; limit?: boolean }[] = [{ key: 'protein' }, { key: 'carbs' }, { key: 'fat', limit: true }, { key: 'fiber' }, { key: 'sugars', limit: true }];
@@ -777,7 +778,88 @@ function TotalsCard({ meals, snacks, drinks, date }: { meals: HealthFood[]; snac
         </p>
       )}
       {!goals && <p className="muted small">{t('hlNoGoal')}</p>}
+      <button type="button" className="link-btn hl-week-link" onClick={() => setReport(true)}>
+        {t('hlWeekReport')} ›
+      </button>
+      {report && <WeekReportModal date={date} onClose={() => setReport(false)} />}
     </section>
+  );
+}
+
+/** The week in food (owner chose): averages, where the calories came from, healthy share, best / worst day. */
+function WeekReportModal({ date, onClose }: { date: ISODate; onClose: () => void }) {
+  const { t, locale } = useBloom();
+  const { all, profile, ibd } = useHealth();
+  const goal = energyGoal(profile, latestWeight(all, date), { ibd });
+  const r = weekReport(healthOf(all, 'food'), healthOf(all, 'foodpref'), date, toISODate(new Date()), goal);
+  const n = (v: number) => Math.round(v).toLocaleString(locale);
+  const d = (x: string) => parseISODate(x).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
+  return (
+    <Modal title={t('hlWeekReport')} onClose={onClose} width={480} className="hl-week">
+      <p className="muted small">
+        {d(r.from)} – {d(r.to)}
+      </p>
+      <div className="hl-cal-sum">
+        <span>
+          <b>{r.avgKcal != null ? n(r.avgKcal) : '–'}</b>
+          {t('hlAvgDay')}
+        </span>
+        <span>
+          <b>{r.avgProtein != null ? t('hlGrams', { n: n(r.avgProtein) }) : '–'}</b>
+          {t('hlWeekProtein')}
+        </span>
+        <span>
+          <b>{r.days}</b>
+          {t('hlBalDays')}
+        </span>
+      </div>
+      <div className="hl-week-share" aria-label={t('hlWeekHealthy', { h: r.healthyPct, l: r.lessPct })}>
+        <i className="healthy" style={{ width: `${r.healthyPct}%` }} />
+        <i className="less" style={{ width: `${r.lessPct}%` }} />
+      </div>
+      <p className="small hl-week-share-txt">
+        <span className="hl-dot healthy" aria-hidden="true" /> {t('hlWeekHealthyPct', { n: r.healthyPct })}
+        <span className="hl-dot less" aria-hidden="true" /> {t('hlWeekLessPct', { n: r.lessPct })}
+        {r.redFoods > 0 && (
+          <span className="hl-tot-red">
+            <i aria-hidden="true" /> {t('hlRedFoods', { n: r.redFoods })}
+          </span>
+        )}
+      </p>
+      {r.topKcal.length > 0 && (
+        <>
+          <h4 className="settings-h">{t('hlWeekTop')}</h4>
+          <ol className="hl-week-list">
+            {r.topKcal.map((x) => (
+              <li key={x.name}>
+                <bdi>{x.name}</bdi>
+                <b>{t('hlKcal', { n: n(x.kcal) })}</b>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+      {r.mostEaten.length > 0 && (
+        <>
+          <h4 className="settings-h">{t('hlWeekMost')}</h4>
+          <ol className="hl-week-list">
+            {r.mostEaten.map((x) => (
+              <li key={x.name}>
+                <bdi>{x.name}</bdi>
+                <b>×{x.times}</b>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+      {r.best && (
+        <p className="small hl-week-days">
+          {t('hlWeekBest', { d: d(r.best.date), n: n(r.best.kcal) })}
+          {r.worst && <> · {t('hlWeekWorst', { d: d(r.worst.date), n: n(r.worst.kcal) })}</>}
+        </p>
+      )}
+      <p className="muted small">{t('hlBalNote')}</p>
+    </Modal>
   );
 }
 
