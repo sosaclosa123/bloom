@@ -55,3 +55,51 @@ describe('ml', () => {
     for (const re of [/^Cheese, cow milk, cheddar/, /^Bread, white/i]) expect(ilFacts(find(re)[0], find(re)[2]).liquid).toBe(false);
   });
 });
+
+describe('amount units (owner: ml for drinks and liquid foods like Modulen)', async () => {
+  const { amountUnits, ilProduct, nutrientsFor, unitGrams } = await import('./food');
+  const db = foods as never;
+  const prod = (re: RegExp) => ilProduct(db, find(re) as never, 'en');
+
+  it('Modulen: ml first, exact only when its density is known', () => {
+    const m = prod(/MODULEN/);
+    const u = amountUnits(m);
+    expect(u[0].key).toBe('ml');
+    expect(u.map((x) => x.key)).toContain('g');
+    expect(unitGrams(250, u[0])).toBe(250); // no cup in the data: 1 g/ml
+    expect(u[0].exact).toBe(true); // water-based liquid: ~1 g/ml
+    expect(nutrientsFor(m, 250).kcal).toBe(250);
+  });
+
+  it('olive oil in ml uses its real density; a tablespoon from the data is an estimate', () => {
+    const o = prod(/^Oil, olive$/);
+    const ml = amountUnits(o).find((x) => x.key === 'ml')!;
+    expect(ml.exact).toBe(true);
+    expect(unitGrams(10, ml)).toBe(9);
+    const portion = amountUnits(o).find((x) => x.kind === 'portion');
+    if (portion) expect(portion.exact).toBe(false);
+  });
+
+  it('milk: ml first; cheese: grams first, no ml', () => {
+    expect(amountUnits(prod(/^Milk, cow, 3% fat$/))[0].key).toBe('ml');
+    const ch = amountUnits(prod(/^Cheese, cow milk, cheddar/));
+    expect(ch[0].key).toBe('g');
+    expect(ch.some((x) => x.key === 'ml')).toBe(false);
+  });
+
+  it('pieces: from your own box = exact, a typical weight = estimate', () => {
+    const cookie = { name: 'Chocolate chip cookies', nameAlt: '', pieceG: null, packG: null, portions: [], liquid: false, density: null, source: 'il' as const };
+    expect(amountUnits(cookie).find((x) => x.key === 'piece')).toMatchObject({ gramsEach: 12, exact: false });
+    expect(amountUnits(cookie, { packG: 300, pieces: 20 }).find((x) => x.key === 'piece')).toMatchObject({ gramsEach: 15, exact: true });
+    expect(amountUnits(cookie, { packG: 300, pieces: 20 }).find((x) => x.key === 'box')).toMatchObject({ gramsEach: 300, exact: true });
+  });
+});
+
+describe('start amount', async () => {
+  const { ilProduct, startGrams } = await import('./food');
+  it('olive oil starts at a spoon, not a cup; unknown foods at 100 g', () => {
+    const oil = ilProduct(foods as never, find(/^Oil, olive$/) as never, 'en');
+    expect(startGrams(oil)).toBeLessThan(20);
+    expect(startGrams({ portions: [] })).toBe(100);
+  });
+});

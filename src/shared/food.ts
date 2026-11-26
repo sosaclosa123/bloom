@@ -27,8 +27,8 @@ export interface FoodProduct {
   /** Liquid: amounts in ml; grams per ml (null = unknown, 1 g/ml estimate). */
   liquid?: boolean;
   density?: number | null;
-  /** Typical portions: label + grams. */
-  portions: { label: string; grams: number }[];
+  /** Typical portions: label + grams (+ the MoH unit code: 300 tablespoon, 802 medium portion…). */
+  portions: { label: string; grams: number; unit?: number }[];
   barcode?: string;
   /** Weight of one piece (cookie, cracker…) when the data says so. */
   pieceG?: number | null;
@@ -77,7 +77,7 @@ export function ilProduct(db: FoodsIL, row: FoodsIL['foods'][number], lang: 'en'
     density: densityOf(portions),
     portions: portions
       .filter(([u]) => db.units[u])
-      .map(([u, grams]) => ({ label: db.units[u][lang === 'he' ? 0 : 1], grams })),
+      .map(([u, grams]) => ({ label: db.units[u][lang === 'he' ? 0 : 1], grams, unit: u })),
     pieceG: ilUnit(portions, PIECE_UNITS),
     packG: ilUnit(portions, PACK_UNITS),
   };
@@ -220,7 +220,7 @@ export function parseOff(p: Record<string, unknown> | null | undefined, lang: 'e
   const parsed = parseServing(servingText);
   const pack = Number(p.product_quantity);
   const packUnit = String(p.product_quantity_unit ?? 'g').toLowerCase();
-  return {
+  const out: FoodProduct = {
     id: `off:${p.code}`,
     source: 'off',
     name,
@@ -232,11 +232,23 @@ export function parseOff(p: Record<string, unknown> | null | undefined, lang: 'e
     carbs: num('carbohydrates_100g'),
     sugars: num('sugars_100g'),
     fiber: num('fiber_100g'),
+    satFat: num('saturated-fat_100g'),
+    sodium: Math.round(Number(n['sodium_100g'] ?? 0) * 1000) || 0,
+    // Open Food Facts' own Nutri-Score (it knows the product's category); liquids are labeled per 100 ml.
+    grade: /^[a-e]$/.test(String(p.nutriscore_grade ?? '')) ? (String(p.nutriscore_grade) as Grade) : null,
+    liquid: packUnit === 'ml' || packUnit === 'l' || /beverages|drinks|משקאות/.test(String(p.categories_tags ?? '')),
+    density: packUnit === 'ml' || packUnit === 'l' ? 1 : null,
     portions: Number.isFinite(serving) && serving > 0 ? [{ label: String(p.serving_size ?? '').trim() || `${serving} g`, grams: serving }] : [],
     barcode: String(p.code ?? ''),
     pieceG: parsed ? Math.round((parsed.grams / parsed.count) * 10) / 10 : null,
     packG: Number.isFinite(pack) && pack > 0 && pack <= 5000 && (packUnit === 'g' || packUnit === 'ml') ? pack : null,
   };
+  // Red labels from the values; a grade from the values when Open Food Facts has none.
+  const per = { kcal: out.kcal, protein: out.protein, fat: out.fat, carbs: out.carbs, sugars: out.sugars, fiber: out.fiber, satFat: out.satFat, sodium: out.sodium };
+  const kind = out.liquid ? 'drink' : 'food';
+  out.red = redLabels(per, { kind, liquid: out.liquid });
+  if (!out.grade) out.grade = nutriScore(per, { kind, fvl: 0 })?.grade ?? null;
+  return out;
 }
 
 // ---------------------------------------------------------------- pieces ("I ate 5 cookies")
@@ -303,6 +315,71 @@ export function piecesToGrams(pieces: number, pieceG: number): number {
   return Math.round(pieces * pieceG * 10) / 10;
 }
 
+// ---------------------------------------------------------------- amount units (owner, Nov 2026)
+//
+// One number + one unit: grams, ml (liquids: drinks, Modulen…), pieces, the
+// box, or the product's own household measures from the MoH data (cup,
+// tablespoon, slice, small/medium/large portion…). `exact` = measured
+// (grams, ml with a known density or a per-100 ml label, pieces/box from the
+// label or your own box); household measures and typical pieces are
+// estimates (≈).
+
+export interface AmountUnit {
+  key: string; // 'g' | 'ml' | 'piece' | 'box' | 'p<index>'
+  kind: 'g' | 'ml' | 'piece' | 'box' | 'portion';
+  /** Grams in one of this unit (null = not known). */
+  gramsEach: number | null;
+  exact: boolean;
+  /** Household measure label from the data (portions only). */
+  label?: string;
+}
+
+export function amountUnits(
+  p: Pick<FoodProduct, 'name' | 'nameAlt' | 'pieceG' | 'packG' | 'portions' | 'liquid' | 'density' | 'source'>,
+  mine?: { packG: number | null; pieces: number | null } | null,
+): AmountUnit[] {
+  const out: AmountUnit[] = [];
+  // Water-based liquids (drinks, milk, formulas like Modulen) are within ~5% of 1 g/ml, so ml counts as measured.
+  const ml: AmountUnit = { key: 'ml', kind: 'ml', gramsEach: p.density ?? 1, exact: !!p.density || p.source === 'off' || !!p.liquid };
+  if (p.liquid) out.push(ml);
+  out.push({ key: 'g', kind: 'g', gramsEach: 1, exact: true });
+  if (!p.liquid && p.density) out.push(ml);
+  const piece = pieceWeight(p, mine);
+  if (piece) out.push({ key: 'piece', kind: 'piece', gramsEach: piece.grams, exact: piece.source !== 'typical' });
+  const pack = packWeight(p, mine);
+  if (pack) out.push({ key: 'box', kind: 'box', gramsEach: pack, exact: true });
+  p.portions.forEach((x, i) => {
+    // The whole package is already "box"; same weight twice would only confuse.
+    if (x.grams > 0 && !(pack && Math.abs(x.grams - pack) < 0.5)) out.push({ key: `p${i}`, kind: 'portion', gramsEach: x.grams, exact: false, label: x.label });
+  });
+  return out;
+}
+
+// A normal amount to start with (not a whole cup of oil): the data's medium /
+// regular portion, a piece, a slice, a spoon for fats and spreads, else 100 g.
+const START_UNITS = [802, 800, 803, 103, 100, 502, 500, 600, 603, 1226, 1224, 1209, 300, 301, 308, 400];
+export function startGrams(p: Pick<FoodProduct, 'portions'>): number {
+  for (const u of START_UNITS) {
+    const hit = p.portions.find((x) => x.unit === u && x.grams > 0);
+    if (hit) return hit.grams;
+  }
+  return 100;
+}
+
+/** Grams for an amount in a unit (null = the unit's weight isn't known). */
+export const unitGrams = (qty: number | null, u: Pick<AmountUnit, 'gramsEach'> | null | undefined) =>
+  qty != null && u?.gramsEach ? Math.round(qty * u.gramsEach * 10) / 10 : null;
+
+/** Nutrition for a portion, including sugars, fiber, saturated fat and sodium when known. */
+export function nutrientsFor(
+  p: Pick<FoodProduct, 'kcal' | 'protein' | 'fat' | 'carbs'> & { sugars?: number | null; fiber?: number | null; satFat?: number | null; sodium?: number | null },
+  grams: number,
+) {
+  const f = grams / 100;
+  const r = (x: number | undefined | null) => (x == null ? null : Math.round(x * f * 10) / 10);
+  return { ...forGrams(p, grams), sugars: r(p.sugars), fiber: r(p.fiber), satFat: r(p.satFat), sodium: p.sodium == null ? null : Math.round(p.sodium * f) };
+}
+
 /** Nutrition for a portion. */
 export function forGrams(p: Pick<FoodProduct, 'kcal' | 'protein' | 'fat' | 'carbs'>, grams: number) {
   const f = grams / 100;
@@ -319,7 +396,7 @@ export function validBarcode(code: string): boolean {
   return (10 - (sum % 10)) % 10 === check;
 }
 
-export const OFF_FIELDS = 'code,product_name,product_name_he,product_name_en,brands,nutriments,serving_quantity,serving_size,product_quantity,product_quantity_unit';
+export const OFF_FIELDS = 'code,product_name,product_name_he,product_name_en,brands,nutriments,serving_quantity,serving_size,product_quantity,product_quantity_unit,nutriscore_grade,categories_tags';
 
 // ---------------------------------------------------------------- food pills + "My meals" (owner, Nov 2026)
 

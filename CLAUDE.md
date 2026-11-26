@@ -456,7 +456,18 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           sugar / 4 g sat; liquid 300 / 5 / 3; plain single foods exempt);
           liquid detection + density (cup grams / 240). `ilProduct` fills
           grade, red, liquid, density. NEXT: phase 2 UI.
-    - [ ] 2 Food UI: ml, cups/spoons, label entry ("my product"), + oil,
+    - [ ] 2 Food UI (owner approved demo food2: Add = one number + one unit
+          menu g/ml/cup/tbsp/piece/box, "Fix values" + "+ oil" small links;
+          list = one small dot green/orange + ≈ for estimates; totals =
+          kcal/protein/carbs/fat/fiber/sugar bars + red-label count + Week
+          report). DONE 2a: one number + unit menu in Add food
+          (`amountUnits`/`unitGrams`/`nutrientsFor`/`startGrams` in food.ts,
+          tested; ml for liquids incl. Modulen; cup/spoon/slice from MoH =
+          "≈"; food lines store ml/qty/unit/exact/grade/red + fiber/satFat/
+          sodium; editor = one amount field in the line's own unit;
+          `amountText` shows "≈" for estimates). NEXT 2b: healthy dot on
+          lines + tap to change (`foodpref` health record: healthy/fav),
+          red-label count; then: label entry ("my product"), + oil,
           exact mark + day ± range, healthy mark (tap = change), red labels,
           recent + favorites, repeat meal / copy day, macro + fiber/sugar
           goals, eating out S/M/L, weekly food report.

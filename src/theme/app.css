@@ -8792,3 +8792,27 @@ button.hl-pill:hover {
 [data-theme='dark'] {
   --bal-good: #6fcf97;
 }
+
+/* Add food: one number + one unit menu (owner chose), "Exact" / "≈ Estimate". */
+.hl-amount {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.hl-unit {
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: 260px;
+}
+.hl-exact {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.hl-exact.yes {
+  color: var(--bal-good);
+}
+.hl-exact.est {
+  color: var(--text-muted);
+}

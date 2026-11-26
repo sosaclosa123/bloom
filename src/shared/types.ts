@@ -303,9 +303,22 @@ export interface HealthFood extends SyncMeta {
   fat?: number | null;
   carbs?: number | null;
   /** Per 100 g / 100 ml (so the amount can be changed later). */
-  per100?: { kcal: number; protein: number; fat: number; carbs: number; sugars?: number | null } | null;
+  per100?: { kcal: number; protein: number; fat: number; carbs: number; sugars?: number | null; fiber?: number | null; satFat?: number | null; sodium?: number | null } | null;
   /** Sugars for the amount (when the product data has them). */
   sugars?: number | null;
+  /** Fiber, saturated fat (g) and sodium (mg) for the amount, when known. */
+  fiber?: number | null;
+  satFat?: number | null;
+  sodium?: number | null;
+  /** How it was measured: ml (liquids), or a number of a unit ("2 cups"); grams is always the weight used. */
+  ml?: number | null;
+  qty?: number | null;
+  unit?: string | null;
+  /** false = an estimate (typical piece, cup/spoon, eating out…), shown with ≈. */
+  exact?: boolean;
+  /** Healthy score (Nutri-Score 2023 grade) and Israeli red labels of the product. */
+  grade?: 'a' | 'b' | 'c' | 'd' | 'e' | null;
+  red?: ('sugar' | 'sodium' | 'satFat')[];
   /** The pill on the food's line (owner, Nov 2026). Old items: from meal / snack. */
   label?: FoodLabel | null;
   /** Eaten from "My meals": the meal's foods (for 1 portion) and how many portions. */
@@ -345,6 +358,18 @@ export interface HealthRecipe extends SyncMeta {
   name: string;
   label: FoodLabel;
   items: RecipeItem[];
+}
+
+/**
+ * Your own notes on a food (owner, Nov 2026): healthy / less healthy when you
+ * disagree with the automatic mark, and favorite. By product id (or name).
+ */
+export interface HealthFoodPref extends SyncMeta {
+  kind: 'foodpref';
+  key: string;
+  name: string;
+  healthy?: 'healthy' | 'less' | null;
+  fav?: boolean;
 }
 
 export interface HealthFoodPack extends SyncMeta {
@@ -426,6 +451,7 @@ export type HealthItem =
   | HealthMedTaken
   | HealthFood
   | HealthFoodPack
+  | HealthFoodPref
   | HealthRecipe
   | HealthBody
   | HealthTest

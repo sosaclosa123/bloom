@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
-import { autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, packWeight, parseOff, piecesToGrams, pieceWeight, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
+import { amountUnits, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { calorieBalance, dayBalance, energyGoal, energySummary, FOOD_TAGS, forDate, healthOf, LOW_DAY_SHARE, latestWeight } from '../shared/health';
 import { foodSeries, type FoodMetric } from '../shared/healthExtras';
@@ -573,15 +573,40 @@ export function FoodTable({
   );
 }
 
-/** "200 g", "250 ml", "5 pieces (60 g)". */
+/** "200 g", "250 ml", "5 pieces (60 g)", "≈ 2 tablespoons (26 g)". */
 export function foodAmount(f: HealthFood, t: ReturnType<typeof useBloom>['t'], locale: string) {
-  return f.pieces && f.grams
-    ? t('hlPiecesAmount', { n: f.pieces.toLocaleString(locale), g: Math.round(f.grams).toLocaleString(locale) })
-    : f.grams
-      ? kindOf(f) === 'drink'
-        ? t('hlMl', { n: f.grams })
-        : t('hlGrams', { n: Math.round(f.grams) })
-      : '';
+  if (!f.grams) return '';
+  // Older drinks kept their ml in grams.
+  const ml = f.ml ?? (kindOf(f) === 'drink' && !f.unit && !f.pieces ? f.grams : null);
+  return amountText({ grams: f.grams, ml, qty: f.qty ?? f.pieces ?? null, unit: f.unit ?? (f.pieces ? 'piece' : null), exact: f.exact }, t, locale);
+}
+
+const fmtQty = (n: number, locale: string) => (n === 0.5 ? '½' : n === 0.25 ? '¼' : n === 0.75 ? '¾' : n === 1.5 ? '1½' : (Math.round(n * 100) / 100).toLocaleString(locale));
+
+/** An amount in words; "≈" in front of estimates. */
+export function amountText(a: { grams: number; ml?: number | null; qty?: number | null; unit?: string | null; exact?: boolean }, t: ReturnType<typeof useBloom>['t'], locale: string) {
+  const g = Math.round(a.grams).toLocaleString(locale);
+  const body =
+    a.ml != null
+      ? t('hlMl', { n: Math.round(a.ml).toLocaleString(locale) })
+      : a.unit === 'piece' && a.qty
+        ? t('hlPiecesAmount', { n: fmtQty(a.qty, locale), g })
+        : a.unit === 'box' && a.qty
+          ? t('hlBoxAmount', { n: fmtQty(a.qty, locale), g })
+          : a.unit && a.unit !== 'g' && a.unit !== 'ml' && a.qty
+            ? t('hlUnitAmount', { n: fmtQty(a.qty, locale), u: a.unit, g })
+            : t('hlGrams', { n: g });
+  return a.exact === false ? `≈ ${body}` : body;
+}
+
+/** A unit in the amount menu: "g", "ml", "pieces (12 g each)", "box (300 g)", "tablespoon (13 g)". */
+function unitName(u: AmountUnit, t: ReturnType<typeof useBloom>['t'], locale: string) {
+  const each = u.gramsEach != null ? (Math.round(u.gramsEach * 10) / 10).toLocaleString(locale) : '';
+  if (u.kind === 'g') return t('hlUnitG');
+  if (u.kind === 'ml') return t('hlUnitMl');
+  if (u.kind === 'piece') return t('hlUnitPieceEach', { g: each });
+  if (u.kind === 'box') return t('hlUnitBoxOf', { g: each });
+  return `${u.label} (${t('hlGrams', { n: each })})`;
 }
 
 const tagName = (x: string, t: ReturnType<typeof useBloom>['t']) => ((FOOD_TAGS as readonly string[]).includes(x) ? t(`hlTag_${x}` as StringKey) : x);
@@ -700,19 +725,21 @@ export function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () =>
   const [f, setF] = useState(init);
   const kind = kindOf(init);
   const [tagsOpen, setTagsOpen] = useState(false);
-  const setGrams = (grams: number | null) => {
-    if (f.per100 && grams) setF({ ...f, grams, pieces: null, pieceG: null, ...forGrams(f.per100, grams) });
-    else setF({ ...f, grams, pieces: null, pieceG: null });
+  // The amount is changed in the line's own unit (ml, pieces, cups… or grams); nutrition follows.
+  const legacyMl = kind === 'drink' && f.ml == null && !f.unit && !f.pieces ? f.grams : null;
+  const amount = f.ml ?? legacyMl ?? f.qty ?? f.pieces ?? f.grams ?? null;
+  const each = f.grams && amount ? f.grams / amount : 1;
+  const amountUnitLabel = f.ml != null || legacyMl != null ? t('hlUnitMl') : f.unit === 'piece' || f.pieces ? t('hlUnitPcs') : f.unit === 'box' ? t('hlUnitBox') : f.unit ? f.unit : t('hlUnitG');
+  const setAmount = (v: number | null) => {
+    if (!v) return setF({ ...f, ...(f.ml != null ? { ml: v } : f.qty != null ? { qty: v } : f.pieces ? { pieces: v } : { grams: v }) });
+    const grams = Math.round(v * each * 10) / 10;
+    const next: HealthFood = { ...f, grams, ...(f.ml != null ? { ml: v } : {}), ...(f.qty != null ? { qty: v } : {}), ...(f.pieces ? { pieces: v } : {}) };
+    setF(f.per100 ? { ...next, ...nutrientsFor(f.per100, grams) } : next);
   };
   // A corrected protein amount is kept per 100 g too, so changing the portion keeps it.
   const setProtein = (protein: number | null) => {
     if (protein != null && f.per100 && f.grams) setF({ ...f, protein, per100: { ...f.per100, protein: Math.round((protein / f.grams) * 1000) / 10 } });
     else setF({ ...f, protein });
-  };
-  const setPieces = (pieces: number | null) => {
-    if (!pieces || !f.pieceG) return setF({ ...f, pieces });
-    const grams = piecesToGrams(pieces, f.pieceG);
-    setF({ ...f, pieces, grams, ...(f.per100 ? forGrams(f.per100, grams) : {}) });
   };
   const ok = !!f.text.trim();
   return (
@@ -785,13 +812,8 @@ export function FoodEditor({ init, onClose }: { init: HealthFood; onClose: () =>
           </>
         )}
         {!f.recipe && <div className="hl-form-row">
-          {f.pieceG ? (
-            <Field label={t('hlByPieces')}>
-              <NumBox value={f.pieces ?? null} onChange={setPieces} min={0.5} max={500} step={0.5} unit={t('hlUnitPcs')} label={t('hlByPieces')} />
-            </Field>
-          ) : null}
-          <Field label={kind === 'drink' ? t('hlAmountMl') : t('hlPortion')}>
-            <NumBox value={f.grams ?? null} onChange={setGrams} min={1} max={5000} unit={kind === 'drink' ? t('hlUnitMl') : t('hlUnitG')} label={t('hlPortion')} />
+          <Field label={t('hlPortion')}>
+            <NumBox value={amount} onChange={setAmount} min={f.qty != null || f.pieces ? 0.25 : 1} max={5000} step={f.qty != null || f.pieces ? 0.25 : 1} unit={amountUnitLabel} label={t('hlPortion')} />
           </Field>
           <Field label={t('hlKcalManual')}>
             <NumBox value={f.kcal ?? null} onChange={(kcal) => setF({ ...f, kcal, per100: null })} min={0} max={10000} unit={t('hlKcalUnit')} label={t('hlKcalManual')} />
@@ -865,16 +887,15 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
   const [tagsOpen, setTagsOpen] = useState(false);
   const [scan, setScan] = useState(false);
   const [open, setOpen] = useState(false);
-  // How much: grams, a number of pieces ("5 cookies") or part of the box.
+  // How much: one number + one unit (owner chose): g, ml, pieces, the box, or a cup / spoon / slice from the data.
   const { all } = useHealth();
-  const [mode, setMode] = useState<'grams' | 'pieces' | 'box'>('grams');
-  const [pieces, setPieces] = useState<number | null>(1);
-  const [frac, setFrac] = useState(0.5);
+  const [qty, setQty] = useState<number | null>(100);
+  const [unitKey, setUnitKey] = useState('g');
   const [boxOpen, setBoxOpen] = useState(false);
   const mineOf = (p: FoodProduct) => healthOf(all, 'foodpack').find((x) => x.productId === p.id) ?? null;
   const mine = pick ? mineOf(pick) : null;
-  const piece = pick && !drink ? pieceWeight(pick, mine) : null;
-  const pack = pick && !drink ? packWeight(pick, mine) : null;
+  const units = pick ? amountUnits(pick, mine) : [];
+  const unit = units.find((u) => u.key === unitKey) ?? units[0] ?? null;
   useEffect(() => {
     void loadFoodsIL().then(setDb);
   }, []);
@@ -906,14 +927,21 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
     setTitle(last?.text ?? '');
     setPick(p);
     setText(p.brand ? `${p.name} (${p.brand})` : p.name);
-    setGrams(p.portions[0]?.grams ?? (drink ? 250 : 100));
-    setTags(autoTags(p, drink));
+    setGrams(startGrams(p));
+    setTags(autoTags(p, drink || !!p.liquid));
     setOpen(false);
-    // Counted foods (cookies, crackers…) start in pieces when one piece's weight is known.
-    const w = drink ? null : pieceWeight(p, mineOf(p));
-    setMode(w && w.source !== 'typical' ? 'pieces' : 'grams');
-    setPieces(1);
-    setFrac(0.5);
+    // Liquids start in ml; counted foods (cookies…) in pieces when one piece's weight is known; else grams.
+    const us = amountUnits(p, mineOf(p));
+    if (p.liquid) {
+      setUnitKey('ml');
+      setQty(250);
+    } else if (us.some((u) => u.key === 'piece' && u.exact)) {
+      setUnitKey('piece');
+      setQty(1);
+    } else {
+      setUnitKey('g');
+      setQty(startGrams(p));
+    }
     setBoxOpen(false);
   };
   const reset = () => {
@@ -925,13 +953,13 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
     setTags([]);
     setOnline(null);
     setTagsOpen(false);
-    setMode('grams');
+    setUnitKey('g');
+    setQty(100);
     setBoxOpen(false);
     setTitle('');
   };
-  const useGrams =
-    mode === 'pieces' ? (piece && pieces ? piecesToGrams(pieces, piece.grams) : null) : mode === 'box' ? (pack ? Math.round(pack * frac * 10) / 10 : null) : grams;
-  const n = pick && useGrams ? forGrams(pick, useGrams) : null;
+  const useGrams = pick ? unitGrams(qty, unit) : grams;
+  const n = pick && useGrams ? nutrientsFor(pick, useGrams) : null;
   const ok = !!text.trim();
   const add = () => {
     if (!ok) return;
@@ -951,12 +979,24 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
       protein: n ? n.protein : manualProtein,
       fat: n?.fat ?? null,
       carbs: n?.carbs ?? null,
-      sugars: pick && useGrams && pick.sugars != null ? Math.round(pick.sugars * useGrams) / 100 : null,
-      per100: pick ? { kcal: pick.kcal, protein: pick.protein, fat: pick.fat, carbs: pick.carbs, sugars: pick.sugars ?? null } : null,
+      sugars: n?.sugars ?? null,
+      fiber: n?.fiber ?? null,
+      satFat: n?.satFat ?? null,
+      sodium: n?.sodium ?? null,
+      per100: pick
+        ? { kcal: pick.kcal, protein: pick.protein, fat: pick.fat, carbs: pick.carbs, sugars: pick.sugars ?? null, fiber: pick.fiber ?? null, satFat: pick.satFat ?? null, sodium: pick.sodium ?? null }
+        : null,
       source: pick ? pick.source : manualKcal != null || manualProtein != null ? 'manual' : undefined,
       productId: pick?.id,
-      pieces: pick && mode === 'pieces' && piece ? pieces : null,
-      pieceG: pick && mode === 'pieces' && piece ? piece.grams : null,
+      ml: pick && unit?.kind === 'ml' ? qty : null,
+      qty: pick && unit && unit.kind !== 'g' && unit.kind !== 'ml' ? qty : null,
+      unit: pick && unit ? (unit.kind === 'portion' ? (unit.label ?? null) : unit.kind === 'piece' || unit.kind === 'box' ? unit.kind : null) : null,
+      pieces: pick && unit?.kind === 'piece' ? qty : null,
+      pieceG: pick && unit?.kind === 'piece' ? unit.gramsEach : null,
+      // Measured = exact; a cup / spoon / typical piece / typed-in number = an estimate (≈).
+      exact: pick ? !!unit?.exact : false,
+      grade: pick?.grade ?? null,
+      red: pick?.red ?? [],
     };
     if (onItem) onItem({ ...itemOf(item), drink });
     else save('health', item);
@@ -966,7 +1006,6 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
   // Real products (online, with a brand) first, then the general database entries.
   const results = [...(Array.isArray(online) ? online.slice(0, 6) : []), ...local];
   const isWater = drink && /^(water|מים)$/i.test(text.trim());
-  const portions = drink ? [250, 330, 500] : [50, 100, 200];
 
   return (
     <>
@@ -1031,66 +1070,26 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
           <input dir="auto" value={title} maxLength={60} placeholder={pick.name} onChange={(e) => setTitle(e.target.value)} aria-label={t('hlShowAs')} />
         </label>
       )}
-      {pick && <NutritionLabel p={pick} grams={useGrams} drink={drink} pieces={mode === 'pieces' && piece ? pieces : null} />}
-      {pick && !drink && (
-        <Segmented
-          label={t('hlPortion')}
-          value={mode}
-          onChange={(m) => {
-            setMode(m);
-            setBoxOpen(false);
-          }}
-          options={[
-            { value: 'grams' as const, label: t('hlByGrams') },
-            { value: 'pieces' as const, label: t('hlByPieces') },
-            { value: 'box' as const, label: t('hlByBox') },
-          ]}
-        />
-      )}
+      {pick && <NutritionLabel p={pick} grams={useGrams} liquid={!!pick.liquid} amount={useGrams ? amountText({ grams: useGrams, ml: unit?.kind === 'ml' ? qty : null, qty, unit: unit?.kind === 'portion' ? unit.label : unit?.kind, exact: unit?.exact }, t, locale) : null} />}
       {pick ? (
-        <div className="hl-portion">
-          {mode === 'pieces' ? (
-            <>
-              <NumBox value={pieces} onChange={setPieces} min={0.5} max={500} step={0.5} unit={t('hlUnitPcs')} label={t('hlByPieces')} />
-              {piece ? (
-                <span className="hl-piece-info">
-                  {t('hlPieceEach', { g: piece.grams.toLocaleString(locale) })}
-                  <small className={`hl-piece-src ${piece.source}`}>{t(piece.source === 'yours' ? 'hlPieceYours' : piece.source === 'label' ? 'hlPieceLabel' : 'hlPieceTypical')}</small>
-                </span>
-              ) : (
-                <span className="hl-piece-info muted">{t('hlPieceUnknown')}</span>
-              )}
-            </>
-          ) : mode === 'box' ? (
-            <>
-              <div className="hl-pills">
-                {[
-                  [0.25, '¼'],
-                  [1 / 3, '⅓'],
-                  [0.5, '½'],
-                  [0.75, '¾'],
-                  [1, t('hlWholeBox')],
-                ].map(([v, label]) => (
-                  <button type="button" key={String(v)} className={frac === v ? 'active' : ''} onClick={() => setFrac(v as number)}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {pack ? <span className="hl-piece-info muted">{t('hlOfBox', { g: pack.toLocaleString(locale) })}</span> : <span className="hl-piece-info muted">{t('hlBoxUnknown')}</span>}
-            </>
-          ) : (
-            <>
-          <NumBox value={grams} onChange={setGrams} min={1} max={5000} unit={drink ? t('hlUnitMl') : t('hlUnitG')} label={t('hlPortion')} />
-          <div className="hl-pills">
-            {[...pick.portions.slice(0, 4).map((p) => ({ label: `${p.label} (${t(drink ? 'hlMl' : 'hlGrams', { n: p.grams })})`, grams: p.grams })), ...portions.map((g) => ({ label: t(drink ? 'hlMl' : 'hlGrams', { n: g }), grams: g }))].map((p, i) => (
-              <button type="button" key={i} className={grams === p.grams ? 'active' : ''} onClick={() => setGrams(p.grams)} dir="auto">
-                {p.label}
-              </button>
+        <div className="hl-portion hl-amount">
+          <NumBox value={qty} onChange={setQty} min={unit?.kind === 'g' || unit?.kind === 'ml' ? 1 : 0.25} max={unit?.kind === 'g' || unit?.kind === 'ml' ? 5000 : 500} step={unit?.kind === 'g' || unit?.kind === 'ml' ? 1 : 0.25} label={t('hlPortion')} />
+          <select className="hl-unit" value={unit?.key ?? 'g'} aria-label={t('hlUnit')} onChange={(e) => {
+            const next = units.find((u) => u.key === e.target.value);
+            if (!next) return;
+            // Keep about the same amount when switching between g and ml; other units start at 1.
+            if ((next.kind === 'g' || next.kind === 'ml') && (unit?.kind === 'g' || unit?.kind === 'ml') && useGrams) setQty(Math.round(useGrams / (next.gramsEach || 1)));
+            else if (next.kind !== 'g' && next.kind !== 'ml') setQty(1);
+            setUnitKey(next.key);
+          }}>
+            {units.map((u) => (
+              <option key={u.key} value={u.key}>
+                {unitName(u, t, locale)}
+              </option>
             ))}
-          </div>
-            </>
-          )}
-          {mode !== 'grams' && (
+          </select>
+          <span className={`hl-exact ${unit?.exact ? 'yes' : 'est'}`}>{unit?.exact ? t('hlExact') : t('hlEstimate')}</span>
+          {!pick.liquid && (
             <Tip text={t('hlMyBoxHint')}>
               <button type="button" className={`hl-mybox-btn ${boxOpen ? 'active' : ''}`} aria-expanded={boxOpen} onClick={() => setBoxOpen(!boxOpen)}>
                 <Icon name="pen" size={13} /> {t('hlMyBox')}
@@ -1110,9 +1109,7 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
           </div>
         )
       )}
-      {pick && !drink && mode !== 'grams' && (boxOpen || (mode === 'pieces' ? !piece : !pack)) && (
-        <MyBox key={pick.id} product={pick} mine={mine} onSaved={() => setBoxOpen(false)} />
-      )}
+      {pick && boxOpen && <MyBox key={pick.id} product={pick} mine={mine} onSaved={() => setBoxOpen(false)} />}
       {text.trim() && <TagPicker tags={tags} open={tagsOpen} onOpen={setTagsOpen} onChange={setTags} />}
       <div className="hl-food-actions">
         {(pick || text) && (
@@ -1141,19 +1138,13 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
 
 // ---------------------------------------------------------------- the picked product, like the label on a package
 
-function NutritionLabel({ p, grams, drink, pieces }: { p: FoodProduct; grams: number | null; drink: boolean; pieces: number | null }) {
+function NutritionLabel({ p, grams, liquid, amount }: { p: FoodProduct; grams: number | null; liquid: boolean; amount: string | null }) {
   const { t, locale } = useBloom();
+  const drink = liquid;
   const n = grams ? forGrams(p, grams) : null;
   const num = (x: number) => (Math.round(x * 10) / 10).toLocaleString(locale);
   const scaled = (v?: number) => (v != null && grams ? num((v * grams) / 100) : null);
   const g = t('hlGramsUnit');
-  const amount = !grams
-    ? null
-    : pieces
-      ? t('hlPiecesAmount', { n: pieces.toLocaleString(locale), g: Math.round(grams).toLocaleString(locale) })
-      : drink
-        ? t('hlMl', { n: Math.round(grams).toLocaleString(locale) })
-        : t('hlGrams', { n: num(grams) });
   const rows: [string, string | null, boolean?][] = [
     [t('hlLblProtein'), n ? num(n.protein) : null],
     [t('hlLblCarbs'), n ? num(n.carbs) : null],
