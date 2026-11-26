@@ -152,4 +152,28 @@ run('sync on real Firestore (emulator)', () => {
     await sleep(500);
     expect(a.titles()).toEqual(['Dinner together']);
   });
+
+  it('shared food library: anyone signed in can add and vote by one; the rules refuse more', async () => {
+    const a = new Device();
+    await a.engine.signUp('A', `la${Date.now()}@example.com`, 'pw123456');
+    await until(() => a.engine.get().status === 'synced');
+    const b = new Device();
+    await b.engine.signUp('B', `lb${Date.now()}@example.com`, 'pw123456');
+    await until(() => b.engine.get().status === 'synced');
+    const key = `my:test${Date.now()}`;
+    await a.engine.libraryPut({ key, name: 'Protein pudding', brand: 'Danone', per100: { kcal: 70, protein: 10, fat: 1.5, carbs: 4.5 } });
+    await a.engine.libraryVote(key, 'Protein pudding', 1, 0);
+    await b.engine.libraryVote(key, 'Protein pudding', 1, 0);
+    const seen = (await b.engine.libraryFetch(0)).find((x) => x.key === key)!;
+    expect(seen).toMatchObject({ name: 'Protein pudding', up: 2, down: 0 });
+    expect(seen.per100?.kcal).toBe(70);
+    // Only changes since a time come back the second time.
+    expect((await b.engine.libraryFetch(seen.updatedAt)).some((x) => x.key === key)).toBe(false);
+    // The rules: a vote can't jump by 2, and nothing else can be stored.
+    const db = getFirestore(getApp(b.name));
+    const { increment, serverTimestamp } = await import('firebase/firestore');
+    const id = key.replace(/[^A-Za-z0-9_-]/g, '_');
+    await expect(setDoc(doc(db, 'library', id), { key, name: 'x', up: increment(2), updatedAt: serverTimestamp() }, { merge: true })).rejects.toThrow();
+    await expect(setDoc(doc(db, 'library', id), { key, name: 'x', who: 'me', updatedAt: serverTimestamp() }, { merge: true })).rejects.toThrow();
+  });
 });

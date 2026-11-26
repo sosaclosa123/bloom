@@ -61,6 +61,9 @@ export function normalizeSnapshot(raw: unknown): Snapshot {
   // v5 added the `health` collection (an empty list above). Health is always
   // private, whatever the stored data says.
   snap.health = snap.health.map(asPrivateHealth);
+  // Owner (Nov 2026): online food search is on by default now. Turned on once
+  // for everyone who had the old default (off); after that it's their choice.
+  if (!snap.settings.foodOnlineV2) snap.settings = { ...snap.settings, healthFoodOnline: true, foodOnlineV2: true };
   return snap;
 }
 

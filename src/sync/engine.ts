@@ -276,6 +276,23 @@ export class SyncEngine {
     this.schedulePush(0);
   }
 
+  // ---------------------------------------------------------------- shared food library
+
+  /** Signed in: the shared food library is available (read + add + vote). */
+  get libraryOn() {
+    return !!this.state.user;
+  }
+  libraryFetch(since: number) {
+    if (!this.state.user) return Promise.resolve([]);
+    return this.backend.libraryFetch(since);
+  }
+  async libraryPut(item: Parameters<SyncBackend['libraryPut']>[0]) {
+    if (this.state.user) await this.backend.libraryPut(item);
+  }
+  async libraryVote(key: string, name: string, up: number, down: number) {
+    if (this.state.user && (up || down)) await this.backend.libraryVote(key, name, up, down);
+  }
+
   // ---------------------------------------------------------------- auth
 
   private async onUser(user: AuthUser | null) {

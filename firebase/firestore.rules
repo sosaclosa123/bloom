@@ -7,6 +7,29 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Food library shared by all Bloom users (owner, Nov 2026): products added
+    // or corrected from package labels + healthy / less healthy votes. Only
+    // the food's name and nutrition; nothing about who added or ate it.
+    // Votes can only move by one at a time; nothing can be deleted.
+    match /library/{id} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['key', 'name', 'brand', 'barcode', 'liquid', 'per100', 'up', 'down', 'updatedAt'])
+        && request.resource.data.key is string && request.resource.data.key.size() <= 160
+        && request.resource.data.name is string && request.resource.data.name.size() <= 160
+        && (!('brand' in request.resource.data) || (request.resource.data.brand is string && request.resource.data.brand.size() <= 80))
+        && (!('barcode' in request.resource.data) || (request.resource.data.barcode is string && request.resource.data.barcode.size() <= 20))
+        && (!('per100' in request.resource.data) || request.resource.data.per100 == null || (request.resource.data.per100 is map
+            && request.resource.data.per100.kcal is number && request.resource.data.per100.kcal >= 0 && request.resource.data.per100.kcal <= 950))
+        && request.resource.data.updatedAt == request.time
+        && voteOk('up') && voteOk('down');
+    }
+    function voteOk(f) {
+      return !(f in request.resource.data) || (request.resource.data[f] is int && request.resource.data[f] >= 0
+        && request.resource.data[f] <= (resource == null ? 0 : resource.data.get(f, 0)) + 1
+        && request.resource.data[f] >= (resource == null ? 0 : resource.data.get(f, 0)) - 1);
+    }
+
     // A shared couple calendar. Its id is the invite code.
     match /spaces/{sid} {
       // Readable by its members, or while it still waits for a 2nd person

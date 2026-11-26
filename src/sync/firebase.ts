@@ -20,6 +20,8 @@ import {
 import {
   arrayUnion,
   collection,
+  getDocs,
+  increment,
   connectFirestoreEmulator,
   doc,
   getDoc,
@@ -35,7 +37,7 @@ import {
   writeBatch,
   type DocumentData,
 } from 'firebase/firestore';
-import type { AuthUser, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } from './backend';
+import type { AuthUser, LibraryItem, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } from './backend';
 
 /** Tests only: run against the local Firebase emulator (several devices = several app names). */
 export interface EmulatorOptions {
@@ -44,6 +46,9 @@ export interface EmulatorOptions {
   firestorePort: number;
   authPort: number;
 }
+
+/** A Firestore document id for a product key ('il:123', 'off:729…', 'my:…'). */
+const libId = (key: string) => key.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 140);
 
 export function createFirebaseBackend(config: FirebaseOptions, emulator?: EmulatorOptions): SyncBackend {
   const app = initializeApp(config, emulator?.name);
@@ -141,6 +146,25 @@ export function createFirebaseBackend(config: FirebaseOptions, emulator?: Emulat
       const [a, b] = base(scope);
       await setDoc(doc(db, a, b, 'photos', fileName), { data: dataUrl });
     },
+    // Shared food library: one document per product, readable by every signed-in
+    // user; only name + nutrition + vote counts (rules in firebase/firestore.rules).
+    async libraryFetch(since) {
+      const col = collection(db, 'library');
+      const q = since ? query(col, where('updatedAt', '>', Timestamp.fromMillis(since))) : col;
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => {
+        const x = d.data();
+        return { ...x, key: x.key ?? d.id, up: x.up ?? 0, down: x.down ?? 0, updatedAt: x.updatedAt instanceof Timestamp ? x.updatedAt.toMillis() : 0 } as LibraryItem;
+      });
+    },
+    async libraryPut(item) {
+      const clean = Object.fromEntries(Object.entries(item).filter(([, v]) => v !== undefined));
+      await setDoc(doc(db, 'library', libId(item.key)), { ...clean, updatedAt: serverTimestamp() }, { merge: true });
+    },
+    async libraryVote(key, name, up, down) {
+      await setDoc(doc(db, 'library', libId(key)), { key, name, up: increment(up), down: increment(down), updatedAt: serverTimestamp() }, { merge: true });
+    },
+
     async getPhoto(scope, fileName) {
       const [a, b] = base(scope);
       const snap = await getDoc(doc(db, a, b, 'photos', fileName));

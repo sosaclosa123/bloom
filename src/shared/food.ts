@@ -36,6 +36,8 @@ export interface FoodProduct {
   packG?: number | null;
   /** Values from your own package label ("my product"). */
   mine?: boolean;
+  /** Values another Bloom user copied from the package (shared library). */
+  shared?: boolean;
 }
 
 export interface FoodsIL {
@@ -487,14 +489,39 @@ export function gradeOfFood(f: Pick<HealthFood, 'grade' | 'per100' | 'productId'
   return nutriScore(p, facts)?.grade ?? null;
 }
 
-/** Healthy / less healthy for a food line: your own choice for that food wins, else the automatic grade (A/B healthy, D/E less, C none). */
+/** Votes of all Bloom users for a food (shared library). */
+export interface Votes {
+  up: number;
+  down: number;
+}
+
+/** The users' majority (at least 2 votes and a clear lead; a tie = no say). */
+export function votedMark(v: Votes | null | undefined): 'healthy' | 'less' | null {
+  if (!v || v.up + v.down < 2 || v.up === v.down) return null;
+  return v.up > v.down ? 'healthy' : 'less';
+}
+
+/** How the shared counters change when your own choice changes (each person counts once). */
+export function voteDelta(from: 'healthy' | 'less' | null | undefined, to: 'healthy' | 'less' | null | undefined): { up: number; down: number } {
+  return { up: (to === 'healthy' ? 1 : 0) - (from === 'healthy' ? 1 : 0), down: (to === 'less' ? 1 : 0) - (from === 'less' ? 1 : 0) };
+}
+
+/**
+ * Healthy / less healthy for a food line: your own choice wins, then what
+ * Bloom users chose for that food (majority), then the automatic grade
+ * (A/B healthy, D/E less, C none).
+ */
 export function healthMark(
   f: Pick<HealthFood, 'grade' | 'per100' | 'productId' | 'product' | 'text' | 'meal' | 'ml'>,
   prefs: { key: string; healthy?: 'healthy' | 'less' | null }[],
-): { mark: 'healthy' | 'less' | null; auto: Grade | null; own: boolean } {
+  votes?: Map<string, Votes> | null,
+): { mark: 'healthy' | 'less' | null; auto: Grade | null; own: boolean; voted: 'healthy' | 'less' | null } {
   const auto = gradeOfFood(f);
-  const mine = prefs.find((p) => p.key === foodKey(f) && p.healthy);
-  return mine ? { mark: mine.healthy!, auto, own: true } : { mark: markOf(auto), auto, own: false };
+  const key = foodKey(f);
+  const mine = prefs.find((p) => p.key === key && p.healthy);
+  const voted = votedMark(votes?.get(key));
+  if (mine) return { mark: mine.healthy!, auto, own: true, voted };
+  return { mark: voted ?? markOf(auto), auto, own: false, voted };
 }
 
 // ---------------------------------------------------------------- "my product": values from the package label
@@ -670,4 +697,12 @@ export function weekReport(
     best: dist.length ? { date: dist[0].date, kcal: dist[0].kcal } : null,
     worst: dist.length > 1 ? { date: dist[dist.length - 1].date, kcal: dist[dist.length - 1].kcal } : null,
   };
+}
+
+// ---------------------------------------------------------------- shared food library (all Bloom users)
+
+/** A shared library product as "my product" values (so it is used the same way). */
+export function libraryAsMine(x: { key: string; name: string; brand?: string; barcode?: string; liquid?: boolean; per100?: HealthMyProduct['per100'] | null; updatedAt: number }): HealthMyProduct | null {
+  if (!x.per100) return null;
+  return { id: `lib:${x.key}`, createdAt: x.updatedAt, updatedAt: x.updatedAt, deletedAt: null, ownerId: 'library', visibility: 'private', kind: 'myproduct', key: x.key, name: x.name, brand: x.brand, barcode: x.barcode, liquid: x.liquid, per100: x.per100 };
 }

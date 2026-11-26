@@ -179,3 +179,30 @@ describe('weekly food report', async () => {
     expect(r.worst).toEqual({ date: '2026-11-20', kcal: 1500 });
   });
 });
+
+describe('shared library votes', async () => {
+  const { foodKey, healthMark, voteDelta, votedMark } = await import('./food');
+  const cola = { text: 'Coke', productId: 'il:1', grade: 'e' as const, per100: null, meal: 'drink' as const };
+  it('a clear majority of at least 2 votes changes the mark; your own choice still wins', () => {
+    expect(votedMark({ up: 1, down: 0 })).toBeNull();
+    expect(votedMark({ up: 2, down: 2 })).toBeNull();
+    expect(votedMark({ up: 3, down: 1 })).toBe('healthy');
+    const votes = new Map([[foodKey(cola), { up: 3, down: 1 }]]);
+    expect(healthMark(cola, [], votes)).toMatchObject({ mark: 'healthy', voted: 'healthy', own: false });
+    expect(healthMark(cola, [{ key: foodKey(cola), healthy: 'less' }], votes).mark).toBe('less');
+  });
+  it('each person counts once: changing your choice moves your vote', () => {
+    expect(voteDelta(null, 'healthy')).toEqual({ up: 1, down: 0 });
+    expect(voteDelta('healthy', 'less')).toEqual({ up: -1, down: 1 });
+    expect(voteDelta('less', null)).toEqual({ up: 0, down: -1 });
+  });
+});
+
+describe('online food search on by default (once)', async () => {
+  const { normalizeSnapshot } = await import('./db');
+  it('turns on for old settings once, then respects the person', () => {
+    expect(normalizeSnapshot({ settings: { healthFoodOnline: false } }).settings.healthFoodOnline).toBe(true);
+    expect(normalizeSnapshot({ settings: { healthFoodOnline: false, foodOnlineV2: true } }).settings.healthFoodOnline).toBe(false);
+    expect(normalizeSnapshot({}).settings.healthFoodOnline).toBe(true);
+  });
+});

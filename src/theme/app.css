@@ -9060,3 +9060,8 @@ button.hl-pill:hover {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+.hl-fr-src.shared {
+  background: color-mix(in srgb, var(--bal-good) 14%, transparent);
+  color: var(--bal-good);
+}

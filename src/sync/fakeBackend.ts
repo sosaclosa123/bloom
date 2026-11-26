@@ -1,6 +1,6 @@
 // In-memory stand-in for Firebase, used by tests. Enforces the same rules as
 // firebase/firestore.rules (private areas, members-only calendars, max 2).
-import type { AuthUser, FeedInfo, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } from './backend';
+import type { AuthUser, FeedInfo, LibraryItem, Profile, RemoteItem, Scope, SpaceInfo, SyncBackend } from './backend';
 
 export class FakeCloud {
   users = new Map<string, { email: string; password: string; uid: string }>();
@@ -8,6 +8,7 @@ export class FakeCloud {
   spaces = new Map<string, SpaceInfo>();
   items = new Map<string, Map<string, RemoteItem>>(); // scopeKey -> docId -> item
   photos = new Map<string, string>();
+  library = new Map<string, LibraryItem>();
   subs = new Set<{ key: string; cb: (items: RemoteItem[], info: FeedInfo) => void; onError: (e: unknown) => void }>();
   /** Server clock for save times (ms, always rising). */
   clock = 1_000;
@@ -135,6 +136,20 @@ export class FakeBackend implements SyncBackend {
   async putPhoto(scope: Scope, fileName: string, dataUrl: string) {
     if (!this.can(scope)) throw new Error('permission-denied');
     this.cloud.photos.set(`${key(scope)}/${fileName}`, dataUrl);
+  }
+  async libraryFetch(since: number) {
+    if (!this.user) throw new Error('permission-denied');
+    return structuredClone([...this.cloud.library.values()].filter((x) => x.updatedAt > since));
+  }
+  async libraryPut(item: Pick<LibraryItem, 'key' | 'name' | 'brand' | 'barcode' | 'liquid' | 'per100'>) {
+    if (!this.user) throw new Error('permission-denied');
+    const old = this.cloud.library.get(item.key);
+    this.cloud.library.set(item.key, { up: 0, down: 0, ...old, ...structuredClone(item), updatedAt: ++this.cloud.clock });
+  }
+  async libraryVote(key: string, name: string, up: number, down: number) {
+    if (!this.user) throw new Error('permission-denied');
+    const old = this.cloud.library.get(key) ?? { key, name, up: 0, down: 0, updatedAt: 0 };
+    this.cloud.library.set(key, { ...old, up: Math.max(0, old.up + up), down: Math.max(0, old.down + down), updatedAt: ++this.cloud.clock });
   }
   async getPhoto(scope: Scope, fileName: string) {
     if (!this.can(scope)) throw new Error('permission-denied');

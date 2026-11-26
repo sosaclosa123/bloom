@@ -523,6 +523,8 @@ export interface Settings {
   healthChallenges: boolean;
   /** Look foods up online (Open Food Facts, barcodes). Off = built-in list only. */
   healthFoodOnline: boolean;
+  /** Online food search was switched on by default once (owner, Nov 2026); after that it stays as the person sets it. */
+  foodOnlineV2?: boolean;
   /** Automatic weekly backups go to this folder (this computer only); null = off. */
   backupFolder: string | null;
   /** Account settings kept only on this device (the person chose "Only this device"). */
@@ -562,7 +564,7 @@ export const DEFAULT_SETTINGS: Settings = {
   healthStickerBook: false,
   healthGoals: false,
   healthChallenges: false,
-  healthFoodOnline: false,
+  healthFoodOnline: true,
   backupFolder: null,
 };
 

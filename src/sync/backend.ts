@@ -37,6 +37,24 @@ export interface SpaceInfo {
   names: Record<string, string>;
 }
 
+/**
+ * The food library shared by all Bloom users (owner, Nov 2026): products
+ * people added or corrected from package labels, and healthy / less healthy
+ * votes. Only the food's name and nutrition; never who added or ate it.
+ */
+export interface LibraryItem {
+  key: string; // product id ('il:…', 'off:<barcode>') or 'my:<id>'
+  name: string;
+  brand?: string;
+  barcode?: string;
+  liquid?: boolean;
+  per100?: { kcal: number; protein: number; fat: number; carbs: number; sugars?: number | null; fiber?: number | null; satFat?: number | null; sodium?: number | null } | null;
+  /** Votes: healthy (up) / less healthy (down). */
+  up: number;
+  down: number;
+  updatedAt: number;
+}
+
 export interface SyncBackend {
   onAuth(cb: (user: AuthUser | null) => void): () => void;
   signUp(email: string, password: string): Promise<AuthUser>;
@@ -62,5 +80,12 @@ export interface SyncBackend {
   put(scope: Scope, items: RemoteItem[]): Promise<void>;
 
   putPhoto(scope: Scope, fileName: string, dataUrl: string): Promise<void>;
+
+  /** Shared food library: items changed after `since` (ms; 0 = all). */
+  libraryFetch(since: number): Promise<LibraryItem[]>;
+  /** Add or update a product's values (from a package label). */
+  libraryPut(item: Pick<LibraryItem, 'key' | 'name' | 'brand' | 'barcode' | 'liquid' | 'per100'>): Promise<void>;
+  /** Change the healthy / less healthy votes by +1 / -1 (moving one's own vote). */
+  libraryVote(key: string, name: string, up: number, down: number): Promise<void>;
   getPhoto(scope: Scope, fileName: string): Promise<string | null>;
 }

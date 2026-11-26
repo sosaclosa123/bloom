@@ -7,6 +7,7 @@ import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
 import { amountUnits, weekReport, copyFood, foodKey, healthMark, pastMeals, recentFoods, ilByCode, OLIVE_OIL, searchMine, withMine, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
 import { markOf } from '../shared/nutrition';
+import { publishProduct, useLibrary, voteFood } from './foodLibrary';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
 import { calorieBalance, dayBalance, energyGoal, energySummary, FOOD_TAGS, foodTotals, macroGoals, forDate, healthOf, LOW_DAY_SHARE, latestWeight } from '../shared/health';
 import { foodSeries, type FoodMetric } from '../shared/healthExtras';
@@ -487,13 +488,17 @@ export function HealthDot({ food, editable = true }: { food: HealthFood; editabl
   const { all } = useHealth();
   const [open, setOpen] = useState(false);
   const prefs = healthOf(all, 'foodpref');
-  const m = healthMark(food, prefs);
+  const { votes } = useLibrary();
+  const m = healthMark(food, prefs, votes);
+  const v = votes.get(foodKey(food));
   const label = m.mark === 'healthy' ? t('hlMarkHealthy') : m.mark === 'less' ? t('hlMarkLess') : t('hlMarkNone');
   const choose = (healthy: 'healthy' | 'less' | null) => {
     const key = foodKey(food);
     const mine = prefs.find((p) => p.key === key);
     const base: HealthFoodPref = mine ?? { ...newMeta(), visibility: 'private', kind: 'foodpref', key, name: food.product ?? food.text };
     save('health', { ...base, healthy });
+    // Your choice also counts once in what all Bloom users think of this food.
+    void voteFood(key, base.name, mine?.healthy ?? null, healthy);
     setOpen(false);
   };
   const dot = <span className={`hl-dot ${m.mark ?? 'none'} ${m.own ? 'own' : ''}`} aria-hidden="true" />;
@@ -528,6 +533,7 @@ export function HealthDot({ food, editable = true }: { food: HealthFood; editabl
               {t('hlMarkAuto', { g: m.auto ? m.auto.toUpperCase() : '–' })}
             </button>
           </div>
+          {v && (v.up > 0 || v.down > 0) && <span className="muted small">{t('hlMarkUsers', { up: v.up, down: v.down })}</span>}
           <span className="muted small">{t('hlMarkHint')}</span>
         </Popover>
       )}
@@ -1091,14 +1097,28 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
   }, []);
   // Your own products ("my product", from package labels) come first and replace the database values.
   const mines = useMemo(() => healthOf(all, 'myproduct'), [all]);
+  // Products other Bloom users copied from the package (yours win).
+  const { products: sharedAll } = useLibrary();
+  const shared = useMemo(() => sharedAll.filter((x) => !mines.some((m) => m.key === x.key)), [sharedAll, mines]);
   const mineFor = (p: FoodProduct) => {
     const m = mines.find((x) => x.key === p.id);
-    return m ? withMine(p, m) : p;
+    if (m) return withMine(p, m);
+    const sh = shared.find((x) => x.key === p.id);
+    return sh ? { ...withMine(p, sh), mine: false, shared: true } : p;
   };
   const baseOf = (key: string) => (db && key.startsWith('il:') ? ilByCode(db, Number(key.slice(3)), lang) : null);
   const local = useMemo(() => (db && !pick ? searchIL(db, text, lang, 8, { drinks: drink }) : []), [db, text, lang, pick, drink]);
-  const own = useMemo(() => (pick ? [] : searchMine(mines, text).slice(0, 4).map((m) => withMine(baseOf(m.key), m))), [mines, text, pick, db, lang]);
-  const [labelFor, setLabelFor] = useState<{ base: FoodProduct | null; name: string } | null>(null);
+  const own = useMemo(
+    () =>
+      pick
+        ? []
+        : [
+            ...searchMine(mines, text).slice(0, 4).map((m) => withMine(baseOf(m.key), m)),
+            ...searchMine(shared, text).slice(0, 4).map((m) => ({ ...withMine(baseOf(m.key), m), mine: false, shared: true })),
+          ],
+    [mines, shared, text, pick, db, lang],
+  );
+  const [labelFor, setLabelFor] = useState<{ base: FoodProduct | null; name: string; barcode?: string } | null>(null);
   const [oilOpen, setOilOpen] = useState(false);
   // Online on: real products are looked up by themselves after a short pause in typing.
   useEffect(() => {
@@ -1243,7 +1263,7 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
                     {p.brand && <span className="muted"> · {p.brand}</span>}
                   </span>
                   <span className="hl-fr-kcal">{t(drink ? 'hlKcalPer100ml' : 'hlKcalPer100', { n: Math.round(p.kcal) })}</span>
-                  <span className={`hl-fr-src ${p.mine ? 'mine' : p.source}`}>{p.mine ? t('hlSrcMine') : p.source === 'il' ? t('hlSrcIL') : t('hlSrcOFF')}</span>
+                  <span className={`hl-fr-src ${p.mine ? 'mine' : p.shared ? 'shared' : p.source}`}>{p.mine ? t('hlSrcMine') : p.shared ? t('hlSrcShared') : p.source === 'il' ? t('hlSrcIL') : t('hlSrcOFF')}</span>
                 </button>
               ))}
               {results.length === 0 && online !== 'loading' && !isWater && (
@@ -1354,6 +1374,7 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
       <LabelEditor
         base={labelFor.base}
         name={labelFor.name}
+        barcode={labelFor.barcode}
         onClose={() => setLabelFor(null)}
         onSaved={(p) => {
           setLabelFor(null);
@@ -1366,6 +1387,10 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
     )}
     {scan && (
       <BarcodeModal
+        onCopyLabel={(barcode) => {
+          setScan(false);
+          setLabelFor({ base: null, name: text.trim(), barcode });
+        }}
         onClose={() => setScan(false)}
         onFound={(p) => {
           choose(p);
@@ -1504,10 +1529,11 @@ function OilPicker({ db, date, isToday, onDone }: { db: FoodsIL; date: ISODate; 
  * product up first; this fixes it, or adds one the database doesn't have).
  * Saved as "my product" and used every time from then on.
  */
-function LabelEditor({ base, name, onClose, onSaved }: { base: FoodProduct | null; name: string; onClose: () => void; onSaved: (p: FoodProduct) => void }) {
+function LabelEditor({ base, name, barcode, onClose, onSaved }: { base: FoodProduct | null; name: string; barcode?: string; onClose: () => void; onSaved: (p: FoodProduct) => void }) {
   const { t, save } = useBloom();
   const { all } = useHealth();
-  const key = base && !base.id.startsWith('my:') ? base.id : (base?.id ?? `my:${newMeta().id}`);
+  // A scanned barcode keeps its product key, so the next scan (by anyone) finds it.
+  const key = base && !base.id.startsWith('my:') ? base.id : (base?.id ?? (barcode ? `off:${barcode}` : `my:${newMeta().id}`));
   const existing = healthOf(all, 'myproduct').find((m) => m.key === key) ?? null;
   const [v, setV] = useState({
     name: existing?.name ?? base?.name ?? name,
@@ -1552,9 +1578,11 @@ function LabelEditor({ base, name, onClose, onSaved }: { base: FoodProduct | nul
                 brand: v.brand.trim() || undefined,
                 liquid: v.liquid,
                 per100: { kcal: v.kcal ?? 0, protein: v.protein ?? 0, fat: v.fat ?? 0, carbs: v.carbs ?? 0, sugars: v.sugars, fiber: v.fiber, satFat: v.satFat, sodium: v.sodium },
-                barcode: base?.barcode,
+                barcode: base?.barcode ?? barcode,
               };
               save('health', rec);
+              // Shared with all Bloom users (name + values only), so everyone gets the right numbers.
+              void publishProduct(rec);
               onSaved(withMine(base, rec));
             }}
           >
@@ -1635,8 +1663,10 @@ function MyBox({ product, mine, onSaved }: { product: FoodProduct; mine: HealthF
 
 type ScanMode = 'camera' | 'type' | 'photo';
 
-function BarcodeModal({ onClose, onFound }: { onClose: () => void; onFound: (p: FoodProduct) => void }) {
+function BarcodeModal({ onClose, onFound, onCopyLabel }: { onClose: () => void; onFound: (p: FoodProduct) => void; onCopyLabel: (barcode: string) => void }) {
   const { t, settings, setSettings } = useBloom();
+  const { all } = useHealth();
+  const { products: shared } = useLibrary();
   const [mode, setMode] = useState<ScanMode>('camera');
   const [code, setCode] = useState('');
   const [state, setState] = useState<'idle' | 'looking' | 'notfound' | 'error' | 'nocamera' | 'badphoto'>('idle');
@@ -1648,6 +1678,13 @@ function BarcodeModal({ onClose, onFound }: { onClose: () => void; onFound: (p: 
     busy.current = true;
     setCode(c);
     setState('looking');
+    // Your own products and the shared Bloom library first (package labels people copied), then Open Food Facts.
+    const known = [...healthOf(all, 'myproduct'), ...shared].find((m) => m.barcode === c || m.key === `off:${c}`);
+    if (known) {
+      busy.current = false;
+      onFound({ ...withMine(null, known), shared: known.ownerId === 'library' });
+      return;
+    }
     const r = await offBarcode(c, settings.language);
     busy.current = false;
     if (r && r !== 'error') onFound(r);
@@ -1663,7 +1700,8 @@ function BarcodeModal({ onClose, onFound }: { onClose: () => void; onFound: (p: 
       try {
         const { BrowserMultiFormatReader } = await import('@zxing/browser');
         const reader = new BrowserMultiFormatReader();
-        const controls = await reader.decodeFromVideoDevice(undefined, video.current!, (res) => {
+        // The back camera on a phone (a PC's webcam ignores this).
+        const controls = await reader.decodeFromConstraints({ audio: false, video: { facingMode: { ideal: 'environment' } } }, video.current!, (res) => {
           if (res && !busy.current) void lookup(res.getText());
         });
         if (cancelled) controls.stop();
@@ -1748,7 +1786,14 @@ function BarcodeModal({ onClose, onFound }: { onClose: () => void; onFound: (p: 
             {state === 'looking'
               ? t('hlSearching')
               : state === 'notfound'
-                ? t('hlBarcodeNotFound', { c: code })
+                ? (
+                    <>
+                      {t('hlBarcodeNotFound', { c: code })}{' '}
+                      <button type="button" className="link-btn" onClick={() => onCopyLabel(code)}>
+                        {t('hlCopyLabel')}
+                      </button>
+                    </>
+                  )
                 : state === 'error'
                   ? t('hlOnlineBusy')
                   : state === 'nocamera'

@@ -492,9 +492,21 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           healthy/less % of calories bar, red-label count, top 5 calorie
           sources, most eaten, closest/farthest day to goal. Phase 2 QA:
           health-redesign + phone-menus pass. NEXT: phase 3.
-    - [ ] 3 Shared: public food library + healthy corrections (Firestore,
-          new rules for the owner to paste), online search default ON,
-          phone camera barcode.
+    - [x] 3 Shared: `library` Firestore collection (one doc per product:
+          key, name, brand, barcode, liquid, per100, up/down votes,
+          updatedAt; rules in firebase/firestore.rules: any signed-in user
+          reads/adds, votes move by 1 only, no other fields, no deletes;
+          tested on the emulator). `src/ui/foodLibrary.ts` = cached copy
+          (downloads only changes, max every 10 min): "Fix values" /
+          "Copy from the package" publish name + values; the healthy dot
+          sends your vote (`voteDelta`, each person counts once); mark =
+          yours > users' majority (>= 2 votes, `votedMark`) > automatic.
+          Shared products show in search as "Bloom". Online food search
+          ON by default (one-time switch `foodOnlineV2` in normalizeSnapshot).
+          Barcode: back camera (facingMode environment), your own + shared
+          products first (works offline), unknown barcode -> "Copy from the
+          package" saved as off:<barcode>. **OWNER MUST PASTE THE NEW RULES
+          before release (Firebase console -> Firestore -> Rules).**
     - [ ] 4 Bigger offline DB: Israeli Open Food Facts products (barcodes).
     - [ ] 5 Recipes DB (original, ingredients = MoH ids + grams, steps,
           kosher type meat/dairy/parve, time, difficulty, cuisine, method,
