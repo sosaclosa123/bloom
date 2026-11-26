@@ -470,8 +470,10 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           saved as `foodpref` {key, healthy}; `healthMark`/`gradeOfFood`/
           `foodKey` in food.ts), nutrition label shows the mark + Israeli
           red labels (עתיר סוכר/נתרן/שומן רווי). Tiny pieces (<5 g) don't
-          start in pieces. NEXT 2c: totals bars (`macroGoals`), red count,
-          ± range; then: label entry ("my product"), + oil,
+          start in pieces. DONE 2c: Totals card = kcal (≈ + "± N" from
+          estimates) + Protein/Carbs/Fat(max)/Fiber/Sugars(max) bars vs
+          `macroGoals` (health.ts, sourced, tested) + red-label food count
+          (`foodTotals`). NEXT: label entry ("my product"), + oil,
           exact mark + day ± range, healthy mark (tap = change), red labels,
           recent + favorites, repeat meal / copy day, macro + fiber/sugar
           goals, eating out S/M/L, weekly food report.

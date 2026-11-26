@@ -8,7 +8,7 @@ import { newMeta } from '../shared/db';
 import { amountUnits, foodKey, healthMark, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
 import { markOf } from '../shared/nutrition';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
-import { calorieBalance, dayBalance, energyGoal, energySummary, FOOD_TAGS, forDate, healthOf, LOW_DAY_SHARE, latestWeight } from '../shared/health';
+import { calorieBalance, dayBalance, energyGoal, energySummary, FOOD_TAGS, foodTotals, macroGoals, forDate, healthOf, LOW_DAY_SHARE, latestWeight } from '../shared/health';
 import { foodSeries, type FoodMetric } from '../shared/healthExtras';
 import type { CalorieGoal, CaloriePace, FoodLabel, HealthFood, HealthFoodPack, HealthFoodPref, HealthRecipe, ISODate, RecipeItem } from '../shared/types';
 import { Button, Field, Icon, IconButton, Modal, Segmented } from './common';
@@ -84,7 +84,7 @@ export function FoodTab({ date, isToday, goalMl }: { date: ISODate; isToday: boo
         </section>
       </div>
       <div className="wl-side">
-        <TotalsCard meals={by('meal')} snacks={by('snack')} drinks={by('drink')} />
+        <TotalsCard meals={by('meal')} snacks={by('snack')} drinks={by('drink')} date={date} />
         <WaterTodayCard date={date} goalMl={goalMl} />
         <MyMealsCard date={date} isToday={isToday} />
         <FoodHistoryCard date={date} />
@@ -712,47 +712,68 @@ function FoodList({ list, chips, onEdit }: { list: HealthFood[]; chips?: boolean
   );
 }
 
-function TotalsCard({ meals, snacks, drinks }: { meals: HealthFood[]; snacks: HealthFood[]; drinks: HealthFood[] }) {
+function TotalsCard({ meals, snacks, drinks, date }: { meals: HealthFood[]; snacks: HealthFood[]; drinks: HealthFood[]; date: ISODate }) {
   const { t, locale, settings } = useBloom();
-  const sum = (xs: HealthFood[], k: 'kcal' | 'protein' | 'fat' | 'carbs') => Math.round(xs.reduce((a, f) => a + (f[k] ?? 0), 0) * 10) / 10;
+  const { all, profile, ibd } = useHealth();
   const allItems = [...meals, ...snacks, ...drinks];
-  const kcal = sum(allItems, 'kcal');
+  const tot = foodTotals(allItems);
   const unknown = allItems.filter((f) => f.kcal == null).length;
-  const part = (xs: HealthFood[]) => (kcal ? (sum(xs, 'kcal') / kcal) * 100 : 0);
+  const energy = energyGoal(profile, latestWeight(all, date), { ibd });
+  const goals = energy ? macroGoals(energy) : null;
+  const num = (v: number) => (Math.round(v * 10) / 10).toLocaleString(locale);
+  // One bar per nutrient vs. the day's goal (owner chose); sugars is a limit (orange), fiber a target (green).
+  const rows: { key: 'protein' | 'carbs' | 'fat' | 'fiber' | 'sugars'; limit?: boolean }[] = [{ key: 'protein' }, { key: 'carbs' }, { key: 'fat', limit: true }, { key: 'fiber' }, { key: 'sugars', limit: true }];
+  const pct = (v: number, goal: number) => `${Math.min(100, goal ? (v / goal) * 100 : 0)}%`;
   return (
     <section className="w-card hl-totals">
       <CardHead title={t('hlFoodTotal')} tip={settings.healthFoodOnline ? t('hlFoodSourceOnline') : t('hlFoodSourceOffline')} />
-      <div className="hl-total-line">
-        <span className="hl-total-kcal">{t('hlKcal', { n: kcal.toLocaleString(locale) })}</span>
-        <span className="hl-total-protein">{proteinText(sum(allItems, 'protein'), t, locale)}</span>
+      <div className="hl-tot-row hl-tot-kcal">
+        <b className="hl-num-font">{tot.plusMinus ? '≈ ' : ''}{t('hlKcal', { n: tot.kcal.toLocaleString(locale) })}</b>
+        <span className="muted small">
+          {goals ? t('hlOfKcal', { n: goals.kcal.toLocaleString(locale) }) : ''}
+          {tot.plusMinus ? (
+            <>
+              {' · '}
+              <bdi dir="ltr">± {tot.plusMinus.toLocaleString(locale)}</bdi>
+            </>
+          ) : null}
+        </span>
       </div>
-      {kcal > 0 && (
-        <div className="hl-kcal-bar" aria-hidden="true">
-          <span className="meals" style={{ width: `${part(meals)}%` }} />
-          <span className="snacks" style={{ width: `${part(snacks)}%` }} />
-          <span className="drinks" style={{ width: `${part(drinks)}%` }} />
+      {goals && (
+        <div className={`hl-tot-bar ${tot.kcal > goals.kcal ? 'over' : ''}`} aria-hidden="true">
+          <i style={{ width: pct(tot.kcal, goals.kcal) }} />
         </div>
       )}
-      <p className="w-card-sub hl-kcal-split">
-        <span>
-          <i className="meals" /> {t('hlMeals')} {sum(meals, 'kcal').toLocaleString(locale)}
-        </span>
-        <span>
-          <i className="snacks" /> {t('hlSnacks')} {sum(snacks, 'kcal').toLocaleString(locale)}
-        </span>
-        <span>
-          <i className="drinks" /> {t('hlDrinks')} {sum(drinks, 'kcal').toLocaleString(locale)}
-        </span>
-      </p>
-      <div className="hl-macros">
-        {(['protein', 'carbs', 'fat'] as const).map((k) => (
-          <span key={k}>
-            <b>{t('hlGrams', { n: sum(allItems, k).toLocaleString(locale) })}</b>
-            {t(`hlMacro_${k}` as StringKey)}
-          </span>
-        ))}
-      </div>
-      {unknown > 0 && <p className="muted small hl-score-note">{t('hlFoodUnknown', { n: unknown })}</p>}
+      {rows.map(({ key, limit }) => {
+        const v = tot[key];
+        const goal = goals?.[key] ?? null;
+        return (
+          <div key={key} className="hl-tot-item">
+            <div className="hl-tot-row">
+              <span>{t(`hlTot_${key}` as StringKey)}</span>
+              <span className="muted small">
+                {goal != null ? t(limit ? 'hlOfMax' : 'hlOfTarget', { v: num(v), g: num(goal) }) : t('hlGrams', { n: num(v) })}
+              </span>
+            </div>
+            {goal != null && (
+              <div className={`hl-tot-bar ${key} ${limit && v > goal ? 'over' : ''}`} aria-hidden="true">
+                <i style={{ width: pct(v, goal) }} />
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {(tot.redFoods > 0 || unknown > 0) && (
+        <p className="muted small hl-tot-notes">
+          {tot.redFoods > 0 && (
+            <span className="hl-tot-red">
+              <i aria-hidden="true" /> {t('hlRedFoods', { n: tot.redFoods })}
+            </span>
+          )}
+          {unknown > 0 && <span>{t('hlFoodUnknown', { n: unknown })}</span>}
+        </p>
+      )}
+      {!goals && <p className="muted small">{t('hlNoGoal')}</p>}
     </section>
   );
 }

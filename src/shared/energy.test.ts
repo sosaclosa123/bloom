@@ -88,3 +88,18 @@ describe('energyGoal', () => {
     expect(dayBalance(null, 2100).state).toBe('none');
   });
 });
+
+describe('day goals and totals (Food)', async () => {
+  const { foodTotals, macroGoals } = await import('./health');
+  it('fat 30% of energy, carbs the rest, fiber 14 g / 1000 kcal (min 25), sugars 90 g per 2000 kcal', () => {
+    expect(macroGoals({ target: 1600, protein: 99 })).toEqual({ kcal: 1600, protein: 99, fat: 53, carbs: 182, fiber: 25, sugars: 72 });
+    expect(macroGoals({ target: 2500, protein: 120 }).fiber).toBe(35);
+  });
+  it('totals: estimates give a ± range, red-label foods are counted', () => {
+    const t = foodTotals([
+      { kcal: 200, protein: 10, fat: 5, carbs: 20, fiber: 3, sugars: 2, exact: true, red: [] },
+      { kcal: 400, protein: 4, fat: 20, carbs: 50, fiber: 1, sugars: 30, exact: false, red: ['sugar', 'satFat'] },
+    ]);
+    expect(t).toMatchObject({ kcal: 600, protein: 14, fiber: 4, sugars: 32, plusMinus: 100, redFoods: 1 });
+  });
+});

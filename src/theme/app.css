@@ -8917,3 +8917,53 @@ button.hl-pill:hover {
   font-size: var(--fs-xs);
   font-weight: 700;
 }
+
+/* Food totals: one bar per nutrient vs. the day's goal (owner chose). */
+.hl-tot-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-sm);
+}
+.hl-tot-kcal b {
+  font-size: calc(22px * var(--fs-scale, 1));
+}
+.hl-tot-bar {
+  height: 6px;
+  margin: 4px 0 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  overflow: hidden;
+}
+.hl-tot-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.hl-tot-bar.fiber i {
+  background: var(--bal-good);
+}
+.hl-tot-bar.sugars i,
+.hl-tot-bar.fat i {
+  background: #e08a2b;
+}
+.hl-tot-bar.over i {
+  background: var(--danger);
+}
+.hl-tot-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+}
+.hl-tot-red i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-inline-end: 4px;
+  border-radius: 2px;
+  background: #d32f2f;
+  vertical-align: -1px;
+}

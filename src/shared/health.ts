@@ -2,6 +2,7 @@
 // never as a diagnosis. Sources are noted next to each formula.
 import type { CalorieGoal, CaloriePace,
   HealthBathroom,
+  HealthFood,
   HealthBody,
   HealthCheckin,
   HealthIbdDay,
@@ -289,6 +290,46 @@ export function energyGoal(p: Partial<HealthProfile> | undefined, weightKg: numb
     kgPerWeek: Math.round((((target - burn) * 7) / KCAL_PER_KG) * 100) / 100,
     weightKg: w,
     notes,
+  };
+}
+
+/**
+ * The day's goals for the Food totals (owner, Nov 2026), from the calorie +
+ * protein goal above:
+ *  - Fat: at most 30% of energy (WHO healthy-diet fact sheet 2020; inside the
+ *    IOM 2005 range of 20-35%), i.e. kcal x 0.30 / 9 g.
+ *  - Carbs: the rest of the calories after protein (4 kcal/g) and fat (9).
+ *  - Fiber: 14 g per 1,000 kcal (IOM 2005 adequate intake), at least 25 g
+ *    (Israeli MoH dietary guidelines: 25-30 g a day).
+ *  - Sugars: a limit, scaled from the EU reference intake for total sugars,
+ *    90 g per 2,000 kcal (Regulation (EU) 1169/2011, Annex XIII). (WHO's
+ *    < 10% of energy is for free sugars only; the data has total sugars.)
+ */
+export function macroGoals(g: Pick<EnergyGoal, 'target' | 'protein'>) {
+  const fat = Math.round((g.target * 0.3) / 9);
+  return {
+    kcal: g.target,
+    protein: g.protein,
+    fat,
+    carbs: Math.max(0, Math.round((g.target - g.protein * 4 - fat * 9) / 4)),
+    fiber: Math.max(25, Math.round((14 * g.target) / 1000)),
+    sugars: Math.round((90 * g.target) / 2000),
+  };
+}
+
+/** Day totals of food lines; `est` = calories from estimates (≈), shown as a ± range of 25% of them. */
+export function foodTotals(list: Pick<HealthFood, 'kcal' | 'protein' | 'fat' | 'carbs' | 'fiber' | 'sugars' | 'exact' | 'red'>[]) {
+  const sum = (k: 'kcal' | 'protein' | 'fat' | 'carbs' | 'fiber' | 'sugars') => Math.round(list.reduce((a, f) => a + (f[k] ?? 0), 0) * 10) / 10;
+  const est = list.reduce((a, f) => a + (f.exact === false ? (f.kcal ?? 0) : 0), 0);
+  return {
+    kcal: Math.round(sum('kcal')),
+    protein: sum('protein'),
+    fat: sum('fat'),
+    carbs: sum('carbs'),
+    fiber: sum('fiber'),
+    sugars: sum('sugars'),
+    plusMinus: Math.round(est * 0.25),
+    redFoods: list.filter((f) => (f.red?.length ?? 0) > 0).length,
   };
 }
 
