@@ -206,3 +206,24 @@ describe('online food search on by default (once)', async () => {
     expect(normalizeSnapshot({}).settings.healthFoodOnline).toBe(true);
   });
 });
+
+describe('built-in Israeli products (Open Food Facts)', async () => {
+  const { offILByBarcode, offILProduct, searchOffIL } = await import('./food');
+  const db = {
+    source: '',
+    foods: [
+      ['7290000000015', 'במבה', 'Bamba', 'Osem', 534, 15, 35, 39, 2, 6, 7, 400, 25, '1 bag (25 g)', 80, 0, 'e'],
+      ['7290000000022', 'קוקה קולה', 'Coca-Cola', 'Coca-Cola', 42, 0, 0, 10.6, 10.6, 0, 0, 10, 330, '1 can (330 ml)', 330, 1, ''],
+    ] as never,
+  };
+  it('finds by Hebrew, English or brand; by barcode offline', () => {
+    expect(searchOffIL(db, 'במבה', 'he')[0].name).toBe('במבה');
+    expect(searchOffIL(db, 'osem', 'en')[0].name).toBe('Bamba');
+    expect(offILByBarcode(db, '7290000000022', 'en')).toMatchObject({ name: 'Coca-Cola', liquid: true, density: 1 });
+  });
+  it('red labels and a grade even when the data has none', () => {
+    const cola = offILProduct(db.foods[1], 'en');
+    expect(cola.red).toEqual(['sugar']);
+    expect(cola.grade).toBe('e');
+  });
+});

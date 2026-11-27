@@ -507,7 +507,15 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           products first (works offline), unknown barcode -> "Copy from the
           package" saved as off:<barcode>. **OWNER MUST PASTE THE NEW RULES
           before release (Firebase console -> Firestore -> Rules).**
-    - [ ] 4 Bigger offline DB: Israeli Open Food Facts products (barcodes).
+    - [~] 4 Bigger offline DB: CODE DONE (`offILProduct`/`searchOffIL`/
+          `offILByBarcode` in food.ts, tested; `loadFoodsOffIL` lazy chunk;
+          products shown before MoH general foods; barcode checks own ->
+          shared -> built-in -> online; scanner works with online off).
+          DATA: `node scripts/fetch-foods-off-il.mjs` (resumable, caches
+          pages in /tmp/bloom-off-il, 12 s apart; ~9,350 Israeli products on
+          OFF, page size capped at 100) -> src/data/foods-off-il.json (ODbL,
+          attribution in "source"). OFF answered 503 "temporarily
+          unavailable" on 26-27 Nov; file is a placeholder until it runs.
     - [ ] 5 Recipes DB (original, ingredients = MoH ids + grams, steps,
           kosher type meat/dairy/parve, time, difficulty, cuisine, method,
           meal type, substitutions).

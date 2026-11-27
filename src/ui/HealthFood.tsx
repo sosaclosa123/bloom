@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { StringKey } from '../i18n/strings';
 import { platform } from '../platform/api';
 import { newMeta } from '../shared/db';
-import { amountUnits, weekReport, copyFood, foodKey, healthMark, pastMeals, recentFoods, ilByCode, OLIVE_OIL, searchMine, withMine, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
+import { amountUnits, offILByBarcode, searchOffIL, type FoodsOffIL, weekReport, copyFood, foodKey, healthMark, pastMeals, recentFoods, ilByCode, OLIVE_OIL, searchMine, withMine, nutrientsFor, startGrams, unitGrams, type AmountUnit, autoTags, FOOD_LABELS, forGrams, itemForGrams, itemOf, labelOf, OFF_FIELDS, parseOff, recipeFood, recipeTotals, searchIL, validBarcode, type FoodProduct, type FoodsIL } from '../shared/food';
 import { markOf } from '../shared/nutrition';
 import { publishProduct, useLibrary, voteFood } from './foodLibrary';
 import { addDays, parseISODate, toISODate } from '../shared/dates';
@@ -26,6 +26,13 @@ let ilCache: Promise<FoodsIL> | null = null;
 export function loadFoodsIL(): Promise<FoodsIL> {
   ilCache ??= import('../data/foods-il.json').then((m) => m.default as unknown as FoodsIL);
   return ilCache;
+}
+
+let offILCache: Promise<FoodsOffIL> | null = null;
+/** Israeli supermarket products from Open Food Facts, built in (found offline and by barcode). */
+export function loadFoodsOffIL(): Promise<FoodsOffIL> {
+  offILCache ??= import('../data/foods-off-il.json').then((m) => m.default as unknown as FoodsOffIL);
+  return offILCache;
 }
 
 export async function offBarcode(code: string, lang: 'en' | 'he'): Promise<FoodProduct | null | 'error'> {
@@ -1092,9 +1099,13 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
   const mine = pick ? mineOf(pick) : null;
   const units = pick ? amountUnits(pick, mine) : [];
   const unit = units.find((u) => u.key === unitKey) ?? units[0] ?? null;
+  const [offDb, setOffDb] = useState<FoodsOffIL | null>(null);
   useEffect(() => {
     void loadFoodsIL().then(setDb);
+    void loadFoodsOffIL().then(setOffDb);
   }, []);
+  // Real products (built-in Israeli supermarket list) before the general foods.
+  const products = useMemo(() => (offDb && !pick ? searchOffIL(offDb, text, lang, 5) : []), [offDb, text, lang, pick]);
   // Your own products ("my product", from package labels) come first and replace the database values.
   const mines = useMemo(() => healthOf(all, 'myproduct'), [all]);
   // Products other Bloom users copied from the package (yours win).
@@ -1225,7 +1236,7 @@ export function FoodAdd({ date, isToday, onAdded, onItem }: { date: ISODate; isT
     onAdded?.();
   };
   // Real products (online, with a brand) first, then the general database entries.
-  const results = [...own, ...[...(Array.isArray(online) ? online.slice(0, 6) : []), ...local].map(mineFor)].filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i);
+  const results = [...own, ...[...products, ...(Array.isArray(online) ? online.slice(0, 6) : []), ...local].map(mineFor)].filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i);
   const isWater = drink && /^(water|מים)$/i.test(text.trim());
 
   return (
@@ -1685,6 +1696,18 @@ function BarcodeModal({ onClose, onFound, onCopyLabel }: { onClose: () => void; 
       onFound({ ...withMine(null, known), shared: known.ownerId === 'library' });
       return;
     }
+    // The built-in Israeli product list (no internet needed).
+    const builtIn = offILByBarcode(await loadFoodsOffIL(), c, settings.language);
+    if (builtIn) {
+      busy.current = false;
+      onFound(builtIn);
+      return;
+    }
+    if (!settings.healthFoodOnline) {
+      busy.current = false;
+      setState('notfound');
+      return;
+    }
     const r = await offBarcode(c, settings.language);
     busy.current = false;
     if (r && r !== 'error') onFound(r);
@@ -1693,7 +1716,7 @@ function BarcodeModal({ onClose, onFound, onCopyLabel }: { onClose: () => void; 
 
   // Webcam: read barcodes continuously until one is found.
   useEffect(() => {
-    if (mode !== 'camera' || !settings.healthFoodOnline) return;
+    if (mode !== 'camera') return;
     let stop: (() => void) | null = null;
     let cancelled = false;
     void (async () => {
@@ -1733,14 +1756,15 @@ function BarcodeModal({ onClose, onFound, onCopyLabel }: { onClose: () => void; 
 
   return (
     <Modal title={t('hlScanTitle')} onClose={onClose} width={520} className="hl-scan">
-      {!settings.healthFoodOnline ? (
-        <div className="hl-scan-off">
-          <p>{t('hlScanNeedsOnline')}</p>
-          <Button variant="primary" onClick={() => setSettings({ healthFoodOnline: true })}>
+      {!settings.healthFoodOnline && (
+        <p className="muted small hl-scan-offline">
+          {t('hlScanOfflineNote')}{' '}
+          <button type="button" className="link-btn" onClick={() => setSettings({ healthFoodOnline: true })}>
             {t('hlTurnOnOnline')}
-          </Button>
-        </div>
-      ) : (
+          </button>
+        </p>
+      )}
+      {(
         <div className="hl-form">
           <Segmented
             value={mode}

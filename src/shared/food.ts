@@ -706,3 +706,74 @@ export function libraryAsMine(x: { key: string; name: string; brand?: string; ba
   if (!x.per100) return null;
   return { id: `lib:${x.key}`, createdAt: x.updatedAt, updatedAt: x.updatedAt, deletedAt: null, ownerId: 'library', visibility: 'private', kind: 'myproduct', key: x.key, name: x.name, brand: x.brand, barcode: x.barcode, liquid: x.liquid, per100: x.per100 };
 }
+
+// ---------------------------------------------------------------- built-in Israeli products (Open Food Facts, ODbL)
+
+/** [barcode, nameHe, nameEn, brand, kcal, protein, fat, carbs, sugars, fiber, satFat, sodiumMg, servingG, servingText, packG, liquid, grade] */
+export type OffILRow = [string, string, string, string, number, number, number, number, number, number, number, number, number, string, number, number, string];
+export interface FoodsOffIL {
+  source: string;
+  foods: OffILRow[];
+}
+
+/** A built-in Open Food Facts product (sold in Israel) as a food. */
+export function offILProduct(row: OffILRow, lang: 'en' | 'he'): FoodProduct {
+  const [code, he, en, brand, kcal, protein, fat, carbs, sugars, fiber, satFat, sodium, servingG, servingText, packG, liquid, grade] = row;
+  const per = { kcal, protein, fat, carbs, sugars, fiber, satFat, sodium };
+  const facts = { kind: liquid ? ('drink' as const) : ('food' as const), fvl: 0, liquid: !!liquid };
+  const parsed = servingText ? parseServing(servingText) : null;
+  return {
+    id: `off:${code}`,
+    source: 'off',
+    name: (lang === 'he' ? he || en : en || he) || code,
+    nameAlt: lang === 'he' ? en : he,
+    brand,
+    kcal,
+    protein,
+    fat,
+    carbs,
+    sugars,
+    fiber,
+    satFat,
+    sodium,
+    grade: (/^[a-e]$/.test(grade) ? grade : nutriScore(per, facts)?.grade) as Grade | null,
+    red: redLabels(per, facts),
+    liquid: !!liquid,
+    density: liquid ? 1 : null,
+    portions: servingG > 0 ? [{ label: servingText || `${servingG} g`, grams: servingG }] : [],
+    barcode: code,
+    pieceG: parsed ? Math.round((parsed.grams / parsed.count) * 10) / 10 : null,
+    packG: packG || null,
+  };
+}
+
+/** Offline search in the built-in products: every word in the name or brand; names starting with the query first, then shorter names. */
+export function searchOffIL(db: FoodsOffIL, query: string, lang: 'en' | 'he', limit = 6): FoodProduct[] {
+  const q = norm(query);
+  if (q.length < 2) return [];
+  const words = q.split(' ');
+  const hits: { row: OffILRow; rank: number }[] = [];
+  for (const row of db.foods) {
+    const name = norm(`${row[1]} ${row[2]}`);
+    const all = `${name} ${norm(row[3])}`;
+    if (!words.every((w) => all.includes(w))) continue;
+    const starts = norm(lang === 'he' ? row[1] || row[2] : row[2] || row[1]).startsWith(q) ? 0 : name.includes(q) ? 1 : 2;
+    hits.push({ row, rank: starts * 1000 + name.length });
+  }
+  return hits
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, limit)
+    .map((h) => offILProduct(h.row, lang));
+}
+
+const byCode = new WeakMap<FoodsOffIL, Map<string, OffILRow>>();
+/** A built-in product by its barcode (works offline). */
+export function offILByBarcode(db: FoodsOffIL, code: string, lang: 'en' | 'he'): FoodProduct | null {
+  let m = byCode.get(db);
+  if (!m) {
+    m = new Map(db.foods.map((r) => [r[0], r]));
+    byCode.set(db, m);
+  }
+  const row = m.get(code);
+  return row ? offILProduct(row, lang) : null;
+}
