@@ -92,3 +92,103 @@ describe('Kitchen recipes', () => {
     expect(k.kcal).toBeLessThan(450);
   });
 });
+
+import { applySwaps, foodKosher, kosherClock, scaleRecipe, slotFor, suggest, type DayIntake, type Taste } from './kitchen';
+
+const taste = (t: Partial<Taste> = {}): Taste => ({ cuisines: [], spice: 1, never: [], allergies: [], rated: {}, ...t });
+const day = (foods: { text: string; time: string; kcal?: number; tags?: string[]; productId?: string }[] = [], kcal = 0, protein = 0, fiber = 0): DayIntake => ({
+  kcal,
+  protein,
+  fiber,
+  foods: foods.map((f) => ({ date: '2026-11-27', tags: [], ...f })),
+});
+const at = (hhmm: string) => new Date(`2026-11-27T${hhmm}:00`);
+const base = { recipes: RECIPES, ing: INGREDIENT, db: DB, goals: { kcal: 2000, protein: 110, fiber: 28 }, weightKg: 70 };
+
+describe('Kitchen suggestions (rules, no AI)', () => {
+  it('meal by the clock', () => {
+    expect(slotFor(at('08:00'))).toBe('breakfast');
+    expect(slotFor(at('13:00'))).toBe('lunch');
+    expect(slotFor(at('19:30'))).toBe('dinner');
+    expect(slotFor(at('23:00'))).toBe('snack');
+    expect(slotFor(at('19:30'), 200)).toBe('snack');
+  });
+  it('knows meat / dairy / parve of logged food', () => {
+    expect(foodKosher({ text: 'חזה עוף', productId: 'il:24123130', tags: [] })).toBe('meat');
+    expect(foodKosher({ text: 'שניצל', tags: [] })).toBe('meat');
+    expect(foodKosher({ text: 'גבינה לבנה 5%', tags: ['dairy'] })).toBe('dairy');
+    expect(foodKosher({ text: 'משקה סויה', tags: ['dairy'] })).toBe('parve');
+    expect(foodKosher({ text: 'חמאת בוטנים', tags: [] })).toBe('parve');
+    expect(foodKosher({ text: 'Banana', tags: [] })).toBe('parve');
+  });
+  it('kosher clock: 6 h after meat, 30 min after dairy', () => {
+    const meat = day([{ text: 'Chicken breast', time: '13:00' }]).foods;
+    expect(kosherClock(meat, at('15:00')).noDairyUntil).toBe(at('19:00').getTime());
+    expect(kosherClock(meat, at('19:01')).noDairyUntil).toBeNull();
+    const dairy = day([{ text: 'Yogurt', time: '10:00', tags: ['dairy'] }]).foods;
+    expect(kosherClock(dairy, at('10:15')).noMeatUntil).toBe(at('10:30').getTime());
+    expect(kosherClock(dairy, at('10:31')).noMeatUntil).toBeNull();
+    // No dairy dish is suggested 2 h after chicken.
+    const s = suggest({ ...base, now: at('15:00'), today: day([{ text: 'Chicken breast', time: '13:00' }], 600, 40), taste: taste(), slot: 'snack' });
+    expect(s.length).toBeGreaterThan(0);
+    expect(s.every((x) => x.kosher !== 'dairy')).toBe(true);
+    const m = suggest({ ...base, now: at('10:15'), today: day([{ text: 'Yogurt', time: '10:00', tags: ['dairy'] }], 200, 10), taste: taste(), slot: 'lunch' });
+    expect(m.every((x) => x.kosher !== 'meat')).toBe(true);
+  });
+  it("owner's example: craving schnitzel after fries -> the baked one, not fried", () => {
+    const s = suggest({ ...base, now: at('19:00'), today: day([{ text: "צ'יפס", time: '13:00', tags: ['fried'] }], 900, 30), taste: taste({ cuisines: ['middle-eastern'], spice: 2 }), crave: 'schnitzel' });
+    expect(s[0].recipe.id).toBe('oven-schnitzel');
+    expect(s[0].why).toContain('crave');
+    const fried = s.find((x) => x.recipe.id === 'classic-schnitzel');
+    expect(fried ? fried.score : -99).toBeLessThan(s[0].score - 5);
+  });
+  it('protein behind at dinner -> a high-protein dinner, never over the calories left', () => {
+    const s = suggest({ ...base, now: at('19:00'), today: day([], 1100, 30), taste: taste() });
+    expect(s[0].serving.protein).toBeGreaterThanOrEqual(30);
+    expect(s[0].why).toContain('protein');
+    expect(s[0].serving.kcal).toBeLessThanOrEqual(900 + 150);
+  });
+  it('varies: chicken already today -> the top dinner is not chicken', () => {
+    const s = suggest({ ...base, now: at('19:00'), today: day([{ text: 'חזה עוף', time: '13:00', productId: 'il:24123130' }], 900, 50), taste: taste() });
+    expect(s[0].recipe.ing.some(([id]) => INGREDIENT.get(id)!.group === 'poultry')).toBe(false);
+  });
+  it('a recipe eaten in the last days goes down the list', () => {
+    const now = at('19:00');
+    const first = suggest({ ...base, now, today: day([], 900, 50), taste: taste() })[0].recipe.id;
+    const again = suggest({ ...base, now, today: day([], 900, 50), taste: taste(), recentRecipes: [first] });
+    expect(again[0].recipe.id).not.toBe(first);
+  });
+  it('"never" swaps for a real ingredient, keeps kosher, or drops the dish', () => {
+    const fal = RECIPES.find((r) => r.id === 'baked-falafel')!;
+    const sw = applySwaps(fal, new Set(['chickpeas-dry']), INGREDIENT)!;
+    expect(sw.recipe.ing.some(([id]) => id === 'white-beans-dry')).toBe(true);
+    expect(sw.swapped).toEqual([['chickpeas-dry', 'white-beans-dry']]);
+    const sch = RECIPES.find((r) => r.id === 'oven-schnitzel')!;
+    expect(applySwaps(sch, new Set(['chicken-breast']), INGREDIENT)!.recipe.ing[0][0]).toBe('turkey-breast');
+    // A spice with no swap is left out; a main part with no swap = no dish.
+    expect(applySwaps(sch, new Set(['paprika']), INGREDIENT)!.swapped).toEqual([['paprika', null]]);
+    expect(applySwaps(RECIPES.find((r) => r.id === 'majadra')!, new Set(['lentils']), INGREDIENT)).toBeNull();
+    // Never chicken: nothing suggested has chicken in it.
+    const s = suggest({ ...base, now: at('19:00'), today: day(), taste: taste({ never: ['chicken-breast', 'chicken-thigh', 'chicken-ground', 'chicken-broth'] }) });
+    expect(s.every((x) => !x.recipe.ing.some(([id]) => id.startsWith('chicken')))).toBe(true);
+  });
+  it('allergies remove the dish when there is no swap', () => {
+    const s = suggest({ ...base, now: at('19:00'), today: day(), taste: taste({ allergies: ['fish', 'sesame'] }) });
+    expect(s.some((x) => x.recipe.ing.some(([id]) => ['salmon', 'cod', 'tilapia', 'tuna-can', 'sea-bream', 'tahini', 'sesame', 'hummus'].includes(id)))).toBe(false);
+  });
+  it('taste filters: time, level, thumbs down', () => {
+    const s = suggest({ ...base, now: at('19:00'), today: day(), taste: taste({ maxTime: 25, level: 1, rated: { 'lemon-herb-chicken': -1 } }) });
+    expect(s.every((x) => x.recipe.time <= 25 && x.recipe.level === 1)).toBe(true);
+    expect(s.some((x) => x.recipe.id === 'lemon-herb-chicken')).toBe(false);
+  });
+  it('my fridge: dishes from what is at home first', () => {
+    const s = suggest({ ...base, now: at('19:00'), today: day(), taste: taste(), fridge: ['chicken-breast', 'broccoli', 'red-pepper', 'carrot', 'rice', 'soy-sauce', 'ginger', 'spring-onion'] });
+    expect(s[0].missing!.length).toBeLessThanOrEqual(1);
+    expect(s.slice(0, 3).map((x) => x.recipe.id)).toContain('chicken-stir-fry');
+  });
+  it('batch cooking scales every amount', () => {
+    const r = scaleRecipe(RECIPES.find((x) => x.id === 'shakshuka')!, 6);
+    expect(r.servings).toBe(6);
+    expect(r.ing.find(([id]) => id === 'egg')![1]).toBe(660);
+  });
+});

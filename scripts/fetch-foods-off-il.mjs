@@ -27,7 +27,8 @@ const clean = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
 
 const rows = [];
 const seen = new Set();
-for (let page = 1; ; page++) {
+let partial = false;
+pages: for (let page = 1; ; page++) {
   let data;
   const file = join(CACHE, `page-${page}.json`);
   if (existsSync(file)) data = JSON.parse(readFileSync(file, 'utf8'));
@@ -38,8 +39,13 @@ for (let page = 1; ; page++) {
         data = await r.json().catch(() => null);
         if (data) break;
       }
-      if (tries > 12) throw new Error(`page ${page}: HTTP ${r?.status}`);
-      await sleep(60000); // busy / throttled: wait a minute
+      if (tries > 30) {
+        // Still refused after ~1.5 h: keep what we have (run again later to finish).
+        console.log(`page ${page}: HTTP ${r?.status}, saving the pages so far`);
+        partial = true;
+        break pages;
+      }
+      await sleep(180000); // busy / throttled: wait 3 minutes
     }
     writeFileSync(file, JSON.stringify(data));
     await sleep(12000); // well under Open Food Facts' ~10 searches a minute
@@ -78,6 +84,7 @@ for (let page = 1; ; page++) {
 const out = {
   source: 'Open Food Facts (openfoodfacts.org), products sold in Israel. Open Database License (ODbL 1.0), © Open Food Facts contributors.',
   fetched: new Date().toISOString().slice(0, 10),
+  ...(partial ? { partial: true } : {}),
   foods: rows,
 };
 writeFileSync(new URL('../src/data/foods-off-il.json', import.meta.url), JSON.stringify(out));

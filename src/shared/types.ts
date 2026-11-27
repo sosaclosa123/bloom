@@ -331,6 +331,8 @@ export interface HealthFood extends SyncMeta {
   /** Logged as a number of pieces ("5 cookies"); grams = pieces x pieceG. */
   pieces?: number | null;
   pieceG?: number | null;
+  /** Meat / dairy / parve, saved when known (Kitchen dishes), for the kosher clock. */
+  kosher?: 'meat' | 'dairy' | 'parve' | null;
 }
 
 /** "My box" for a product: its weight and how many pieces were in it (asked once, remembered). */
@@ -459,6 +461,43 @@ export interface HealthChallenge extends SyncMeta {
   stopped: boolean;
 }
 
+/**
+ * Kitchen settings + state (owner, Nov 2026), one record: taste profile,
+ * thumbs up/down, week plan, home pantry (have / out) and shopping ticks.
+ */
+export interface HealthKitchen extends SyncMeta {
+  kind: 'kitchen';
+  cuisines: string[];
+  spice: 0 | 1 | 2;
+  never: string[];
+  allergies: string[];
+  rated: Record<string, 1 | -1>;
+  maxTime: number | null;
+  level: 1 | 2 | 3 | null;
+  /** Batch cooking: on + how many meals. Off = the recipe's own servings. */
+  batch: boolean;
+  batchMeals: number;
+  /** Week plan: date -> recipe ids. */
+  plan: Record<string, string[]>;
+  /** Pantry: ingredient ids at home / marked "out". */
+  have: string[];
+  out: string[];
+  /** Taste setup was gone through. */
+  setup: boolean;
+}
+
+/** Your own Kitchen recipe (nutrition from its ingredients). */
+export interface HealthMyRecipe extends SyncMeta {
+  kind: 'myrecipe';
+  name: string;
+  servings: number;
+  time: number;
+  level: 1 | 2 | 3;
+  meal: ('breakfast' | 'lunch' | 'dinner' | 'snack')[];
+  ing: [string, number][];
+  steps: string[];
+}
+
 export type HealthItem =
   | HealthProfile
   | HealthCheckin
@@ -471,6 +510,8 @@ export type HealthItem =
   | HealthFoodPref
   | HealthMyProduct
   | HealthRecipe
+  | HealthKitchen
+  | HealthMyRecipe
   | HealthBody
   | HealthTest
   | HealthVisit

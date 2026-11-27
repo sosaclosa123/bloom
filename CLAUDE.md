@@ -525,7 +525,23 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           `src/shared/kitchen.ts`: `recipeNutrition` (sum per gram from
           foods-il.json), `kosherOf`, `kosherProblem` (tests: no meat+dairy,
           no fish with meat/dairy, kcal ranges, Atwater check).
-    - [ ] 6 Kitchen: suggestion engine (rules + scoring + kosher clock),
+    - [~] 6 Kitchen. DONE 6a engine (`src/shared/kitchen.ts`, tests in
+          kitchen.test.ts): `slotFor` (clock), `foodKosher` (MoH group /
+          words / saved `kosher` on food lines), `kosherClock` (6 h / 30 min),
+          `applySwaps` (never + ALLERGIES -> swap or drop spice or skip dish),
+          `suggest` (calories left per meal, protein 0.4-0.6 g/kg a meal,
+          fiber, veg >= 150 g, fried never twice a day, Nutri-Score of the
+          dish (`dishGrade`), sodium/sugars, variety of main protein + recent
+          dishes, taste cuisines/spice/thumbs, crave, fridge with `missing`),
+          `scaleRecipe` (batch), `kitchenAmount` (pieces / tsp / tbsp),
+          `shoppingNeeds`. Types: `HealthKitchen` (one record: taste, rated,
+          plan, have/out, batch), `HealthMyRecipe`, HealthFood.kosher.
+          NEXT 6b: `src/ui/Kitchen.tsx` (Health sub-tab "Kitchen"): main idea
+          card (Mix A+B), Why ⓘ, craving + fridge, Recipes / Plan / Shopping /
+          Taste windows, recipe view (never per ingredient, thumbs, batch),
+          Cook mode (timers, log to Food as kitchen:<id> with kosher), My
+          recipe editor, dish art stickers, strings EN/HE, phone.
+          Rest of the original plan: suggestion engine (rules + scoring + kosher clock),
           taste profile, never-suggest + swaps, cook mode + log it, ratings,
           my recipes, craving swap, fridge, batch toggle + meals count, week
           plan, shopping list + pantry (out / bought).
