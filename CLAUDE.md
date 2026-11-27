@@ -536,11 +536,21 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           `scaleRecipe` (batch), `kitchenAmount` (pieces / tsp / tbsp),
           `shoppingNeeds`. Types: `HealthKitchen` (one record: taste, rated,
           plan, have/out, batch), `HealthMyRecipe`, HealthFood.kosher.
-          NEXT 6b: `src/ui/Kitchen.tsx` (Health sub-tab "Kitchen"): main idea
-          card (Mix A+B), Why ⓘ, craving + fridge, Recipes / Plan / Shopping /
-          Taste windows, recipe view (never per ingredient, thumbs, batch),
-          Cook mode (timers, log to Food as kitchen:<id> with kosher), My
-          recipe editor, dish art stickers, strings EN/HE, phone.
+          DONE 6b `src/ui/Kitchen.tsx` (Health sub-tab "Kitchen", after Food):
+          idea card (DishArt from `dishArt.ts`, Cook it / Other, ⓘ why,
+          kosher wait pill, "I'm craving… · My fridge"), 4 tools: Recipes
+          (search + filters + "My own recipe" editor with meat+dairy block),
+          Plan (7 days, "Fill the week" = `planWeek`: dinner ~35% of the day,
+          no repeat, not same protein 2 days running, red meat <= 2, fish >=
+          2, one legume), Shopping (plan needs by aisle - at home; tick =
+          bought -> "At home"; "Ran out" -> back to buy; staples assumed),
+          Taste (cuisines, spice, allergies, never list, time, level).
+          Recipe view: per-meal nutrition grid, batch toggle + meals, never
+          per ingredient (✕), like / not for me, add to plan (day chips),
+          Start cooking -> Cook mode (get ready checklist, steps, timers with
+          beep, log to Food as `kitchen:<id>` with kosher, ≈). Strings kt*.
+          QA: `qa/run.sh kitchen.cjs` (PC + phone, EN/HE, light/dark) passes.
+          NEXT: owner look; maybe kitchen tools (no oven / air fryer) in Taste.
           Rest of the original plan: suggestion engine (rules + scoring + kosher clock),
           taste profile, never-suggest + swaps, cook mode + log it, ratings,
           my recipes, craving swap, fridge, batch toggle + meals count, week

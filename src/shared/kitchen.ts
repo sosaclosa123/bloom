@@ -288,6 +288,8 @@ export interface SuggestInput {
   crave?: string | null;
   /** "My fridge": what's at home. */
   fridge?: string[] | null;
+  /** Extra points by main protein (week plan: no same protein two days running, red meat <= 2 a week, fish >= 2). */
+  mainBias?: Record<string, number>;
 }
 
 export type Why = 'protein' | 'light' | 'fits' | 'fiber' | 'veg' | 'notFried' | 'healthy' | 'taste' | 'liked' | 'variety' | 'quick' | 'crave' | 'fridge' | 'noDairy' | 'noMeat';
@@ -392,6 +394,7 @@ export function suggest(x: SuggestInput): Suggestion[] {
     const main = mainProtein(r, ing);
     if (main !== 'none' && main !== 'legume' && proteinsToday.has(main)) s -= 2;
     else if (proteinsToday.size && main !== 'none') why.push('variety');
+    s += x.mainBias?.[main] ?? 0;
     const idx = recent.indexOf(base.id);
     if (idx >= 0) s -= idx < 3 ? 4 : 1.5;
     // Taste.
@@ -431,6 +434,44 @@ export function suggest(x: SuggestInput): Suggestion[] {
     return (h2 % 100) / 250; // 0 - 0.4
   };
   return out.sort((a, b) => b.score + jitter(b.recipe.id) - (a.score + jitter(a.recipe.id)));
+}
+
+/**
+ * A varied week of dinners (Plan > Fill the week). Each dinner is sized like a
+ * normal day's dinner (~35% of the day's calories and protein; the rest is
+ * eaten earlier). Variety rules: never the same dish twice, not the same main
+ * protein two days running, red meat at most twice a week (WCRF/AICR: limit
+ * red meat to ~350-500 g cooked a week), fish at least twice a week (Israeli
+ * MoH 2019 / AHA), and a vegetarian (legume) dinner once.
+ */
+export function planWeek(x: Omit<SuggestInput, 'now' | 'today' | 'slot' | 'crave' | 'fridge' | 'mainBias'>, days: string[], already: Record<string, string[]>) {
+  const plan: Record<string, string[]> = { ...already };
+  const used: string[] = Object.values(plan).flat();
+  const mains: string[] = [];
+  const mainOf = new Map(x.recipes.map((r) => [r.id, mainProtein(r, x.ing)]));
+  for (const d of days) {
+    if (plan[d]?.length) {
+      mains.push(mainOf.get(plan[d][0]) ?? 'none');
+      continue;
+    }
+    const g = x.goals;
+    const eaten = g ? { kcal: g.kcal * 0.65, protein: g.protein * 0.65, fiber: g.fiber * 0.6 } : { kcal: 0, protein: 0, fiber: 0 };
+    const count = (m: string) => mains.filter((y) => y === m).length;
+    const bias: Record<string, number> = {};
+    const prev = mains[mains.length - 1];
+    if (prev && prev !== 'none') bias[prev] = (bias[prev] ?? 0) - 6;
+    if (count('meat') >= 2) bias.meat = (bias.meat ?? 0) - 6;
+    if (count('fish') < 2) bias.fish = (bias.fish ?? 0) + 1.5;
+    else bias.fish = (bias.fish ?? 0) - 1.5;
+    if (count('legume') < 1) bias.legume = (bias.legume ?? 0) + 1;
+    const list = suggest({ ...x, now: new Date(`${d}T19:00:00`), today: { ...eaten, foods: [] }, recentRecipes: [...used].reverse(), slot: 'dinner', mainBias: bias });
+    const pick = list.find((s) => !used.includes(s.recipe.id));
+    if (!pick) continue;
+    plan[d] = [pick.recipe.id];
+    used.push(pick.recipe.id);
+    mains.push(mainOf.get(pick.recipe.id) ?? 'none');
+  }
+  return plan;
 }
 
 /** Amounts for `meals` portions (batch cooking / cooking for two). */

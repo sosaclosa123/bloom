@@ -16,6 +16,7 @@ import { ChallengesCard, DoctorReport, GoalsCard, MonthSummaryCard, StickerBookB
 import { FlareTimelineCard, InsightsCard, TrendsCard } from './HealthTrends';
 import { profileComplete, ProfileCard, ProfileWizard, SetupCard } from './HealthProfile';
 import { useBloom } from './store';
+import { KitchenTab } from './Kitchen';
 
 // ---------------------------------------------------------------- settings (per device)
 
@@ -133,10 +134,12 @@ function HealthOn() {
   const goal = waterGoal(profile, { date, ibd, liquidStools: stats.liquid, exerciseMin: body?.exerciseMin ?? null });
 
   // Owner (Nov 2026): fewer tabs; Body & tests and Trends are one "Body" tab.
-  type Sub = 'today' | 'food' | 'meds' | 'body' | 'ibd' | 'goals';
+  type Sub = 'today' | 'food' | 'kitchen' | 'meds' | 'body' | 'ibd' | 'goals';
   const subs: { id: Sub; label: string; sticker?: string; icon?: 'calendar' }[] = [
     { id: 'today', label: t('hlTabToday'), icon: 'calendar' },
     { id: 'food', label: t('hlFood'), sticker: 'cooking' },
+    // Kitchen (owner, Nov 2026): rule-based meal ideas + recipes, no AI.
+    { id: 'kitchen', label: t('hlTabKitchen'), sticker: 'restaurant' },
     { id: 'meds', label: t('hlTabMeds'), sticker: 'pill' },
     { id: 'body', label: t('hlTabBody'), sticker: 'gym' },
     ...(ibd ? [{ id: 'ibd' as Sub, label: 'IBD' }] : []),
@@ -184,6 +187,8 @@ function HealthOn() {
       </div>
       {sub === 'food' ? (
         <FoodTab date={date} isToday={isToday} goalMl={goal.ml} />
+      ) : sub === 'kitchen' ? (
+        <KitchenTab />
       ) : (
         <div className="wallet-body wl-two hl-two">
           {sub === 'today' && (

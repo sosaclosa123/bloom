@@ -192,3 +192,23 @@ describe('Kitchen suggestions (rules, no AI)', () => {
     expect(r.ing.find(([id]) => id === 'egg')![1]).toBe(660);
   });
 });
+
+import { planWeek, mainProtein } from './kitchen';
+describe('Week plan', () => {
+  it.each([
+    [{ kcal: 1600, protein: 100, fiber: 25 }, 62],
+    [{ kcal: 1900, protein: 99, fiber: 27 }, 62],
+    [{ kcal: 2600, protein: 130, fiber: 36 }, 82],
+    [null, null],
+  ])('fills 7 varied dinners: no repeats, red meat <= 2, fish >= 2, sized like a dinner (%o)', (goals, weightKg) => {
+    const days = Array.from({ length: 7 }, (_, i) => `2026-12-0${i + 1}`);
+    const plan = planWeek({ recipes: RECIPES, ing: INGREDIENT, db: DB, goals, weightKg, taste: taste() }, days, {});
+    const ids = days.map((d) => plan[d][0]);
+    expect(new Set(ids).size).toBe(7);
+    const mains = ids.map((id) => mainProtein(RECIPES.find((r) => r.id === id)!, INGREDIENT));
+    expect(mains.filter((m) => m === 'meat').length).toBeLessThanOrEqual(2);
+    expect(mains.filter((m) => m === 'fish').length).toBeGreaterThanOrEqual(2);
+    for (let i = 1; i < 7; i++) if (mains[i] !== 'none') expect(mains[i], `day ${i}`).not.toBe(mains[i - 1]);
+    for (const id of ids) expect(recipeNutrition(DB, RECIPES.find((r) => r.id === id)!, INGREDIENT).serving.kcal, id).toBeLessThanOrEqual(Math.max(750, (goals?.kcal ?? 0) * 0.35 * 1.25));
+  });
+});
