@@ -516,9 +516,15 @@ cloud container: test APK builds with workflow_dispatch on the work branch. Comm
           OFF, page size capped at 100) -> src/data/foods-off-il.json (ODbL,
           attribution in "source"). OFF answered 503 "temporarily
           unavailable" on 26-27 Nov; file is a placeholder until it runs.
-    - [ ] 5 Recipes DB (original, ingredients = MoH ids + grams, steps,
-          kosher type meat/dairy/parve, time, difficulty, cuisine, method,
-          meal type, substitutions).
+    - [x] 5 Recipes DB: `src/data/ingredients.ts` (130+ ingredients, each =
+          a MoH code; a few spices/red lentils use USDA values with source;
+          kosher meat/dairy/parve, group, aisle, piece weight, swaps that
+          never add dairy to meat) + `src/data/recipes.ts` (71 original
+          recipes, EN/HE, grams of raw ingredients, steps with timers, meal,
+          cuisine, method, time, level, servings, art, tags, crave keys).
+          `src/shared/kitchen.ts`: `recipeNutrition` (sum per gram from
+          foods-il.json), `kosherOf`, `kosherProblem` (tests: no meat+dairy,
+          no fish with meat/dairy, kcal ranges, Atwater check).
     - [ ] 6 Kitchen: suggestion engine (rules + scoring + kosher clock),
           taste profile, never-suggest + swaps, cook mode + log it, ratings,
           my recipes, craving swap, fridge, batch toggle + meals count, week
